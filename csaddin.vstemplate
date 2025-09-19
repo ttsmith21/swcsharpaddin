@@ -1,0 +1,33 @@
+<VSTemplate Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005" Type="Project">
+  <TemplateData>
+    <Name>SwCSharpAddin</Name>
+    <Description>&lt;Create C# SolidWorks add-in&gt;</Description>
+    <ProjectType>CSharp</ProjectType>
+    <ProjectSubType>
+    </ProjectSubType>
+    <SortOrder>1000</SortOrder>
+    <CreateNewFolder>true</CreateNewFolder>
+    <DefaultName>SwCSharpAddin</DefaultName>
+    <ProvideDefaultName>true</ProvideDefaultName>
+    <LocationField>Enabled</LocationField>
+    <EnableLocationBrowseButton>true</EnableLocationBrowseButton>
+    <Icon>SwCSharpAddinWizard.ico</Icon>
+  </TemplateData>
+  <TemplateContent>
+    <Project TargetFileName="SwCSharpAddin.csproj" File="SwCSharpAddin.csproj" ReplaceParameters="true">
+      <ProjectItem ReplaceParameters="true" TargetFileName="AssemblyInfo.cs">AssemblyInfo.cs</ProjectItem>
+      <ProjectItem ReplaceParameters="true" TargetFileName="SwAddin.cs">SwAddin.cs</ProjectItem>
+      <ProjectItem ReplaceParameters="true" TargetFileName="EventHandling.cs">EventHandling.cs</ProjectItem>
+      <ProjectItem ReplaceParameters="true" TargetFileName="PMPHandler.cs">PMPHandler.cs</ProjectItem>
+      <ProjectItem ReplaceParameters="true" TargetFileName="UserPMPage.cs">UserPMPage.cs</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="ToolbarLarge.bmp">ToolbarLarge.bmp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="ToolbarSmall.bmp">ToolbarSmall.bmp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="MainIconLarge.bmp">MainIconLarge.bmp</ProjectItem>
+      <ProjectItem ReplaceParameters="false" TargetFileName="MainIconSmall.bmp">MainIconSmall.bmp</ProjectItem>
+    </Project>
+  </TemplateContent>
+  <WizardExtension>
+    <Assembly>SolidWorksToolsWizard, Version=1.0.0.0, Culture=Neutral, PublicKeyToken=ae618dc84c513cc5</Assembly>
+    <FullClassName>SolidWorksToolsWizard.AddInWizard</FullClassName>
+  </WizardExtension>
+</VSTemplate>

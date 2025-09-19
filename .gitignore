@@ -1,0 +1,49 @@
+# Build Outputs
+bin/
+obj/
+*.dll
+*.pdb
+*.exe
+
+# Visual Studio Files
+.vs/
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.vcxproj.filters
+
+# Debug Files
+*.log
+
+# NuGet Packages
+packages/
+
+# Temporary Files
+*.tmp
+*.temp
+
+# OS Files
+Thumbs.db
+.DS_Store
+
+# Backup Files
+Backup/
+UpgradeLog*.htm
+UpgradeLog*.XML
+
+# Visual Studio Code
+.vscode/
+
+# JetBrains IDEs
+.idea/
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Folder config file
+Desktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
