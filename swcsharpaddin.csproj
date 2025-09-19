@@ -73,5 +73,10 @@
     <EmbeddedResource Include="MainIconLarge.bmp" />
     <EmbeddedResource Include="MainIconSmall.bmp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include=".gitignore" />
+    <None Include="LICENSE" />
+    <None Include="README.md" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
