@@ -65,8 +65,10 @@
     <Compile Include="CustomPropertyData.cs" />
     <Compile Include="ErrorHandler.cs" />
     <Compile Include="EventHandling.cs" />
+    <Compile Include="ModelInfo.cs" />
     <Compile Include="PMPHandler.cs" />
     <Compile Include="SolidWorksApiWrapper.cs" />
+    <Compile Include="SolidWorksModel.cs" />
     <Compile Include="SwAddin.cs" />
     <Compile Include="UserPMPage.cs" />
   </ItemGroup>

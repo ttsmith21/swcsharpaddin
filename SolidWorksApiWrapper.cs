@@ -1609,6 +1609,106 @@ namespace NM.SwAddin
         }
         #endregion
 
+        #region Document IO Methods
+        /// <summary>
+        /// Opens a SolidWorks document by path using OpenDoc6.
+        /// </summary>
+        public static IModelDoc2 OpenDocument(ISldWorks swApp, string filePath, swDocumentTypes_e docType, swOpenDocOptions_e options, out int err, out int warn)
+        {
+            const string procName = "OpenDocument";
+            ErrorHandler.PushCallStack(procName);
+            err = 0; warn = 0;
+            try
+            {
+                if (swApp == null)
+                {
+                    ErrorHandler.HandleError(procName, ErrInvalidApp);
+                    return null;
+                }
+                if (string.IsNullOrWhiteSpace(filePath))
+                {
+                    ErrorHandler.HandleError(procName, "File path is empty");
+                    return null;
+                }
+                var model = swApp.OpenDoc6(filePath, (int)docType, (int)options, "", ref err, ref warn) as IModelDoc2;
+                if (model == null || err != 0)
+                {
+                    ErrorHandler.HandleError(procName, $"Failed to open: {filePath} (err={err}, warn={warn})");
+                }
+                return model;
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError(procName, $"Exception opening: {filePath}", ex);
+                return null;
+            }
+            finally
+            {
+                ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Saves the specified SolidWorks document using Save3.
+        /// </summary>
+        public static bool SaveDocument(IModelDoc2 swModel, swSaveAsOptions_e options = swSaveAsOptions_e.swSaveAsOptions_Silent)
+        {
+            const string procName = "SaveDocument";
+            ErrorHandler.PushCallStack(procName);
+            try
+            {
+                if (!ValidateModel(swModel, procName)) return false;
+                int err = 0, warn = 0;
+                bool ok = swModel.Save3((int)options, ref err, ref warn);
+                if (!ok || err != 0)
+                {
+                    ErrorHandler.HandleError(procName, $"Save failed for '{swModel.GetTitle()}' (err={err}, warn={warn})");
+                    return false;
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError(procName, "Exception saving document", ex);
+                return false;
+            }
+            finally
+            {
+                ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Closes the specified document via the application.
+        /// </summary>
+        public static bool CloseDocument(ISldWorks swApp, IModelDoc2 swModel)
+        {
+            const string procName = "CloseDocument";
+            ErrorHandler.PushCallStack(procName);
+            try
+            {
+                if (swApp == null)
+                {
+                    ErrorHandler.HandleError(procName, ErrInvalidApp);
+                    return false;
+                }
+                if (swModel == null) return true;
+                string title = swModel.GetTitle();
+                swApp.CloseDoc(title);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError(procName, "Exception closing document", ex);
+                return false;
+            }
+            finally
+            {
+                ErrorHandler.PopCallStack();
+            }
+        }
+        #endregion
+
         #region Helper Methods
         private static IFeature FindFeatureByName(IModelDoc2 swModel, string featName)
         {

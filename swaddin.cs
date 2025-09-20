@@ -694,6 +694,28 @@ namespace swcsharpaddin
                     {
                         sb.AppendLine("Sketch: FAIL - " + ex.Message);
                     }
+
+                    // ModelInfo sync using SolidWorksModel
+                    try
+                    {
+                        var info = new NM.Core.ModelInfo();
+                        var svc = new NM.SwAddin.SolidWorksModel(info, iSwApp);
+                        svc.Attach(doc);
+                        bool loaded = svc.LoadPropertiesFromSolidWorks();
+                        // For visibility in UI, write at document-level (Custom tab), not config-specific
+                        info.ConfigurationName = string.Empty;
+                        info.CustomProperties.SetPropertyValue("SyncTest", "42", NM.Core.CustomPropertyType.Text);
+                        bool syncOk = svc.SavePropertiesToSolidWorks();
+                        sb.AppendLine("ModelSync: " + (syncOk ? "OK" : "FAIL") + " (target=Custom tab)");
+                         if (!syncOk)
+                         {
+                             sb.AppendLine("Info: " + info.ProblemDescription);
+                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine("ModelSync: FAIL - " + ex.Message);
+                    }
                 }
 
                 System.Windows.Forms.MessageBox.Show(sb.ToString(), "Smoke Tests");
