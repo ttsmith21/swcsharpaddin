@@ -11,6 +11,7 @@ using SolidWorksTools.File;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using NM.SwAddin;
 
 
 namespace swcsharpaddin
@@ -201,7 +202,7 @@ namespace swcsharpaddin
             if(iBmp == null)
                 iBmp = new BitmapHandler();
             Assembly thisAssembly;
-            int cmdIndex0, cmdIndex1;
+            int cmdIndex0, cmdIndex1, cmdIndex2;
             string Title = "C# Addin", ToolTip = "C# Addin";
 
 
@@ -238,6 +239,7 @@ namespace swcsharpaddin
             int menuToolbarOption = (int)(swCommandItemType_e.swMenuItem | swCommandItemType_e.swToolbarItem);
             cmdIndex0 = cmdGroup.AddCommandItem2("CreateCube", -1, "Create a cube", "Create cube", 0, "CreateCube", "", mainItemID1, menuToolbarOption);
             cmdIndex1 = cmdGroup.AddCommandItem2("Show PMP", -1, "Display sample property manager", "Show PMP", 2, "ShowPMP", "EnablePMP", mainItemID2, menuToolbarOption);
+            cmdIndex2 = cmdGroup.AddCommandItem2("Run Smoke Tests", -1, "Run automated smoke tests", "Run Tests", 3, "RunSmokeTests", "", mainItemID3, menuToolbarOption);
 
                 cmdGroup.HasToolbar = true;
                 cmdGroup.HasMenu = true;
@@ -275,20 +277,20 @@ namespace swcsharpaddin
 
                         CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
 
-                        int[] cmdIDs = new int[3];
-                        int[] TextType = new int[3];
+                        int[] cmdIDs = new int[4];
+                        int[] TextType = new int[4];
 
                         cmdIDs[0] = cmdGroup.get_CommandID(cmdIndex0);
-         
                         TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
                         cmdIDs[1] = cmdGroup.get_CommandID(cmdIndex1);
-                    
                         TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                        cmdIDs[2] = cmdGroup.ToolbarId;
-                     
-                        TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal | (int)swCommandTabButtonFlyoutStyle_e.swCommandTabButton_ActionFlyout;
+                        cmdIDs[2] = cmdGroup.get_CommandID(cmdIndex2);
+                        TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                        cmdIDs[3] = cmdGroup.ToolbarId;
+                        TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal | (int)swCommandTabButtonFlyoutStyle_e.swCommandTabButton_ActionFlyout;
 
                         bResult = cmdBox.AddCommands(cmdIDs, TextType);
 
@@ -589,6 +591,113 @@ namespace swcsharpaddin
         }
 
         #endregion
+
+        public void RunSmokeTests()
+        {
+            NM.Core.ErrorHandler.PushCallStack("RunSmokeTests");
+            var sb = new System.Text.StringBuilder();
+            try
+            {
+                if (iSwApp == null)
+                {
+                    System.Windows.Forms.MessageBox.Show("SolidWorks is not available.");
+                    return;
+                }
+
+                var doc = iSwApp.ActiveDoc as IModelDoc2;
+                if (doc == null)
+                {
+                    sb.AppendLine("No active document. Open a part and retry.");
+                }
+                else
+                {
+                    // Zoom to fit
+                    try
+                    {
+                        SolidWorksApiWrapper.ZoomToFit(doc);
+                        sb.AppendLine("ZoomToFit: OK");
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine("ZoomToFit: FAIL - " + ex.Message);
+                    }
+
+                    // Set view display mode
+                    try
+                    {
+                        SolidWorksApiWrapper.SetViewDisplayMode(doc, SwViewDisplayMode.SwViewDisplayMode_Shaded);
+                        sb.AppendLine("SetViewDisplayMode: OK");
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine("SetViewDisplayMode: FAIL - " + ex.Message);
+                    }
+
+                    // Material set/get (best-effort; skip if not a part)
+                    try
+                    {
+                        bool matSet = SolidWorksApiWrapper.SetMaterialName(doc, "Plain Carbon Steel");
+                        string matName = SolidWorksApiWrapper.GetMaterialName(doc);
+                        sb.AppendLine($"Material: set={(matSet ? "OK" : "FAIL")}, get='{matName}'");
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine("Material: FAIL - " + ex.Message);
+                    }
+
+                    // Custom property add/get/delete
+                    try
+                    {
+                        var added = SolidWorksApiWrapper.AddCustomProperty(doc, "TestProp", swCustomInfoType_e.swCustomInfoText, "Hello", "");
+                        SolidWorksApiWrapper.GetCustomProperties(doc, "", out var names, out var types, out var values);
+                        var idx = Array.FindIndex(names, n => string.Equals(n, "TestProp", StringComparison.OrdinalIgnoreCase));
+                        bool found = idx >= 0;
+                        var deleted = SolidWorksApiWrapper.DeleteCustomProperty(doc, "TestProp", "");
+                        sb.AppendLine($"CustomProps: add={(added ? "OK" : "FAIL")}, found={(found ? "YES" : "NO")}, delete={(deleted ? "OK" : "FAIL")}");
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine("CustomProps: FAIL - " + ex.Message);
+                    }
+
+                    // Rebuild
+                    try
+                    {
+                        bool rebuilt = SolidWorksApiWrapper.ForceRebuildDoc(doc);
+                        sb.AppendLine("Rebuild: " + (rebuilt ? "OK" : "SKIPPED/NO-OP"));
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine("Rebuild: FAIL - " + ex.Message);
+                    }
+
+                    // Sketch: On Top Plane, draw a short line, then exit
+                    try
+                    {
+                        if (SolidWorksApiWrapper.StartSketchOnPlane(doc, "Top Plane"))
+                        {
+                            var seg = SolidWorksApiWrapper.CreateSketchLine(doc, 0, 0, 0.02, 0.02);
+                            bool ended = SolidWorksApiWrapper.EndSketch(doc);
+                            sb.AppendLine($"Sketch: line={(seg != null ? "OK" : "FAIL")}, end={(ended ? "OK" : "FAIL")}");
+                        }
+                        else
+                        {
+                            sb.AppendLine("Sketch: could not start on Top Plane");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        sb.AppendLine("Sketch: FAIL - " + ex.Message);
+                    }
+                }
+
+                System.Windows.Forms.MessageBox.Show(sb.ToString(), "Smoke Tests");
+            }
+            finally
+            {
+                NM.Core.ErrorHandler.PopCallStack();
+            }
+        }
     }
 
 }

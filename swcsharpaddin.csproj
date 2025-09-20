@@ -65,6 +65,7 @@
     <Compile Include="ErrorHandler.cs" />
     <Compile Include="EventHandling.cs" />
     <Compile Include="PMPHandler.cs" />
+    <Compile Include="SolidWorksApiWrapper.cs" />
     <Compile Include="SwAddin.cs" />
     <Compile Include="UserPMPage.cs" />
   </ItemGroup>
