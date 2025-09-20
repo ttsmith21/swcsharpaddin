@@ -239,7 +239,9 @@ namespace swcsharpaddin
             int menuToolbarOption = (int)(swCommandItemType_e.swMenuItem | swCommandItemType_e.swToolbarItem);
             cmdIndex0 = cmdGroup.AddCommandItem2("CreateCube", -1, "Create a cube", "Create cube", 0, "CreateCube", "", mainItemID1, menuToolbarOption);
             cmdIndex1 = cmdGroup.AddCommandItem2("Show PMP", -1, "Display sample property manager", "Show PMP", 2, "ShowPMP", "EnablePMP", mainItemID2, menuToolbarOption);
+#if DEBUG
             cmdIndex2 = cmdGroup.AddCommandItem2("Run Smoke Tests", -1, "Run automated smoke tests", "Run Tests", 3, "RunSmokeTests", "", mainItemID3, menuToolbarOption);
+#endif
 
                 cmdGroup.HasToolbar = true;
                 cmdGroup.HasMenu = true;
@@ -286,8 +288,10 @@ namespace swcsharpaddin
                         cmdIDs[1] = cmdGroup.get_CommandID(cmdIndex1);
                         TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
+#if DEBUG
                         cmdIDs[2] = cmdGroup.get_CommandID(cmdIndex2);
                         TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+#endif
 
                         cmdIDs[3] = cmdGroup.ToolbarId;
                         TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal | (int)swCommandTabButtonFlyoutStyle_e.swCommandTabButton_ActionFlyout;
@@ -592,6 +596,7 @@ namespace swcsharpaddin
 
         #endregion
 
+#if DEBUG
         public void RunSmokeTests()
         {
             NM.Core.ErrorHandler.PushCallStack("RunSmokeTests");
@@ -698,6 +703,8 @@ namespace swcsharpaddin
                 NM.Core.ErrorHandler.PopCallStack();
             }
         }
+#endif
+
     }
 
 }
