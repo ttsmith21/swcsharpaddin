@@ -10,6 +10,7 @@ using SolidWorksTools;
 using SolidWorksTools.File;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 
 
 namespace swcsharpaddin
@@ -362,13 +363,6 @@ namespace swcsharpaddin
         #region UI Callbacks
         public void CreateCube()
         {
-            // Quick smoke test of Configuration - make it more visible
-            string configTest = $"Config Test: LogEnabled={NM.Core.Configuration.Logging.LogEnabled}, MetersToInches={NM.Core.Configuration.Materials.MetersToInches}";
-            
-            // Try multiple ways to show the message
-            iSwApp.SendMsgToUser(configTest);
-            System.Windows.Forms.MessageBox.Show(configTest, "Configuration Test");
-
             //make sure we have a part open
             string partTemplate = iSwApp.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplatePart);
             if ((partTemplate != null) && (partTemplate != ""))
@@ -636,25 +630,25 @@ namespace NM.Core
         public static class FilePaths
         {
             /// <summary>Path to the material Excel file.</summary>
-            public const string MaterialFilePath = @"O:\Engineering Department\Solidworks\Macros\(Semi)Autopilot\Laser2022v4.xlsx";
+            public const string MaterialFilePath = @"O:\\Engineering Department\\Solidworks\\Macros\\(Semi)Autopilot\\Laser2022v4.xlsx";
 
             /// <summary>Path to the laser data Excel file.</summary>
-            public const string LaserDataFilePath = @"O:\Engineering Department\Solidworks\Macros\(Semi)Autopilot\Laser2022v4.xlsx";
+            public const string LaserDataFilePath = @"O:\\Engineering Department\\Solidworks\\Macros\\(Semi)Autopilot\\Laser2022v4.xlsx";
 
             /// <summary>Path to the SolidWorks materials database.</summary>
-            public const string MaterialPropertyFilePath = @"C:\Program Files\SolidWorks Corp\SolidWorks\lang\english\sldmaterials\SolidWorks Materials.sldmat";
+            public const string MaterialPropertyFilePath = @"C:\\Program Files\\SolidWorks Corp\\SolidWorks\\lang\\english\\sldmaterials\\SolidWorks Materials.sldmat";
 
             /// <summary>Network bend table for Stainless Steel.</summary>
-            public const string BendTableSs = @"O:\Engineering Department\Solidworks\Bend Tables\StainlessSteel.xlsx";
+            public const string BendTableSs = @"O:\\Engineering Department\\Solidworks\\Bend Tables\\StainlessSteel.xlsx";
 
             /// <summary>Network bend table for Carbon Steel.</summary>
-            public const string BendTableCs = @"O:\Engineering Department\Solidworks\Bend Tables\CarbonSteel.xlsx";
+            public const string BendTableCs = @"O:\\Engineering Department\\Solidworks\\Bend Tables\\CarbonSteel.xlsx";
 
             /// <summary>Local fallback bend table for Stainless Steel.</summary>
-            public const string BendTableSsLocal = @"C:\Program Files\SolidWorks Corp\SolidWorks\lang\english\Sheet Metal Bend Tables\Stainless Steel.xls";
+            public const string BendTableSsLocal = @"C:\\Program Files\\SolidWorks Corp\\SolidWorks\\lang\\english\\Sheet Metal Bend Tables\\Stainless Steel.xls";
 
             /// <summary>Local fallback bend table for Carbon Steel.</summary>
-            public const string BendTableCsLocal = @"C:\Program Files\SolidWorks Corp\SolidWorks\lang\english\Sheet Metal Bend Tables\Steel - Mild Steel.xls";
+            public const string BendTableCsLocal = @"C:\\Program Files\\SolidWorks Corp\\SolidWorks\\lang\\english\\Sheet Metal Bend Tables\\Steel - Mild Steel.xls";
 
             /// <summary>Special value indicating no bend table should be used (use K-factor).</summary>
             public const string BendTableNone = "-1";

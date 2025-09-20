@@ -62,6 +62,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.cs" />
+    <Compile Include="ErrorHandler.cs" />
     <Compile Include="EventHandling.cs" />
     <Compile Include="PMPHandler.cs" />
     <Compile Include="SwAddin.cs" />
