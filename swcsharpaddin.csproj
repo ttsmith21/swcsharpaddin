@@ -66,12 +66,15 @@
     <Compile Include="ErrorHandler.cs" />
     <Compile Include="EventHandling.cs" />
     <Compile Include="ModelInfo.cs" />
+    <Compile Include="PerformanceTracker.cs" />
     <Compile Include="PMPHandler.cs" />
+    <Compile Include="ProcessingOptions.cs" />
     <Compile Include="SolidWorksApiWrapper.cs" />
     <Compile Include="SolidWorksFileOperations.cs" />
     <Compile Include="SolidWorksFileOps.cs" />
     <Compile Include="SolidWorksModel.cs" />
     <Compile Include="SwAddin.cs" />
+    <Compile Include="TimerInfo.cs" />
     <Compile Include="UserPMPage.cs" />
   </ItemGroup>
   <ItemGroup>

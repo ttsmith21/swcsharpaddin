@@ -603,6 +603,9 @@ namespace swcsharpaddin
             var sb = new System.Text.StringBuilder();
             try
             {
+                // Perf: total smoke timer
+                NM.Core.PerformanceTracker.Instance.StartTimer("SmokeTests");
+
                 if (iSwApp == null)
                 {
                     System.Windows.Forms.MessageBox.Show("SolidWorks is not available.");
@@ -698,6 +701,7 @@ namespace swcsharpaddin
                     // ModelInfo sync using SolidWorksModel
                     try
                     {
+                        NM.Core.PerformanceTracker.Instance.StartTimer("ModelSync");
                         var info = new NM.Core.ModelInfo();
                         var svc = new NM.SwAddin.SolidWorksModel(info, iSwApp);
                         svc.Attach(doc);
@@ -707,14 +711,15 @@ namespace swcsharpaddin
                         info.CustomProperties.SetPropertyValue("SyncTest", "42", NM.Core.CustomPropertyType.Text);
                         bool syncOk = svc.SavePropertiesToSolidWorks();
                         sb.AppendLine("ModelSync: " + (syncOk ? "OK" : "FAIL") + " (target=Custom tab)");
-                         if (!syncOk)
-                         {
-                             sb.AppendLine("Info: " + info.ProblemDescription);
-                         }
+                        if (!syncOk)
+                        {
+                            sb.AppendLine("Info: " + info.ProblemDescription);
+                        }
 
                         // DEBUG: SolidWorksFileOperations smoke - SaveAs/Activate/Close
                         try
                         {
+                            NM.Core.PerformanceTracker.Instance.StartTimer("FileOps");
                             var fileSvc = new NM.SwAddin.SolidWorksFileOperations(iSwApp);
                             var title = doc.GetTitle();
                             var tempDir = Path.GetTempPath();
@@ -746,12 +751,27 @@ namespace swcsharpaddin
                         {
                             sb.AppendLine("FileOps: EX - " + fx.Message);
                         }
+                        finally
+                        {
+                            NM.Core.PerformanceTracker.Instance.StopTimer("FileOps");
+                        }
                     }
                     catch (Exception ex)
                     {
                         sb.AppendLine("ModelSync: FAIL - " + ex.Message);
                     }
+                    finally
+                    {
+                        NM.Core.PerformanceTracker.Instance.StopTimer("ModelSync");
+                    }
                 }
+
+                // Perf: finalize and export CSV
+                NM.Core.PerformanceTracker.Instance.StopTimer("SmokeTests");
+                var csv = Path.Combine(@"C:\SolidWorksMacroLogs", "perf.csv");
+                NM.Core.PerformanceTracker.Instance.ExportToCsv(csv);
+                var count = NM.Core.PerformanceTracker.Instance.GetTimerCount();
+                sb.AppendLine($"Perf: timers={count}, csv={csv}");
 
                 System.Windows.Forms.MessageBox.Show(sb.ToString(), "Smoke Tests");
             }

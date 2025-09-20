@@ -113,6 +113,18 @@ namespace NM.Core
             }
         }
 
+        /// <summary>Returns the current call stack depth for performance tracking.</summary>
+        public static int CallStackDepth
+        {
+            get
+            {
+                lock (_lockObject)
+                {
+                    return _callStack.Count;
+                }
+            }
+        }
+
         private static string GetCallStackString()
         {
             lock (_lockObject)

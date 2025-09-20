@@ -7,9 +7,10 @@ using SolidWorks.Interop.swconst;
 namespace NM.SwAddin
 {
     /// <summary>
-    /// File operations helper for SolidWorks documents. Thin wrappers that centralize
-    /// open/save/close/activate logic and small utilities.
+    /// Deprecated static helpers for SolidWorks file operations.
+    /// Use SolidWorksFileOperations instead.
     /// </summary>
+    [Obsolete("Use SolidWorksFileOperations (instance service) instead of SolidWorksFileOps (static). This shim will be removed in a future release.")]
     public static class SolidWorksFileOps
     {
         public static IModelDoc2 Open(ISldWorks app, string filePath, swOpenDocOptions_e options, out int err, out int warn)
@@ -22,14 +23,16 @@ namespace NM.SwAddin
                 if (app == null) { ErrorHandler.HandleError(proc, "Null ISldWorks"); return null; }
                 if (string.IsNullOrWhiteSpace(filePath)) { ErrorHandler.HandleError(proc, "Empty file path"); return null; }
 
-                var docType = DetermineDocTypeByPath(filePath);
-                if (docType == swDocumentTypes_e.swDocNONE)
-                {
-                    ErrorHandler.HandleError(proc, $"Unknown document type for path: {filePath}");
-                    return null;
-                }
+                bool silent = (options & swOpenDocOptions_e.swOpenDocOptions_Silent) != 0;
+                bool readOnly = (options & swOpenDocOptions_e.swOpenDocOptions_ReadOnly) != 0;
 
-                return SolidWorksApiWrapper.OpenDocument(app, filePath, docType, options, out err, out warn);
+                var svc = new SolidWorksFileOperations(app);
+                var doc = svc.OpenSWDocument(filePath, silent: silent, readOnly: readOnly);
+                if (doc == null)
+                {
+                    err = -1;
+                }
+                return doc;
             }
             catch (Exception ex)
             {
@@ -49,14 +52,11 @@ namespace NM.SwAddin
                 doc = TryGetOpenDoc(app, filePath);
                 if (doc != null) return true;
 
-                var opts = swOpenDocOptions_e.swOpenDocOptions_Silent;
-                if (readOnly) opts |= swOpenDocOptions_e.swOpenDocOptions_ReadOnly;
-
-                var opened = Open(app, filePath, opts, out var err, out var warn);
-                doc = opened;
-                if (opened == null)
+                var svc = new SolidWorksFileOperations(app);
+                doc = svc.OpenSWDocument(filePath, silent: true, readOnly: readOnly);
+                if (doc == null)
                 {
-                    ErrorHandler.HandleError(proc, $"Open failed for {filePath} (err={err}, warn={warn})");
+                    ErrorHandler.HandleError(proc, $"Open failed for {filePath}");
                     return false;
                 }
                 return true;
@@ -91,6 +91,7 @@ namespace NM.SwAddin
 
         public static bool Save(IModelDoc2 doc, swSaveAsOptions_e options = swSaveAsOptions_e.swSaveAsOptions_Silent)
         {
+            // Forward to core API wrapper; SolidWorksFileOperations does not expose a dedicated Save method.
             return SolidWorksApiWrapper.SaveDocument(doc, options);
         }
 
@@ -98,6 +99,7 @@ namespace NM.SwAddin
             swSaveAsOptions_e options = swSaveAsOptions_e.swSaveAsOptions_Silent,
             swSaveAsVersion_e version = swSaveAsVersion_e.swSaveAsCurrentVersion)
         {
+            // Keep the existing robust reflection-based SaveAs to avoid requiring an ISldWorks instance here.
             const string proc = "SolidWorksFileOps.SaveAs";
             ErrorHandler.PushCallStack(proc);
             try
@@ -118,12 +120,10 @@ namespace NM.SwAddin
 
                 int err = 0, warn = 0;
                 bool ok = false;
-                // Some interop versions expose SaveAs3, others SaveAs4/5. Use reflection to remain compatible.
                 var mi = ext.GetType().GetMethod("SaveAs4");
                 if (mi != null)
                 {
                     var res = mi.Invoke(ext, new object[] { newPath, (int)version, (int)options, null, err, warn });
-                    // Some interop map ref params differently; fall back to Save3 if needed
                     ok = Convert.ToBoolean(res ?? false);
                 }
                 else
@@ -153,7 +153,9 @@ namespace NM.SwAddin
 
         public static bool Close(ISldWorks app, IModelDoc2 doc)
         {
-            return SolidWorksApiWrapper.CloseDocument(app, doc);
+            if (app == null || doc == null) return false;
+            var svc = new SolidWorksFileOperations(app);
+            return svc.CloseSWDocument(doc);
         }
 
         public static bool CloseByPath(ISldWorks app, string pathOrTitle)
