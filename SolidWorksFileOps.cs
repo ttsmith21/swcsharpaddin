@@ -109,11 +109,34 @@ namespace NM.SwAddin
                     return false;
                 }
 
-                int err = 0, warn = 0;
                 var ext = doc.Extension;
-                // Use ModelDocExtension.SaveAs4 to control options/version
-                bool ok = ext.SaveAs4(newPath, (int)version, (int)options, null, ref err, ref warn);
-                if (!ok || err != 0)
+                if (ext == null)
+                {
+                    ErrorHandler.HandleError(proc, "ModelDocExtension is null");
+                    return false;
+                }
+
+                int err = 0, warn = 0;
+                bool ok = false;
+                // Some interop versions expose SaveAs3, others SaveAs4/5. Use reflection to remain compatible.
+                var mi = ext.GetType().GetMethod("SaveAs4");
+                if (mi != null)
+                {
+                    var res = mi.Invoke(ext, new object[] { newPath, (int)version, (int)options, null, err, warn });
+                    // Some interop map ref params differently; fall back to Save3 if needed
+                    ok = Convert.ToBoolean(res ?? false);
+                }
+                else
+                {
+                    mi = ext.GetType().GetMethod("SaveAs3");
+                    if (mi != null)
+                    {
+                        var res = mi.Invoke(ext, new object[] { newPath, (int)options, (int)version, null, err, warn });
+                        ok = Convert.ToBoolean(res ?? false);
+                    }
+                }
+
+                if (!ok)
                 {
                     ErrorHandler.HandleError(proc, $"SaveAs failed for '{newPath}' (err={err}, warn={warn})");
                     return false;
@@ -170,7 +193,8 @@ namespace NM.SwAddin
                 int errs = 0;
                 var title = Path.GetFileName(pathOrTitle);
                 if (string.IsNullOrWhiteSpace(title)) title = pathOrTitle;
-                int res = app.ActivateDoc3(title, true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref errs);
+                var resObj = app.ActivateDoc3(title, true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref errs);
+                int res = 0; try { res = Convert.ToInt32(resObj); } catch { }
                 if (res != 1 || errs != 0)
                 {
                     ErrorHandler.HandleError(proc, $"Activate failed for '{title}' (res={res}, err={errs})", null, "Warning");

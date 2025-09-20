@@ -711,6 +711,41 @@ namespace swcsharpaddin
                          {
                              sb.AppendLine("Info: " + info.ProblemDescription);
                          }
+
+                        // DEBUG: SolidWorksFileOperations smoke - SaveAs/Activate/Close
+                        try
+                        {
+                            var fileSvc = new NM.SwAddin.SolidWorksFileOperations(iSwApp);
+                            var title = doc.GetTitle();
+                            var tempDir = Path.GetTempPath();
+                            var newPath = Path.Combine(tempDir, $"{title}_SmokeCopy.sldprt");
+                            // If drawing/assembly, extension will differ; derive from existing path if available
+                            var ext = Path.GetExtension(doc.GetPathName());
+                            if (!string.IsNullOrEmpty(ext)) newPath = Path.ChangeExtension(newPath, ext);
+
+                            if (fileSvc.SaveAs(doc, newPath))
+                            {
+                                sb.AppendLine($"FileOps: SaveAs OK -> {newPath}");
+                                var reopened = fileSvc.OpenSWDocument(newPath, silent: true, readOnly: true);
+                                sb.AppendLine("FileOps: Open RO " + (reopened != null ? "OK" : "FAIL"));
+                                if (reopened != null)
+                                {
+                                    // Activate by title
+                                    int errs = 0; iSwApp.ActivateDoc3(Path.GetFileName(newPath), true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref errs);
+                                    sb.AppendLine("FileOps: Activate " + (errs == 0 ? "OK" : $"ERR={errs}"));
+                                    fileSvc.CloseSWDocument(reopened);
+                                    sb.AppendLine("FileOps: Close OK");
+                                }
+                            }
+                            else
+                            {
+                                sb.AppendLine("FileOps: SaveAs FAIL");
+                            }
+                        }
+                        catch (Exception fx)
+                        {
+                            sb.AppendLine("FileOps: EX - " + fx.Message);
+                        }
                     }
                     catch (Exception ex)
                     {
