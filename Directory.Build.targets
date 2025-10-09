@@ -1,0 +1,28 @@
+<Project>
+  <!-- Auto-register the COM add-in after Debug|x64 builds using 64-bit RegAsm. -->
+  <PropertyGroup>
+    <RegAsm64Path>$(WINDIR)\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe</RegAsm64Path>
+  </PropertyGroup>
+
+  <Target Name="PostBuild_ComRegister_AddIn"
+          AfterTargets="Build"
+          Condition="'$(Configuration)' == 'Debug' and '$(Platform)' == 'x64' and Exists('$(RegAsm64Path)') and Exists('$(TargetPath)')">
+    <Message Text="COM registration: $(TargetPath) via $(RegAsm64Path)" Importance="High" />
+
+    <!-- Try to unregister previous version; ignore failures -->
+    <Exec Command="&quot;$(RegAsm64Path)&quot; &quot;$(TargetPath)&quot; /unregister /nologo"
+          IgnoreExitCode="true"
+          ContinueOnError="True" />
+
+    <!-- Register the new build with /codebase for dev workflows -->
+    <Exec Command="&quot;$(RegAsm64Path)&quot; &quot;$(TargetPath)&quot; /codebase /nologo"
+          IgnoreExitCode="false"
+          ContinueOnError="True">
+      <Output TaskParameter="ExitCode" PropertyName="ComRegExitCode" />
+    </Exec>
+
+    <Message Text="RegAsm exit code: $(ComRegExitCode) (0 means success)." Importance="High" />
+    <Warning Text="COM registration may have failed. Run Visual Studio as Administrator to enable post-build registration."
+             Condition="'$(ComRegExitCode)' != '0'" />
+  </Target>
+</Project>

@@ -1,0 +1,236 @@
+﻿# SolidWorks Automator C# Add-in Conversion Plan
+
+## Overview
+This document tracks the detailed plan for converting the VBA macro system (SP_new.bas and related modules) to a modern, maintainable C# SolidWorks add-in. It is a living document and will be updated as features are completed and requirements evolve.
+
+---
+
+## 1. High-Level Architecture
+- **Entry Point:** Add-in command launches a WinForms UI for user intent selection (part, assembly, folder).
+- **Core Services:**
+  - SolidWorksAppService (ISldWorks access)
+  - Logging/ErrorService
+  - TimerService
+  - ExcelDataLoader
+  - DocumentService (open/close/save)
+  - CustomPropertiesService
+- **Processing Pipeline:**
+  - User intent → Model/Assembly/Folder detection → Validation → Problem Part Handling → Good Part Processing (Sheet Metal, Tube, Fallback) → Output/Reporting
+
+---
+
+## 2. Feature Epics & Tasks
+
+**Phase 1: Single-Part Foundation**
+
+### Epic 0: Custom Properties Foundation
+- [ ] Implement property cache bridging global/config scopes
+- [ ] Add ReadFromSW/WriteToSW with batch updates and type handling
+- [ ] Expose manufacturing property helpers (IsSheetMetal, Thickness, OptiMaterial, IsTube, etc.)
+- [ ] Track added/modified/deleted property states for efficient saves
+- [ ] Validate compatibility with legacy VBA property schema and configuration-level overrides
+
+### Epic 1: Add-in Bootstrap & Infrastructure
+- [ ] Add-in shell (ISwAddin, registration, command tab)
+- [ ] Logging/ErrorService
+- [ ] TimerService
+  - [ ] Implement timer data model (name, start time, total time, call count, running flag)
+  - [ ] Support nested timer stack mirroring `clsTimerData` (push/pop validation)
+  - [ ] Honor configuration toggles (production mode, enable/disable timing)
+  - [ ] Provide Start/Stop/Clear/ClearAll APIs with error handling
+  - [ ] Generate summary output (console/log) and CSV export
+- [ ] Configuration loader
+- [ ] Initial smoke test (command launches MessageBox)
+
+### Epic 2: Single Part Validation Pipeline
+- [ ] SwModelInfo class (path, type, config, state)
+  - [ ] Implement Init storing file path/configuration and determining model type
+  - [ ] Add state machine (Unprocessed→Validated→Processing→Processed/Problem)
+  - [ ] Provide lazy `OpenInSolidWorks` and `Close` helpers
+  - [ ] Track dirty state and expose context info for logging/forms
+- [ ] BodyValidator.ValidateSingleSolidBody
+  - [ ] Detect and reject multi-body solids, surface bodies, and empty geometry
+  - [ ] Capture failure reasons for downstream problem-part flow
+- [ ] Validation result logging with pass/fail counts for single-part runs
+
+### Epic 3: Sheet Metal Conversion Core
+- [ ] SheetMetalConverter
+  - [ ] Port InsertBends/ConvertToSheetMetal logic with configuration toggles
+  - [ ] Guard against missing thickness or unsupported edge conditions
+- [ ] SheetMetalPreparation utilities
+  - [ ] Manage flatten/unflatten sequencing for analysis modules
+  - [ ] Cache critical faces and bend lines needed by downstream processors
+- [ ] Conversion error handling to flag models for problem-part review
+
+### Epic 4: Tube Processing Core
+- [ ] PipeScheduleService (full schedule DB)
+- [ ] TubeMaterialCodeGenerator
+- [ ] TubeCuttingParameterService
+- [ ] RoundBarValidator
+
+### Epic 5: Single Part Pipeline & User Experience
+- [ ] Material selection dialog (WinForms)
+- [ ] UserSelections class (EntryPoint, Material, FolderPath, options)
+- [ ] MainRunner.Run(UserSelections) flow
+- [ ] ExcelDataLoader integration
+- [ ] Single-part pipeline orchestrator (validation → sheet metal/tube → custom property writeback)
+- [ ] User preference inputs for conversion toggles and validation options
+
+**Phase 2: Intelligence Layering**
+
+### Epic 6: Manufacturing Intelligence
+- [ ] ManufacturingCalculator (weight, time, cost)
+  - [ ] Port efficiency-based weight calculation (thickness correction factors, manual/auto modes)
+  - [ ] Implement sheet percentage calculator
+  - [ ] Port all work center rates and cost formulas (F115, F140, F220, F325, etc.)
+  - [ ] Implement order processing costs, material markup, and pricing tolerances
+  - [ ] Add volume discount tiers and costing modifiers
+- [ ] BendAnalyzer (bend count, tonnage, direction)
+  - [ ] Port bend counting from sketch analysis
+  - [ ] Implement rate selection (10s to 400s based on weight/length)
+  - [ ] Create setup time calculator (1.25 min/ft)
+  - [ ] Port bend tonnage validator and flip part detection
+- [ ] MaterialValidator (thickness/material matrix)
+  - [ ] Implement thickness limit validation per material (SS, Al, etc.)
+  - [ ] Create material compatibility rules and error reporting
+
+### Epic 7: Material Management System
+- [ ] OptiMaterial Service
+  - [ ] Port OptiMaterial lookup table and thickness tolerance matching (0.008")
+  - [ ] Implement material column mapping (304L→3, 316L→4, etc.)
+  - [ ] Create thickness-to-OptiMaterial code resolver
+- [ ] Material Properties
+  - [ ] Create material density database (hardcoded values)
+  - [ ] Implement material compatibility validator
+  - [ ] Port thickness limit rules per material
+
+### Epic 8: Feature Analysis & Sheet Metal Utilities
+- [ ] Tapped Hole Analyzer
+  - [ ] Create wizard hole feature detector
+  - [ ] Port cosmetic thread analyzer
+  - [ ] Implement drill diameter adjustment for SS
+  - [ ] Calculate F220 times (setup + run)
+- [ ] Face Analysis
+  - [ ] Port face selection logic (GetSelectedFace, GetFixedFace)
+  - [ ] Implement fixed face detection and largest face finder
+  - [ ] Extract bounding box dimensions
+- [ ] Bend State Management
+  - [ ] Implement FlattenPart/UnFlattenPart
+  - [ ] Port SelectFlatPattern and rebuild force logic
+- [ ] Geometry Extraction
+  - [ ] Port GetThickness from SheetMetal feature
+  - [ ] Implement GetMass/GetDensity wrappers
+  - [ ] Create face box extraction
+
+### Epic 9: Costing System
+- [ ] Total Cost Calculator
+  - [ ] Port all work center rates and cost formulas
+  - [ ] Implement order processing costs, material markup, and pricing tolerances
+  - [ ] Add volume discount tiers and costing modifiers
+- [ ] Work Center Costing
+  - [ ] Calculate F115 (laser), F140 (brake), F220 (tapping), F325 (forming) costs
+  - [ ] Support custom work centers
+
+**Phase 3: Scaling to Assemblies & Batches**
+
+### Epic 10: Assembly Preprocessing
+- [ ] Unique component/config listing
+- [ ] Suppressed/lightweight handling
+- [ ] Component validation
+
+### Epic 11: Problem Part Management & UI
+- [ ] ProblemParts UI (WinForms)
+- [ ] ProblemPartManager (retry logic)
+  - [ ] Maintain problem collection of `SwModelInfo` objects with reasons
+  - [ ] Support revalidation flow for user-confirmed fixes
+  - [ ] Surface problem summaries to UI/logging
+- [ ] Problem part review workflow integration with single-part orchestrator
+
+### Epic 12: Folder Processing & Progress UI
+- [ ] Folder traversal (recursive, file filtering)
+- [ ] Progress form (modeless)
+- [ ] Safe open/close of docs
+- [ ] STEP/IGES import handler
+
+### Epic 13: Good Part Processing Pipeline
+- [ ] ProcessingCoordinator (iterate GoodModels)
+- [ ] Fallback processor
+- [ ] Integrate sheet metal and tube module selection logic
+- [ ] Coordinate custom property writeback and save/close operations
+
+**Phase 4: Output, Quoting & Persistence**
+
+### Epic 14: Output Generation
+- [ ] DrawingService (flat pattern, view rotation, etch marks)
+- [ ] DXF export
+- [ ] ReportGenerator (Excel BOM, part lists)
+
+### Epic 15: Quote Processing System
+- [ ] QuoteProcessor (batch, restart, resume)
+- [ ] Processing checkpoint system
+
+### Epic 16: Settings & State Persistence
+- [ ] Settings serialization/deserialization
+- [ ] GUI state persistence
+
+### Epic 17: Model State & Property Synchronization
+- [ ] SwModelInfo lifecycle management
+  - [ ] Manage transitions between Good/Problem/Processed collections
+  - [ ] Persist problem descriptions and processing timestamps
+  - [ ] Ensure cached ModelDoc2 instances are opened/closed safely
+- [ ] Property synchronization pipeline
+  - [ ] Coordinate global vs configuration property updates
+  - [ ] Propagate dirty state from properties back to model wrappers
+  - [ ] Batch apply property writes post-processing with rollback on failure
+- [ ] Collections integration
+  - [ ] Maintain shared GoodModels/ProblemParts lists of `SwModelInfo`
+  - [ ] Provide summarization for reporting and UI display
+
+---
+
+## 3. Testing Strategy
+- [ ] Unit tests for all core logic (mocked SW interfaces)
+- [ ] Integration tests (self-hosted SW instance)
+- [ ] UI smoke tests
+- [ ] Performance/timing checks
+
+---
+
+
+## 4. Critical Implementation Details
+- [ ] Constants/rates from VBA (bend rates, setup, sheet size, pierce, tab spacing)
+  - [ ] Port all bend rates (10s, 30s, 45s, 200s, 400s), setup rates, and work center costs
+  - [ ] Implement all pricing modifiers (material markup, tolerance, volume discount)
+- [ ] Excel data column mappings
+  - [ ] Define Excel schema for NewLaser.xls (columns 19-22 for laser data)
+  - [ ] Port material-specific worksheet tabs and fuzzy thickness matching (±0.005")
+- [ ] Custom property schema (all fields)
+  - [ ] Manufacturing: OP20, OP20_S, OP20_R, F140_S, F140_R, F220, F325, etc.
+  - [ ] Geometry: BlankLength, BlankWidth, NestEfficiency, Thickness
+  - [ ] Material: OptiMaterial, Description, rbMaterialType
+  - [ ] Costing: TotalPrice, F115_Price, F140_Price, MaterialCostPerLB
+  - [ ] Process: WeightCalc, rbWeightCalc, CuttingType
+- [ ] Error recovery and retry logic
+  - [ ] Implement retry queue for problem parts and batch restart logic
+  - [ ] Add error reporting for material/geometry/feature validation
+- [ ] Performance monitoring parity
+  - [ ] Recreate timing enable/disable toggles tied to configuration settings
+  - [ ] Support nested call stack tracking for diagnostics
+  - [ ] Provide printable summary and CSV export compatible with logging system
+
+---
+
+## 5. Progress Tracking
+- [ ] Update this document as each feature is started/completed
+- [ ] Link to code, tests, and documentation for each epic
+
+---
+
+## 6. Open Questions / Risks
+- [ ] External COM library dependencies (geometry export, etc.)
+- [ ] Drawing template and view logic mapping
+- [ ] Excel template compatibility
+
+---
+
+*Last updated: September 29, 2025*

@@ -130,13 +130,13 @@ namespace NM.SwAddin
             {
                 if (swModel == null)
                 {
-                    ErrorHandler.HandleError(procedureName, ErrInvalidModel);
+                    ErrorHandler.HandleError(procedureName, ErrInvalidModel, null, ErrorHandler.LogLevel.Error);
                     return false;
                 }
 
                 if (swModel.IsOpenedReadOnly())
                 {
-                    ErrorHandler.HandleError(procedureName, "Document is read-only");
+                    ErrorHandler.HandleError(procedureName, "Document is read-only", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -144,7 +144,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procedureName, "Model validation failed", ex);
+                ErrorHandler.HandleError(procedureName, "Model validation failed", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -164,7 +164,7 @@ namespace NM.SwAddin
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                ErrorHandler.HandleError(procedureName, $"Invalid {paramName}");
+                ErrorHandler.HandleError(procedureName, $"Invalid {paramName}", null, ErrorHandler.LogLevel.Error);
                 return false;
             }
             return true;
@@ -183,7 +183,7 @@ namespace NM.SwAddin
         {
             if (value < min || value > max)
             {
-                ErrorHandler.HandleError(procedureName, $"{paramName} out of range [{min}..{max}]");
+                ErrorHandler.HandleError(procedureName, $"{paramName} out of range [{min}..{max}]", null, ErrorHandler.LogLevel.Warning);
                 return false;
             }
             return true;
@@ -234,14 +234,14 @@ namespace NM.SwAddin
             {
                 if (swApp == null)
                 {
-                    ErrorHandler.HandleError(procName, ErrInvalidApp);
+                    ErrorHandler.HandleError(procName, ErrInvalidApp, null, ErrorHandler.LogLevel.Error);
                     return null;
                 }
                 return swApp.ActiveDoc as IModelDoc2;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Failed to get active document.", ex);
+                ErrorHandler.HandleError(procName, "Failed to get active document.", ex, ErrorHandler.LogLevel.Error);
                 return null;
             }
             finally
@@ -263,14 +263,14 @@ namespace NM.SwAddin
             {
                 if (swApp == null)
                 {
-                    ErrorHandler.HandleError(procName, ErrInvalidApp);
+                    ErrorHandler.HandleError(procName, ErrInvalidApp, null, ErrorHandler.LogLevel.Error);
                     return;
                 }
                 swApp.Visible = visible;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Unable to set SolidWorks visibility.", ex);
+                ErrorHandler.HandleError(procName, "Unable to set SolidWorks visibility.", ex, ErrorHandler.LogLevel.Error);
             }
             finally
             {
@@ -296,14 +296,14 @@ namespace NM.SwAddin
                 var swPart = swModel as IPartDoc;
                 if (swPart == null)
                 {
-                    ErrorHandler.HandleError(procName, "Model is not a part document.");
+                    ErrorHandler.HandleError(procName, "Model is not a part document.", null, ErrorHandler.LogLevel.Error);
                     return null;
                 }
 
                 var vBodies = swPart.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
                 if (vBodies == null || vBodies.Length == 0)
                 {
-                    ErrorHandler.HandleError(procName, "Part contains no solid bodies.");
+                    ErrorHandler.HandleError(procName, "Part contains no solid bodies.", null, ErrorHandler.LogLevel.Warning);
                     return null;
                 }
 
@@ -311,7 +311,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Error getting main body.", ex);
+                ErrorHandler.HandleError(procName, "Error getting main body.", ex, ErrorHandler.LogLevel.Error);
                 return null;
             }
             finally
@@ -333,14 +333,14 @@ namespace NM.SwAddin
             {
                 if (swBody == null)
                 {
-                    ErrorHandler.HandleError(procName, "Input body is null.");
+                    ErrorHandler.HandleError(procName, "Input body is null.", null, ErrorHandler.LogLevel.Error);
                     return null;
                 }
 
                 var vFaces = swBody.GetFaces() as object[];
                 if (vFaces == null || vFaces.Length == 0)
                 {
-                    ErrorHandler.HandleError(procName, "Body contains no faces.");
+                    ErrorHandler.HandleError(procName, "Body contains no faces.", null, ErrorHandler.LogLevel.Warning);
                     return null;
                 }
 
@@ -366,14 +366,14 @@ namespace NM.SwAddin
 
                 if (largestFace == null)
                 {
-                    ErrorHandler.HandleError(procName, "No planar faces found in body.", null, "Warning");
+                    ErrorHandler.HandleError(procName, "No planar faces found in body.", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return largestFace;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Error getting largest planar face.", ex);
+                ErrorHandler.HandleError(procName, "Error getting largest planar face.", ex, ErrorHandler.LogLevel.Error);
                 return null;
             }
             finally
@@ -410,7 +410,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Error checking for sheet metal features.", ex);
+                ErrorHandler.HandleError(procName, "Error checking for sheet metal features.", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -432,14 +432,14 @@ namespace NM.SwAddin
             {
                 if (swBody == null)
                 {
-                    ErrorHandler.HandleError(procName, "Input body is null.");
+                    ErrorHandler.HandleError(procName, "Input body is null.", null, ErrorHandler.LogLevel.Error);
                     return null;
                 }
 
                 var vEdges = swBody.GetEdges() as object[];
                 if (vEdges == null || vEdges.Length == 0)
                 {
-                    ErrorHandler.HandleError(procName, "Body contains no edges.");
+                    ErrorHandler.HandleError(procName, "Body contains no edges.", null, ErrorHandler.LogLevel.Warning);
                     return null;
                 }
 
@@ -455,9 +455,6 @@ namespace NM.SwAddin
                     if (swCurve != null && swCurve.IsLine())
                     {
                         var curveParams = swEdge.GetCurveParams2() as double[];
-                        // In C#, array indices for GetCurveParams2 are 0-based.
-                        // The start and end parameters are at indices 0 and 1 for a line.
-                        // The VBA code was incorrect using 6 and 7.
                         double length = swCurve.GetLength2(curveParams[0], curveParams[1]);
                         if (length > maxLength)
                         {
@@ -469,14 +466,14 @@ namespace NM.SwAddin
 
                 if (longestEdge == null)
                 {
-                    ErrorHandler.HandleError(procName, "No linear edges found in body.", null, "Warning");
+                    ErrorHandler.HandleError(procName, "No linear edges found in body.", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return longestEdge;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Error getting longest linear edge.", ex);
+                ErrorHandler.HandleError(procName, "Error getting longest linear edge.", ex, ErrorHandler.LogLevel.Error);
                 return null;
             }
             finally
@@ -501,14 +498,14 @@ namespace NM.SwAddin
             {
                 if (swApp == null)
                 {
-                    ErrorHandler.HandleError(procName, ErrInvalidApp);
+                    ErrorHandler.HandleError(procName, ErrInvalidApp, null, ErrorHandler.LogLevel.Error);
                     return false;
                 }
                 return swApp.GetUserPreferenceToggle(prefType);
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Failed to get preference toggle. Type={prefType}", ex);
+                ErrorHandler.HandleError(procName, $"Failed to get preference toggle. Type={prefType}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -531,14 +528,14 @@ namespace NM.SwAddin
             {
                 if (swApp == null)
                 {
-                    ErrorHandler.HandleError(procName, ErrInvalidApp);
+                    ErrorHandler.HandleError(procName, ErrInvalidApp, null, ErrorHandler.LogLevel.Error);
                     return;
                 }
                 swApp.SetUserPreferenceToggle(prefType, state);
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Failed to set preference toggle. Type={prefType}", ex);
+                ErrorHandler.HandleError(procName, $"Failed to set preference toggle. Type={prefType}", ex, ErrorHandler.LogLevel.Error);
             }
             finally
             {
@@ -561,7 +558,7 @@ namespace NM.SwAddin
             {
                 if (swApp == null)
                 {
-                    ErrorHandler.HandleError(procName, ErrInvalidApp);
+                    ErrorHandler.HandleError(procName, ErrInvalidApp, null, ErrorHandler.LogLevel.Error);
                     return false;
                 }
 
@@ -586,7 +583,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Failed to close all documents.", ex);
+                ErrorHandler.HandleError(procName, "Failed to close all documents.", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -619,7 +616,7 @@ namespace NM.SwAddin
                     bool rebuildAll = rebuildOption == SwRebuildOptions.SwForceRebuildAll;
                     if (!swModel.ForceRebuild3(rebuildAll))
                     {
-                        ErrorHandler.HandleError(procName, $"Failed to rebuild {(rebuildAll ? "all" : "active")} in '{docTitle}'. Status: {rebuildStatus}", null, "Warning");
+                        ErrorHandler.HandleError(procName, $"Failed to rebuild {(rebuildAll ? "all" : "active")} in '{docTitle}'. Status: {rebuildStatus}", null, ErrorHandler.LogLevel.Warning);
                         return false;
                     }
                 }
@@ -632,7 +629,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Failed to rebuild document.", ex);
+                ErrorHandler.HandleError(procName, "Failed to rebuild document.", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -661,7 +658,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Failed to clear selection in: {swModel.GetTitle()}", ex);
+                ErrorHandler.HandleError(procName, $"Failed to clear selection in: {swModel.GetTitle()}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -698,14 +695,14 @@ namespace NM.SwAddin
 
                 if (!result)
                 {
-                    ErrorHandler.HandleError(procName, $"Failed to select: [{objName}] Type: {objType}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Failed to select: [{objName}] Type: {objType}", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return result;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception selecting: {objName}", ex);
+                ErrorHandler.HandleError(procName, $"Exception selecting: {objName}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -734,14 +731,14 @@ namespace NM.SwAddin
                 var swFeat = FindFeatureByName(swModel, featName);
                 if (swFeat == null)
                 {
-                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return swFeat;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Failed to get feature: {featName}", ex);
+                ErrorHandler.HandleError(procName, $"Failed to get feature: {featName}", ex, ErrorHandler.LogLevel.Error);
                 return null;
             }
             finally
@@ -768,7 +765,7 @@ namespace NM.SwAddin
                 var swFeat = FindFeatureByName(swModel, featName);
                 if (swFeat == null)
                 {
-                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -778,14 +775,14 @@ namespace NM.SwAddin
 
                 if (!success)
                 {
-                    ErrorHandler.HandleError(procName, $"Failed to suppress: {featName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Failed to suppress: {featName}", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return success;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception suppressing: {featName}", ex);
+                ErrorHandler.HandleError(procName, $"Exception suppressing: {featName}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -812,7 +809,7 @@ namespace NM.SwAddin
                 var swFeat = FindFeatureByName(swModel, featName);
                 if (swFeat == null)
                 {
-                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -822,14 +819,14 @@ namespace NM.SwAddin
 
                 if (!success)
                 {
-                    ErrorHandler.HandleError(procName, $"Failed to unsuppress: {featName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Failed to unsuppress: {featName}", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return success;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception unsuppressing: {featName}", ex);
+                ErrorHandler.HandleError(procName, $"Exception unsuppressing: {featName}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -858,7 +855,7 @@ namespace NM.SwAddin
                 var swFeat = FindFeatureByName(swModel, oldName);
                 if (swFeat == null)
                 {
-                    ErrorHandler.HandleError(procName, $"Feature not found: {oldName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Feature not found: {oldName}", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -867,7 +864,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Failed to rename: {oldName} to {newName}", ex);
+                ErrorHandler.HandleError(procName, $"Failed to rename: {oldName} to {newName}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -894,7 +891,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Failed to get configuration manager.", ex);
+                ErrorHandler.HandleError(procName, "Failed to get configuration manager.", ex, ErrorHandler.LogLevel.Error);
                 return null;
             }
             finally
@@ -921,7 +918,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Failed to get active configuration.", ex);
+                ErrorHandler.HandleError(procName, "Failed to get active configuration.", ex, ErrorHandler.LogLevel.Error);
                 return null;
             }
             finally
@@ -948,7 +945,7 @@ namespace NM.SwAddin
                 var swCfgMgr = swModel.ConfigurationManager;
                 if (swCfgMgr == null)
                 {
-                    ErrorHandler.HandleError(procName, "Failed to get ConfigurationManager");
+                    ErrorHandler.HandleError(procName, "Failed to get ConfigurationManager", null, ErrorHandler.LogLevel.Error);
                     return false;
                 }
 
@@ -960,7 +957,7 @@ namespace NM.SwAddin
                     // Only attempt to switch if it's not already active
                     if (!swModel.ShowConfiguration2(configName))
                     {
-                        ErrorHandler.HandleError(procName, $"Failed to set configuration: {configName}");
+                        ErrorHandler.HandleError(procName, $"Failed to set configuration: {configName}", null, ErrorHandler.LogLevel.Error);
                         return false;
                     }
                 }
@@ -975,7 +972,7 @@ namespace NM.SwAddin
                 {
                     ErrorHandler.HandleError(procName, 
                         $"Verification failed: Active configuration is '{swCfgMgr.ActiveConfiguration.Name}' not '{configName}'", 
-                        null, "Warning");
+                        null, ErrorHandler.LogLevel.Warning);
                 }
                 else
                 {
@@ -986,7 +983,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Error activating configuration: {configName}", ex);
+                ErrorHandler.HandleError(procName, $"Error activating configuration: {configName}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -1026,7 +1023,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception creating configuration: {newConfigName}", ex);
+                ErrorHandler.HandleError(procName, $"Exception creating configuration: {newConfigName}", ex, ErrorHandler.LogLevel.Error);
                 return "";
             }
             finally
@@ -1067,7 +1064,7 @@ namespace NM.SwAddin
                 var swPart = swModel as IPartDoc;
                 if (swPart == null)
                 {
-                    ErrorHandler.HandleError(procName, ErrInvalidPart);
+                    ErrorHandler.HandleError(procName, ErrInvalidPart, null, ErrorHandler.LogLevel.Error);
                     return false;
                 }
 
@@ -1086,7 +1083,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Failed to set material: {materialName}", ex);
+                ErrorHandler.HandleError(procName, $"Failed to set material: {materialName}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -1111,7 +1108,7 @@ namespace NM.SwAddin
                 var swPart = swModel as IPartDoc;
                 if (swPart == null)
                 {
-                    ErrorHandler.HandleError(procName, ErrInvalidPart);
+                    ErrorHandler.HandleError(procName, ErrInvalidPart, null, ErrorHandler.LogLevel.Error);
                     return string.Empty;
                 }
 
@@ -1121,14 +1118,14 @@ namespace NM.SwAddin
 
                 if (NM.Core.Configuration.Logging.EnableDebugMode && !string.IsNullOrEmpty(dbName))
                 {
-                    ErrorHandler.HandleError(procName, $"Material retrieved from database: {dbName}", null, "Info");
+                    ErrorHandler.HandleError(procName, $"Material retrieved from database: {dbName}", null, ErrorHandler.LogLevel.Info);
                 }
 
                 return material ?? string.Empty;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Failed to get material name", ex);
+                ErrorHandler.HandleError(procName, "Failed to get material name", ex, ErrorHandler.LogLevel.Error);
                 return string.Empty;
             }
             finally
@@ -1155,7 +1152,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Failed to ZoomToFit on model: {swModel.GetTitle()}", ex);
+                ErrorHandler.HandleError(procName, $"Failed to ZoomToFit on model: {swModel.GetTitle()}", ex, ErrorHandler.LogLevel.Error);
             }
         }
 
@@ -1171,7 +1168,7 @@ namespace NM.SwAddin
             if (displayMode < SwViewDisplayMode.SwViewDisplayMode_Shaded ||
                 displayMode > SwViewDisplayMode.SwViewDisplayMode_Wireframe)
             {
-                ErrorHandler.HandleError(procName, "Invalid display mode value");
+                ErrorHandler.HandleError(procName, "Invalid display mode value", null, ErrorHandler.LogLevel.Error);
                 return false;
             }
 
@@ -1180,7 +1177,7 @@ namespace NM.SwAddin
                 var swView = swModel.ActiveView as IModelView;
                 if (swView == null)
                 {
-                    ErrorHandler.HandleError(procName, "No active view to set display mode.", null, "Warning");
+                    ErrorHandler.HandleError(procName, "No active view to set display mode.", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -1191,7 +1188,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Failed to set view display mode.", ex);
+                ErrorHandler.HandleError(procName, "Failed to set view display mode.", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
         }
@@ -1215,7 +1212,7 @@ namespace NM.SwAddin
                 var swMassProp = swExt.CreateMassProperty() as IMassProperty;
                 if (swMassProp == null)
                 {
-                    ErrorHandler.HandleError(procName, "Failed to create mass property object");
+                    ErrorHandler.HandleError(procName, "Failed to create mass property object", null, ErrorHandler.LogLevel.Error);
                     return false;
                 }
 
@@ -1224,7 +1221,7 @@ namespace NM.SwAddin
                 var arrCOM = swMassProp.CenterOfMass as object[];
                 if (arrCOM == null || arrCOM.Length != 3)
                 {
-                    ErrorHandler.HandleError(procName, "Invalid center of mass data", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Invalid center of mass data", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -1235,7 +1232,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Error getting mass properties", ex);
+                ErrorHandler.HandleError(procName, "Error getting mass properties", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -1257,7 +1254,7 @@ namespace NM.SwAddin
                 var swMassProp = swModel.Extension.CreateMassProperty() as IMassProperty;
                 if (swMassProp == null)
                 {
-                    ErrorHandler.HandleError(procName, "Failed to create mass property", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Failed to create mass property", null, ErrorHandler.LogLevel.Warning);
                     return -1;
                 }
 
@@ -1265,7 +1262,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Exception getting model volume", ex);
+                ErrorHandler.HandleError(procName, "Exception getting model volume", ex, ErrorHandler.LogLevel.Error);
                 return -1;
             }
         }
@@ -1283,7 +1280,7 @@ namespace NM.SwAddin
                 var swMassProp = swModel.Extension.CreateMassProperty() as IMassProperty;
                 if (swMassProp == null)
                 {
-                    ErrorHandler.HandleError(procName, "Failed to create mass property", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Failed to create mass property", null, ErrorHandler.LogLevel.Warning);
                     return -1;
                 }
 
@@ -1291,7 +1288,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Exception getting model mass", ex);
+                ErrorHandler.HandleError(procName, "Exception getting model mass", ex, ErrorHandler.LogLevel.Error);
                 return -1;
             }
         }
@@ -1305,7 +1302,7 @@ namespace NM.SwAddin
         {
             if (swSkMgr == null)
             {
-                ErrorHandler.HandleError(procedureName, "Invalid SketchManager reference");
+                ErrorHandler.HandleError(procedureName, "Invalid SketchManager reference", null, ErrorHandler.LogLevel.Error);
                 return false;
             }
             return true;
@@ -1325,7 +1322,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Failed to get sketch manager", ex);
+                ErrorHandler.HandleError(procName, "Failed to get sketch manager", ex, ErrorHandler.LogLevel.Error);
                 return null;
             }
             finally
@@ -1346,7 +1343,7 @@ namespace NM.SwAddin
                 if (!ValidateModel(swModel, procName)) return null;
                 if (x1 == x2 && y1 == y2)
                 {
-                    ErrorHandler.HandleError(procName, "Zero-length line not allowed", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Zero-length line not allowed", null, ErrorHandler.LogLevel.Warning);
                     return null;
                 }
 
@@ -1356,13 +1353,13 @@ namespace NM.SwAddin
                 var seg = swSkMgr.CreateLine(x1, y1, 0.0, x2, y2, 0.0) as ISketchSegment;
                 if (seg == null)
                 {
-                    ErrorHandler.HandleError(procName, "Failed to create line", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Failed to create line", null, ErrorHandler.LogLevel.Warning);
                 }
                 return seg;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Exception creating line", ex);
+                ErrorHandler.HandleError(procName, "Exception creating line", ex, ErrorHandler.LogLevel.Error);
                 return null;
             }
             finally
@@ -1387,7 +1384,7 @@ namespace NM.SwAddin
 
                 if (!SelectByName(swModel, planeName, "PLANE", 0, 0, 0))
                 {
-                    ErrorHandler.HandleError(procName, $"Failed to select plane: {planeName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Failed to select plane: {planeName}", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -1397,7 +1394,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception creating sketch on: {planeName}", ex);
+                ErrorHandler.HandleError(procName, $"Exception creating sketch on: {planeName}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -1425,7 +1422,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Failed to exit sketch mode", ex);
+                ErrorHandler.HandleError(procName, "Failed to exit sketch mode", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -1476,7 +1473,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, "Error", $"Property: {propName}");
+                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, ErrorHandler.LogLevel.Error, $"Property: {propName}");
                 return false;
             }
             finally
@@ -1512,7 +1509,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, "Error", $"Property: {propName}");
+                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, ErrorHandler.LogLevel.Error, $"Property: {propName}");
                 return false;
             }
             finally
@@ -1565,7 +1562,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, "Error");
+                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -1599,7 +1596,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, "Error", $"Property: {propName}");
+                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, ErrorHandler.LogLevel.Error, $"Property: {propName}");
                 return false;
             }
             finally
@@ -1622,24 +1619,24 @@ namespace NM.SwAddin
             {
                 if (swApp == null)
                 {
-                    ErrorHandler.HandleError(procName, ErrInvalidApp);
+                    ErrorHandler.HandleError(procName, ErrInvalidApp, null, ErrorHandler.LogLevel.Error);
                     return null;
                 }
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
-                    ErrorHandler.HandleError(procName, "File path is empty");
+                    ErrorHandler.HandleError(procName, "File path is empty", null, ErrorHandler.LogLevel.Error);
                     return null;
                 }
                 var model = swApp.OpenDoc6(filePath, (int)docType, (int)options, "", ref err, ref warn) as IModelDoc2;
                 if (model == null || err != 0)
                 {
-                    ErrorHandler.HandleError(procName, $"Failed to open: {filePath} (err={err}, warn={warn})");
+                    ErrorHandler.HandleError(procName, $"Failed to open: {filePath} (err={err}, warn={warn})", null, ErrorHandler.LogLevel.Error);
                 }
                 return model;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception opening: {filePath}", ex);
+                ErrorHandler.HandleError(procName, $"Exception opening: {filePath}", ex, ErrorHandler.LogLevel.Error);
                 return null;
             }
             finally
@@ -1662,14 +1659,14 @@ namespace NM.SwAddin
                 bool ok = swModel.Save3((int)options, ref err, ref warn);
                 if (!ok || err != 0)
                 {
-                    ErrorHandler.HandleError(procName, $"Save failed for '{swModel.GetTitle()}' (err={err}, warn={warn})");
+                    ErrorHandler.HandleError(procName, $"Save failed for '{swModel.GetTitle()}' (err={err}, warn={warn})", null, ErrorHandler.LogLevel.Error);
                     return false;
                 }
                 return true;
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Exception saving document", ex);
+                ErrorHandler.HandleError(procName, "Exception saving document", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -1689,7 +1686,7 @@ namespace NM.SwAddin
             {
                 if (swApp == null)
                 {
-                    ErrorHandler.HandleError(procName, ErrInvalidApp);
+                    ErrorHandler.HandleError(procName, ErrInvalidApp, null, ErrorHandler.LogLevel.Error);
                     return false;
                 }
                 if (swModel == null) return true;
@@ -1699,7 +1696,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, "Exception closing document", ex);
+                ErrorHandler.HandleError(procName, "Exception closing document", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally

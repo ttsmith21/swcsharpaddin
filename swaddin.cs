@@ -12,7 +12,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using NM.SwAddin;
-
+using System.Windows.Forms;
 
 namespace swcsharpaddin
 {
@@ -37,6 +37,9 @@ namespace swcsharpaddin
         public const int mainItemID1 = 0;
         public const int mainItemID2 = 1;
         public const int mainItemID3 = 2;
+        public const int mainItemID4 = 3; // Run ExternalStart
+        public const int mainItemID5 = 4; // Problem Parts UI
+        public const int mainItemID6 = 5; // Process Folder (Epic 12)
         public const int flyoutGroupID = 91;
 
         #region Event Handler Variables
@@ -90,14 +93,14 @@ namespace swcsharpaddin
                 Microsoft.Win32.RegistryKey hklm = Microsoft.Win32.Registry.LocalMachine;
                 Microsoft.Win32.RegistryKey hkcu = Microsoft.Win32.Registry.CurrentUser;
 
-                string keyname = "SOFTWARE\\SolidWorks\\Addins\\{" + t.GUID.ToString() + "}";
+                string keyname = "SOFTWARE\\SolidWorks\\Addins\\{" + t.GUID.ToString() + "}%";
                 Microsoft.Win32.RegistryKey addinkey = hklm.CreateSubKey(keyname);
                 addinkey.SetValue(null, 0);
 
                 addinkey.SetValue("Description", SWattr.Description);
                 addinkey.SetValue("Title", SWattr.Title);
 
-                keyname = "Software\\SolidWorks\\AddInsStartup\\{" + t.GUID.ToString() + "}";
+                keyname = "Software\\SolidWorks\\AddInsStartup\\{" + t.GUID.ToString() + "}%";
                 addinkey = hkcu.CreateSubKey(keyname);
                 addinkey.SetValue(null, Convert.ToInt32(SWattr.LoadAtStartup), Microsoft.Win32.RegistryValueKind.DWord);
             }
@@ -123,10 +126,10 @@ namespace swcsharpaddin
                 Microsoft.Win32.RegistryKey hklm = Microsoft.Win32.Registry.LocalMachine;
                 Microsoft.Win32.RegistryKey hkcu = Microsoft.Win32.Registry.CurrentUser;
 
-                string keyname = "SOFTWARE\\SolidWorks\\Addins\\{" + t.GUID.ToString() + "}";
+                string keyname = "SOFTWARE\\SolidWorks\\Addins\\{" + t.GUID.ToString() + "}%";
                 hklm.DeleteSubKey(keyname);
 
-                keyname = "Software\\SolidWorks\\AddInsStartup\\{" + t.GUID.ToString() + "}";
+                keyname = "Software\\SolidWorks\\AddInsStartup\\{" + t.GUID.ToString() + "}%";
                 hkcu.DeleteSubKey(keyname);
             }
             catch (System.NullReferenceException nl)
@@ -180,7 +183,7 @@ namespace swcsharpaddin
             RemovePMP();
             DetachEventHandlers();
 
-	    System.Runtime.InteropServices.Marshal.ReleaseComObject(iCmdMgr);
+            System.Runtime.InteropServices.Marshal.ReleaseComObject(iCmdMgr);
             iCmdMgr = null;
             System.Runtime.InteropServices.Marshal.ReleaseComObject(iSwApp);
             iSwApp = null;
@@ -202,7 +205,7 @@ namespace swcsharpaddin
             if(iBmp == null)
                 iBmp = new BitmapHandler();
             Assembly thisAssembly;
-            int cmdIndex0, cmdIndex1, cmdIndex2;
+            int cmdIndex0, cmdIndex1, cmdIndex2, cmdIndex3, cmdIndex4, cmdIndex5;
             string Title = "C# Addin", ToolTip = "C# Addin";
 
 
@@ -220,12 +223,16 @@ namespace swcsharpaddin
             //get the ID information stored in the registry
             bool getDataResult = iCmdMgr.GetGroupDataFromRegistry(mainCmdGroupID, out registryIDs);
 
-            int[] knownIDs = new int[2] { mainItemID1, mainItemID2};
+            var knownIdsList = new List<int> { mainItemID1, mainItemID2, mainItemID4, mainItemID5, mainItemID6 };
+#if DEBUG
+            knownIdsList.Add(mainItemID3);
+#endif
+            int[] knownIDs = knownIdsList.ToArray();
             
             if (getDataResult)
             {
                 if (!CompareIDs((int[])registryIDs, knownIDs)) //if the IDs don't match, reset the commandGroup
-            {
+                {
                     ignorePrevious = true;
                 }
             }
@@ -242,14 +249,15 @@ namespace swcsharpaddin
 #if DEBUG
             cmdIndex2 = cmdGroup.AddCommandItem2("Run Smoke Tests", -1, "Run automated smoke tests", "Run Tests", 3, "RunSmokeTests", "", mainItemID3, menuToolbarOption);
 #endif
+            cmdIndex3 = cmdGroup.AddCommandItem2("Run ExternalStart", -1, "Invoke tube extractor add-in only", "Run ExternalStart", 1, "RunExternalStartNow", "", mainItemID4, menuToolbarOption);
+            cmdIndex4 = cmdGroup.AddCommandItem2("Problem Parts", -1, "Show problem parts list", "Problem Parts", 4, "ShowProblemPartsUI", "", mainItemID5, menuToolbarOption);
+            cmdIndex5 = cmdGroup.AddCommandItem2("Process Folder", -1, "Process a folder of models (Epic 12)", "Process Folder", 5, "RunFolderProcessing", "", mainItemID6, menuToolbarOption);
 
-                cmdGroup.HasToolbar = true;
-                cmdGroup.HasMenu = true;
-                cmdGroup.Activate();
+            cmdGroup.HasToolbar = true;
+            cmdGroup.HasMenu = true;
+            cmdGroup.Activate();
 
-                bool bResult;
-
-
+            bool bResult;
 
             FlyoutGroup flyGroup = iCmdMgr.CreateFlyoutGroup(flyoutGroupID, "Dynamic Flyout", "Flyout Tooltip", "Flyout Hint",
               cmdGroup.SmallMainIcon, cmdGroup.LargeMainIcon, cmdGroup.SmallIconList, cmdGroup.LargeIconList, "FlyoutCallback", "FlyoutEnable");
@@ -260,11 +268,11 @@ namespace swcsharpaddin
             flyGroup.FlyoutType = (int)swCommandFlyoutStyle_e.swCommandFlyoutStyle_Simple;
             
             
-                foreach (int type in docTypes)
-                {
-                    CommandTab cmdTab;
+            foreach (int type in docTypes)
+            {
+                CommandTab cmdTab;
 
-                    cmdTab = iCmdMgr.GetCommandTab(type, Title);
+                cmdTab = iCmdMgr.GetCommandTab(type, Title);
 
                 if (cmdTab != null & !getDataResult | ignorePrevious)//if tab exists, but we have ignored the registry info (or changed command group ID), re-create the tab.  Otherwise the ids won't matchup and the tab will be blank
                 {
@@ -273,50 +281,56 @@ namespace swcsharpaddin
                 }
 
                 //if cmdTab is null, must be first load (possibly after reset), add the commands to the tabs
-                    if (cmdTab == null)
-                    {
-                        cmdTab = iCmdMgr.AddCommandTab(type, Title);
+                if (cmdTab == null)
+                {
+                    cmdTab = iCmdMgr.AddCommandTab(type, Title);
 
-                        CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
+                    CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
 
-                        int[] cmdIDs = new int[4];
-                        int[] TextType = new int[4];
+                    var idList = new List<int>();
+                    var txtList = new List<int>();
 
-                        cmdIDs[0] = cmdGroup.get_CommandID(cmdIndex0);
-                        TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+                    idList.Add(cmdGroup.get_CommandID(cmdIndex0));
+                    txtList.Add((int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal);
 
-                        cmdIDs[1] = cmdGroup.get_CommandID(cmdIndex1);
-                        TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+                    idList.Add(cmdGroup.get_CommandID(cmdIndex1));
+                    txtList.Add((int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal);
 
 #if DEBUG
-                        cmdIDs[2] = cmdGroup.get_CommandID(cmdIndex2);
-                        TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+                    idList.Add(cmdGroup.get_CommandID(cmdIndex2));
+                    txtList.Add((int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal);
 #endif
+                    idList.Add(cmdGroup.get_CommandID(cmdIndex3));
+                    txtList.Add((int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal);
 
-                        cmdIDs[3] = cmdGroup.ToolbarId;
-                        TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal | (int)swCommandTabButtonFlyoutStyle_e.swCommandTabButton_ActionFlyout;
+                    idList.Add(cmdGroup.get_CommandID(cmdIndex4));
+                    txtList.Add((int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal);
 
-                        bResult = cmdBox.AddCommands(cmdIDs, TextType);
+                    idList.Add(cmdGroup.get_CommandID(cmdIndex5));
+                    txtList.Add((int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal);
 
+                    idList.Add(cmdGroup.ToolbarId);
+                    txtList.Add((int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal | (int)swCommandTabButtonFlyoutStyle_e.swCommandTabButton_ActionFlyout);
 
+                    bResult = cmdBox.AddCommands(idList.ToArray(), txtList.ToArray());
 
-                        CommandTabBox cmdBox1 = cmdTab.AddCommandTabBox();
-                        cmdIDs = new int[1];
-                        TextType = new int[1];
+                    CommandTabBox cmdBox1 = cmdTab.AddCommandTabBox();
+                    int[] single = new int[1];
+                    int[] singleTxt = new int[1];
 
-                    cmdIDs[0] = flyGroup.CmdID;
-                        TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextBelow | (int)swCommandTabButtonFlyoutStyle_e.swCommandTabButton_ActionFlyout;
+                    single[0] = flyGroup.CmdID;
+                    singleTxt[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextBelow | (int)swCommandTabButtonFlyoutStyle_e.swCommandTabButton_ActionFlyout;
 
-                        bResult = cmdBox1.AddCommands(cmdIDs, TextType);
+                    bResult = cmdBox1.AddCommands(single, singleTxt);
 
-                    cmdTab.AddSeparator(cmdBox1, cmdIDs[0]);
-
-                    }
+                    cmdTab.AddSeparator(cmdBox1, single[0]);
 
                 }
-                thisAssembly = null;
-              
+
             }
+            thisAssembly = null;
+              
+        }
 
         public void RemoveCommandMgr()
         {
@@ -397,6 +411,182 @@ namespace swcsharpaddin
             }
         }
 
+        public void ShowProblemPartsUI()
+        {
+            try
+            {
+                var form = new NM.SwAddin.UI.ProblemPartsForm(NM.Core.ProblemParts.ProblemPartManager.Instance);
+                form.StartPosition = FormStartPosition.CenterScreen;
+                form.Show();
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Forms.MessageBox.Show("Problem Parts UI error: " + ex.Message);
+            }
+        }
+
+        public void RunFolderProcessing()
+        {
+            try
+            {
+                using (var dlg = new FolderBrowserDialog())
+                {
+                    dlg.Description = "Select a root folder to process";
+                    if (dlg.ShowDialog() != DialogResult.OK) return;
+
+                    var processor = new NM.SwAddin.Processing.FolderProcessor(iSwApp);
+                    var res = processor.ProcessFolder(dlg.SelectedPath, recursive: true);
+
+                    var sb = new System.Text.StringBuilder();
+                    sb.AppendLine("Folder Processing Summary:");
+                    sb.AppendLine($"Root: {dlg.SelectedPath}");
+                    sb.AppendLine($"Discovered: {res.TotalDiscovered}");
+                    sb.AppendLine($"Imported: {res.ImportedCount}");
+                    sb.AppendLine($"Opened: {res.OpenedOk}");
+                    sb.AppendLine($"Failed: {res.FailedOpen}");
+                    sb.AppendLine($"Skipped: {res.Skipped}");
+                    if (res.Errors.Count > 0)
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine("Errors:");
+                        foreach (var e in res.Errors)
+                            sb.AppendLine(" - " + e);
+                    }
+                    MessageBox.Show(sb.ToString(), "Process Folder");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Folder processing error: " + ex.Message);
+            }
+        }
+
+        public void RunExternalStartNow()
+        {
+            try
+            {
+                var doc = iSwApp?.ActiveDoc as IModelDoc2;
+                if (doc == null)
+                {
+                    System.Windows.Forms.MessageBox.Show("No active document.");
+                    return;
+                }
+
+                bool ok = NM.SwAddin.ExternalStartAdapter.TryRunExternalStart(iSwApp, doc);
+
+                var lines = new System.Text.StringBuilder();
+                lines.AppendLine($"ExternalStart: {(ok ? "Invoked" : "Not found/failed")}");
+                lines.AppendLine();
+
+                // Dump custom properties (all scopes)
+                foreach (var cfg in GetAllConfigNamesSafe(doc))
+                {
+                    string header = string.IsNullOrEmpty(cfg) ? "[Global props]" : $"[Config '{cfg}']";
+                    lines.AppendLine(header);
+
+                    try
+                    {
+                        if (NM.SwAddin.SolidWorksApiWrapper.GetCustomProperties(doc, cfg, out var n, out var t, out var v))
+                        {
+                            if (n.Length == 0)
+                            {
+                                lines.AppendLine("  (no properties)");
+                            }
+                            else
+                            {
+                                for (int i = 0; i < n.Length; i++)
+                                    lines.AppendLine($"  {n[i]}={v[i]}");
+                            }
+                        }
+                        else
+                        {
+                            lines.AppendLine("  (failed to read)");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        lines.AppendLine($"  (exception: {ex.Message})");
+                    }
+                    lines.AppendLine();
+                }
+
+                // NEW: Dump feature tree (first 20 features)
+                lines.AppendLine("[Feature Tree - first 20]");
+                try
+                {
+                    var feat = doc.FirstFeature() as IFeature;
+                    int count = 0;
+                    while (feat != null && count < 20)
+                    {
+                        try
+                        {
+                            var name = feat.Name ?? "(unnamed)";
+                            var type = feat.GetTypeName2() ?? "(unknown type)";
+                            lines.AppendLine($"  {name} ({type})");
+                        }
+                        catch { }
+                        feat = feat.GetNextFeature() as IFeature;
+                        count++;
+                    }
+                    if (count == 0) lines.AppendLine("  (no features)");
+                }
+                catch (Exception ex)
+                {
+                    lines.AppendLine($"  (exception: {ex.Message})");
+                }
+
+                System.Windows.Forms.MessageBox.Show(lines.ToString(), "ExternalStart Test");
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Forms.MessageBox.Show("ExternalStart exception: " + ex.Message);
+            }
+        }
+
+        private static IEnumerable<string> GetAllConfigNamesSafe(IModelDoc2 doc)
+        {
+            var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            set.Add(""); // global
+            try
+            {
+                var cm = doc.ConfigurationManager;
+                var active = cm?.ActiveConfiguration?.Name;
+                if (!string.IsNullOrWhiteSpace(active)) set.Add(active);
+
+                // Use GetConfigurationNames on IModelDoc2 instead
+                object namesObj = doc.GetConfigurationNames();
+                var arrObj = namesObj as object[];
+                var arrStr = namesObj as string[];
+                if (arrStr != null)
+                {
+                    foreach (var s in arrStr)
+                        if (!string.IsNullOrWhiteSpace(s)) set.Add(s);
+                }
+                else if (arrObj != null)
+                {
+                    foreach (var o in arrObj)
+                    {
+                        var s = o?.ToString();
+                        if (!string.IsNullOrWhiteSpace(s)) set.Add(s);
+                    }
+                }
+            }
+            catch { }
+            return set;
+        }
+
+        private static string ReadProp(IModelDoc2 doc, string cfg, string name)
+        {
+            try
+            {
+                var mgr = doc.Extension.get_CustomPropertyManager(cfg);
+                string val = string.Empty, resolved = string.Empty; 
+                mgr.Get2(name, out val, out resolved);
+                if (!string.IsNullOrWhiteSpace(resolved)) return resolved;
+                return val ?? string.Empty;
+            }
+            catch { return string.Empty; }
+        }
 
         public void ShowPMP()
         {
@@ -768,7 +958,7 @@ namespace swcsharpaddin
 
                 // Perf: finalize and export CSV
                 NM.Core.PerformanceTracker.Instance.StopTimer("SmokeTests");
-                var csv = Path.Combine(@"C:\SolidWorksMacroLogs", "perf.csv");
+                var csv = Path.Combine(@"C:\\SolidWorksMacroLogs", "perf.csv");
                 NM.Core.PerformanceTracker.Instance.ExportToCsv(csv);
                 var count = NM.Core.PerformanceTracker.Instance.GetTimerCount();
                 sb.AppendLine($"Perf: timers={count}, csv={csv}");
@@ -798,7 +988,7 @@ namespace NM.Core
             public const bool LogEnabled = true;
 
             /// <summary>Log file location for errors.</summary>
-            public const string ErrorLogPath = @"C:\SolidWorksMacroLogs\ErrorLog.txt";
+            public const string ErrorLogPath = @"C:\\SolidWorksMacroLogs\\ErrorLog.txt";
 
             /// <summary>Show pop-ups for warnings.</summary>
             public const bool ShowWarnings = false;
@@ -941,6 +1131,8 @@ namespace NM.Core
                 "IsSheetMetal", "IsTube", "Thickness", "Description", "Customer",
                 "CustPartNumber", "CuttingType", "Drawing", "ExportDate", "F115_Hours",
                 "F115_Price", "F210_Hours", "F210_Price", "Length", "MaterialCostPerLB",
+                // Legacy VBA misspelling for backward compatibility
+                "MaterailCostPerLB",
                 "Model", "MPNumber", "RawWeight", "Revision", "Total_Weight"
             };
 

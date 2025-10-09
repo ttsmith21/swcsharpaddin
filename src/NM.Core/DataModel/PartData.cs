@@ -1,0 +1,102 @@
+using System;
+using System.Collections.Generic;
+
+namespace NM.Core.DataModel
+{
+    // Central DTO carrying all analysis/conversion/costing results for one part.
+    // Internal units: meters/kg; conversions happen only at edges (property write/export).
+    public sealed class PartData
+    {
+        // Identity
+        public string FilePath { get; set; }
+        public string PartName { get; set; }
+        public string Configuration { get; set; }
+        public string ParentAssembly { get; set; }
+
+        // Status and classification
+        public ProcessingStatus Status { get; set; } = ProcessingStatus.Pending;
+        public string FailureReason { get; set; }
+        public PartType Classification { get; set; } = PartType.Unknown;
+        public bool IsPurchased { get; set; }
+
+        // Material
+        public string Material { get; set; }              // e.g., 304L, A36
+        public string MaterialCategory { get; set; }      // SS/CS/AL
+        public string OptiMaterial { get; set; }          // resolved code
+        public double MaterialDensity_kg_per_m3 { get; set; }
+        public double MaterialCostPerLB { get; set; }     // preserve legacy field
+
+        // Geometry (meters/kg)
+        public double Thickness_m { get; set; }
+        public double Mass_kg { get; set; }
+        public double SheetPercent { get; set; }          // 0..1
+
+        // Bounding box (optional, meters)
+        public double BBoxLength_m { get; set; }
+        public double BBoxWidth_m { get; set; }
+        public double BBoxHeight_m { get; set; }
+
+        // Sheet metal data
+        public SheetMetalData Sheet { get; } = new SheetMetalData();
+
+        // Tube data (optional)
+        public TubeData Tube { get; } = new TubeData();
+
+        // Work centers and costing
+        public CostingData Cost { get; } = new CostingData();
+
+        // Commercials
+        public int QuoteQty { get; set; }
+        public double TotalPrice { get; set; }
+
+        // Extensibility
+        public Dictionary<string, string> Extra { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public sealed class SheetMetalData
+    {
+        public bool IsSheetMetal { get; set; }
+        public int BendCount { get; set; }
+        public bool BendsBothDirections { get; set; }
+        public double TotalCutLength_m { get; set; }
+        public double FlatArea_m2 { get; set; }
+    }
+
+    public sealed class TubeData
+    {
+        public bool IsTube { get; set; }
+        public double OD_m { get; set; }
+        public double Wall_m { get; set; }
+        public double ID_m { get; set; }
+        public double Length_m { get; set; }
+    }
+
+    public sealed class CostingData
+    {
+        // Laser / Waterjet (OP20)
+        public double OP20_S_min { get; set; }
+        public double OP20_R_min { get; set; }
+        public double F115_Price { get; set; }
+
+        // Press brake (F140)
+        public double F140_S_min { get; set; }
+        public double F140_R_min { get; set; }
+        public double F140_S_Cost { get; set; }
+        public double F140_Price { get; set; }
+
+        // Tapping (F220)
+        public double F220_min { get; set; }
+        public double F220_S_min { get; set; }
+        public double F220_R_min { get; set; }
+        public int F220_RN { get; set; }
+        public string F220_Note { get; set; }
+
+        // Forming (F325)
+        public double F325_S_min { get; set; }
+        public double F325_R_min { get; set; }
+        public double F325_Price { get; set; }
+    }
+
+    public enum ProcessingStatus { Pending, Success, Failed, Skipped }
+    public enum PartType { Unknown, SheetMetal, Tube, Generic, Assembly, Purchased }
+}

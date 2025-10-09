@@ -65,14 +65,67 @@
     <Compile Include="CustomPropertyData.cs" />
     <Compile Include="ErrorHandler.cs" />
     <Compile Include="EventHandling.cs" />
+    <Compile Include="ExternalStartAdapter.cs" />
     <Compile Include="ModelInfo.cs" />
     <Compile Include="PerformanceTracker.cs" />
     <Compile Include="PMPHandler.cs" />
     <Compile Include="ProcessingOptions.cs" />
     <Compile Include="SolidWorksApiWrapper.cs" />
     <Compile Include="SolidWorksFileOperations.cs" />
-    <Compile Include="SolidWorksFileOps.cs" />
     <Compile Include="SolidWorksModel.cs" />
+    <Compile Include="src\NM.Core\DataModel\PartData.cs" />
+    <Compile Include="src\NM.Core\Export\ExportManager.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\BendModels.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\CostConstants.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\CutMetrics.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\F140Calculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\F220Calculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\F325Calculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\Laser\LaserCalculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\Laser\LaserSpeedService.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\ManufacturingCalculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\MaterialValidator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\Models.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\Rates.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\TotalCostCalculator.cs" />
+    <Compile Include="src\NM.Core\Materials\MaterialDensityDatabase.cs" />
+    <Compile Include="src\NM.Core\Materials\OptiMaterialService.cs" />
+    <Compile Include="src\NM.Core\ProblemParts\ProblemPartManager.cs" />
+    <Compile Include="src\NM.Core\Processing\PartDataPropertyMap.cs" />
+    <Compile Include="src\NM.Core\Processing\SimpleTubeProcessor.cs" />
+    <Compile Include="src\NM.SwAddin\Assembly\AssemblyComponentQuantifier.cs" />
+    <Compile Include="src\NM.SwAddin\Assembly\AssemblyPreprocessor.cs" />
+    <Compile Include="src\NM.SwAddin\Assembly\ComponentCollector.cs" />
+    <Compile Include="src\NM.SwAddin\Assembly\ComponentValidator.cs" />
+    <Compile Include="src\NM.SwAddin\Data\ExcelDataLoader.cs" />
+    <Compile Include="src\NM.SwAddin\Geometry\BoundingBoxExtractor.cs" />
+    <Compile Include="src\NM.SwAddin\Geometry\FaceAnalyzer.cs" />
+    <Compile Include="src\NM.SwAddin\Import\StepImportHandler.cs" />
+    <Compile Include="src\NM.SwAddin\Manufacturing\BendAnalyzer.cs" />
+    <Compile Include="src\NM.SwAddin\Manufacturing\FlatPatternAnalyzer.cs" />
+    <Compile Include="src\NM.SwAddin\Manufacturing\Laser\LaserSpeedExcelProvider.cs" />
+    <Compile Include="src\NM.SwAddin\Manufacturing\MetricsExtractor.cs" />
+    <Compile Include="src\NM.SwAddin\Manufacturing\TappedHoleAnalyzer.cs" />
+    <Compile Include="src\NM.SwAddin\Pipeline\AutoWorkflow.cs" />
+    <Compile Include="src\NM.SwAddin\Processing\FolderProcessor.cs" />
+    <Compile Include="src\NM.SwAddin\Processing\GenericPartProcessor.cs" />
+    <Compile Include="src\NM.SwAddin\Processing\IPartProcessor.cs" />
+    <Compile Include="src\NM.SwAddin\Processing\ProcessingCoordinator.cs" />
+    <Compile Include="src\NM.SwAddin\Processing\ProcessorFactory.cs" />
+    <Compile Include="src\NM.SwAddin\Processing\TubePartProcessor.cs" />
+    <Compile Include="src\NM.SwAddin\Properties\CustomPropertiesService.cs" />
+    <Compile Include="src\NM.SwAddin\SheetMetal\BendStateManager.cs" />
+    <Compile Include="src\NM.SwAddin\swaddin.cs" />
+    <Compile Include="src\NM.SwAddin\UI\ProblemPartsForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="src\NM.SwAddin\UI\ProblemReviewDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="src\NM.SwAddin\UI\ProgressForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="src\NM.SwAddin\Utils\VisibilityScope.cs" />
     <Compile Include="SwAddin.cs" />
     <Compile Include="TimerInfo.cs" />
     <Compile Include="UserPMPage.cs" />
@@ -88,7 +141,11 @@
     <None Include=".github\prompts\debug-one-issue.prompt.md" />
     <None Include=".github\prompts\scaffold-foundation.prompt.md" />
     <None Include=".gitignore" />
+    <None Include="COMMIT_MESSAGE.md" />
+    <None Include="docs\TUBE_HANDOFF.md" />
+    <None Include="HANDOFF_SUMMARY.md" />
     <None Include="LICENSE" />
+    <None Include="QUICK_STATUS.md" />
     <None Include="README.md" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
