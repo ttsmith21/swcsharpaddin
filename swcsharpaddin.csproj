@@ -104,6 +104,7 @@
     <Compile Include="src\NM.Core\Tubes\TubeCuttingParameterService.cs" />
     <Compile Include="src\NM.Core\Tubes\TubeMaterialCodeGenerator.cs" />
     <Compile Include="src\NM.Core\Tubes\TubeWorkCenterRules.cs" />
+    <Compile Include="src\NM.Core\Export\ExportManager.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />
