@@ -82,6 +82,28 @@
     <Compile Include="SwAddin.cs" />
     <Compile Include="TimerInfo.cs" />
     <Compile Include="UserPMPage.cs" />
+    <Compile Include="src\NM.Core\Models\SwModelInfo.cs" />
+    <Compile Include="src\NM.Core\Validation\PartValidator.cs" />
+    <Compile Include="src\NM.Core\Validation\ValidationResult.cs" />
+    <Compile Include="src\NM.Core\DataModel\PartData.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\BendModels.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\CostConstants.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\F140Calculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\F220Calculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\F325Calculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\ManufacturingCalculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\Models.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\Rates.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\Laser\LaserCalculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\Laser\LaserSpeedService.cs" />
+    <Compile Include="src\NM.Core\Materials\OptiMaterialService.cs" />
+    <Compile Include="src\NM.Core\ProblemParts\ProblemPartManager.cs" />
+    <Compile Include="src\NM.Core\Processing\PartDataPropertyMap.cs" />
+    <Compile Include="src\NM.Core\Tubes\PipeScheduleService.cs" />
+    <Compile Include="src\NM.Core\Tubes\RoundBarValidator.cs" />
+    <Compile Include="src\NM.Core\Tubes\TubeCuttingParameterService.cs" />
+    <Compile Include="src\NM.Core\Tubes\TubeMaterialCodeGenerator.cs" />
+    <Compile Include="src\NM.Core\Tubes\TubeWorkCenterRules.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />

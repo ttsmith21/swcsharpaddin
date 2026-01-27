@@ -15,6 +15,15 @@ namespace NM.Core
         private static readonly List<string> _callStack = new List<string>();
         private static readonly object _lockObject = new object();
 
+        /// <summary>Structured log level values for compile-time safety and easy mapping to sinks.</summary>
+        public enum LogLevel
+        {
+            Info = 20,
+            Warning = 30,
+            Error = 40,
+            Critical = 50
+        }
+
         /// <summary>Push the current procedure name onto the call stack.</summary>
         public static void PushCallStack(string procedureName)
         {
@@ -54,12 +63,12 @@ namespace NM.Core
             }
         }
 
-        /// <summary>Centralized error handler to build and write a formatted log entry.</summary>
+        /// <summary>New preferred overload using LogLevel. Centralized error handler to build and write a formatted log entry.</summary>
         public static void HandleError(
             string procedureName = "Unknown",
             string errorDesc = "",
             Exception ex = null,
-            string severity = "Error",
+            LogLevel level = LogLevel.Error,
             string context = "")
         {
             try
@@ -76,7 +85,7 @@ namespace NM.Core
                 var msg = new StringBuilder();
                 msg.AppendLine(ErrorSeparator);
                 msg.AppendLine($"Time: {time}");
-                msg.AppendLine($"Severity: {severity}");
+                msg.AppendLine($"Level: {level} ({(int)level})");
                 msg.AppendLine($"Call Stack: {callStack}");
                 msg.AppendLine($"Proc: {procedureName}");
                 msg.AppendLine($"Err#: {errNum}");
@@ -104,12 +113,55 @@ namespace NM.Core
                     TryWriteToLog(finalMessage);
                 }
 
-                // TODO(vNext): UI notifications (MessageBox/TaskPane) controlled by Logging.ShowWarnings & severity
+                // TODO(vNext): UI notifications (MessageBox/TaskPane) controlled by Logging.ShowWarnings & level
             }
             catch (Exception logEx)
             {
                 // Last-resort fallback: write to Debug to avoid recursive failures
                 Debug.WriteLine($"Error while handling error: {logEx}");
+            }
+        }
+
+        /// <summary>
+        /// Back-compat overload using string severity (5 args). Maps to LogLevel and forwards to the new overload.
+        /// </summary>
+        [Obsolete("Use LogLevel overload of HandleError")]
+        public static void HandleError(
+            string procedureName,
+            string errorDesc,
+            Exception ex,
+            string severity,
+            string context)
+        {
+            var level = MapSeverity(severity);
+            HandleError(procedureName, errorDesc, ex, level, context);
+        }
+
+        /// <summary>
+        /// Back-compat overload using string severity (4 args). Maps to LogLevel and forwards to the new overload.
+        /// </summary>
+        [Obsolete("Use LogLevel overload of HandleError")]
+        public static void HandleError(
+            string procedureName,
+            string errorDesc,
+            Exception ex,
+            string severity)
+        {
+            var level = MapSeverity(severity);
+            HandleError(procedureName, errorDesc, ex, level, "");
+        }
+
+        private static LogLevel MapSeverity(string severity)
+        {
+            var s = severity?.Trim().ToLowerInvariant();
+            switch (s)
+            {
+                case "info": return LogLevel.Info;
+                case "warning":
+                case "warn": return LogLevel.Warning;
+                case "critical": return LogLevel.Critical;
+                case "error":
+                default: return LogLevel.Error;
             }
         }
 
