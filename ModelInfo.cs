@@ -272,6 +272,10 @@ namespace NM.Core
             CurrentState = ModelState.Problem;
             ProblemDescription = description ?? string.Empty;
         }
+        /// <summary>Marks model as clean (no pending changes).</summary>
+        public void MarkModelClean() => IsDirty = false;
+        /// <summary>Marks model as dirty (pending changes).</summary>
+        public void MarkModelDirty() => IsDirty = true;
         #endregion
 
         #region File info helpers (no IO)

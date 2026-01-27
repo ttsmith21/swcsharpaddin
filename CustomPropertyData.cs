@@ -80,8 +80,8 @@ namespace NM.Core
         /// </summary>
         public bool IsSheetMetal
         {
-            get => Convert.ToBoolean(GetPropertyValue("IsSheetMetal"));
-            set => SetPropertyValue("IsSheetMetal", value.ToString(), CustomPropertyType.Text);
+            get => ParseBool(GetPropertyValue("IsSheetMetal"));
+            set => SetPropertyValue("IsSheetMetal", value ? "True" : "False", CustomPropertyType.Text);
         }
 
         /// <summary>
@@ -89,8 +89,8 @@ namespace NM.Core
         /// </summary>
         public bool IsTube
         {
-            get => Convert.ToBoolean(GetPropertyValue("IsTube"));
-            set => SetPropertyValue("IsTube", value.ToString(), CustomPropertyType.Text);
+            get => ParseBool(GetPropertyValue("IsTube"));
+            set => SetPropertyValue("IsTube", value ? "True" : "False", CustomPropertyType.Text);
         }
 
         /// <summary>
@@ -107,7 +107,7 @@ namespace NM.Core
                 }
                 return 0.0;
             }
-            set => SetPropertyValue("Thickness", value.ToString("F4", CultureInfo.InvariantCulture), CustomPropertyType.Number);
+            set => SetPropertyValue("Thickness", value.ToString("0.####", CultureInfo.InvariantCulture), CustomPropertyType.Number);
         }
 
         /// <summary>
@@ -117,6 +117,85 @@ namespace NM.Core
         {
             get => Thickness * Configuration.Materials.InchesToMeters;
             set => Thickness = value * Configuration.Materials.MetersToInches;
+        }
+
+        // Convenience manufacturing properties
+        public string OptiMaterial
+        {
+            get => (GetPropertyValue("OptiMaterial") ?? string.Empty).ToString();
+            set => SetPropertyValue("OptiMaterial", value ?? string.Empty, CustomPropertyType.Text);
+        }
+
+        public string rbMaterialType
+        {
+            get => (GetPropertyValue("rbMaterialType") ?? string.Empty).ToString();
+            set => SetPropertyValue("rbMaterialType", value ?? string.Empty, CustomPropertyType.Text);
+        }
+
+        public string MaterialCategory
+        {
+            get => (GetPropertyValue("MaterialCategory") ?? string.Empty).ToString();
+            set => SetPropertyValue("MaterialCategory", value ?? string.Empty, CustomPropertyType.Text);
+        }
+
+        public double MaterialDensity
+        {
+            get => ParseDouble(GetPropertyValue("MaterialDensity"));
+            set => SetPropertyValue("MaterialDensity", value.ToString("0.#####", CultureInfo.InvariantCulture), CustomPropertyType.Number);
+        }
+
+        public double RawWeight
+        {
+            get => ParseDouble(GetPropertyValue("RawWeight"));
+            set => SetPropertyValue("RawWeight", value.ToString("0.###", CultureInfo.InvariantCulture), CustomPropertyType.Number);
+        }
+
+        public double SheetPercent
+        {
+            get => ParseDouble(GetPropertyValue("SheetPercent"));
+            set => SetPropertyValue("SheetPercent", value.ToString("0.####", CultureInfo.InvariantCulture), CustomPropertyType.Number);
+        }
+
+        public double MaterialCostPerLB
+        {
+            get => ParseDouble(GetPropertyValue("MaterialCostPerLB"));
+            set
+            {
+                var s = value.ToString("0.###", CultureInfo.InvariantCulture);
+                SetPropertyValue("MaterialCostPerLB", s, CustomPropertyType.Number);
+                // Legacy VBA misspelling compatibility
+                SetPropertyValue("MaterailCostPerLB", s, CustomPropertyType.Number);
+            }
+        }
+
+        public int QuoteQty
+        {
+            get => (int)Math.Round(ParseDouble(GetPropertyValue("QuoteQty")));
+            set => SetPropertyValue("QuoteQty", value.ToString(CultureInfo.InvariantCulture), CustomPropertyType.Number);
+        }
+
+        public string Difficulty
+        {
+            get => (GetPropertyValue("Difficulty") ?? string.Empty).ToString();
+            set => SetPropertyValue("Difficulty", value ?? string.Empty, CustomPropertyType.Text);
+        }
+
+        public string CuttingType
+        {
+            get => (GetPropertyValue("CuttingType") ?? string.Empty).ToString();
+            set => SetPropertyValue("CuttingType", value ?? string.Empty, CustomPropertyType.Text);
+        }
+
+        public string Description
+        {
+            get => (GetPropertyValue("Description") ?? string.Empty).ToString();
+            set => SetPropertyValue("Description", value ?? string.Empty, CustomPropertyType.Text);
+        }
+
+        public string Customer
+        {
+            get => (GetPropertyValue("Customer") ?? string.Empty).ToString();
+            set => SetPropertyValue("Customer", value ?? string.Empty, CustomPropertyType.Text);
         }
         #endregion
 
@@ -144,9 +223,9 @@ namespace NM.Core
             if (!ValidateString(propertyName, procName, "property name")) return;
 
             // TODO(vNext): Add more robust validation for numeric and date types.
-            if (propertyType == CustomPropertyType.Number && value != null && !double.TryParse(value.ToString(), out _))
+            if (propertyType == CustomPropertyType.Number && value != null && !double.TryParse(value.ToString(), NumberStyles.Any, CultureInfo.InvariantCulture, out _))
             {
-                ErrorHandler.HandleError(procName, "Non-numeric value for numeric property", null, "Warning", $"Prop: {propertyName}, Val: {value}");
+                ErrorHandler.HandleError(procName, "Non-numeric value for numeric property", null, ErrorHandler.LogLevel.Warning, $"Prop: {propertyName}, Val: {value}");
                 return;
             }
 
@@ -280,10 +359,29 @@ namespace NM.Core
         {
             if (string.IsNullOrWhiteSpace(value))
             {
-                ErrorHandler.HandleError(procedureName, $"Invalid {paramName}: cannot be null or empty.", null, "Warning");
+                ErrorHandler.HandleError(procedureName, $"Invalid {paramName}: cannot be null or empty.", null, ErrorHandler.LogLevel.Warning);
                 return false;
             }
             return true;
+        }
+
+        private static bool ParseBool(object val)
+        {
+            if (val == null) return false;
+            var s = val.ToString();
+            if (bool.TryParse(s, out var b)) return b;
+            // accept 1/0
+            if (int.TryParse(s, out var i)) return i != 0;
+            return string.Equals(s, "yes", StringComparison.OrdinalIgnoreCase) || string.Equals(s, "y", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static double ParseDouble(object val)
+        {
+            if (val == null) return 0.0;
+            var s = val.ToString();
+            if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var d)) return d;
+            if (double.TryParse(s, out d)) return d;
+            return 0.0;
         }
         #endregion
     }

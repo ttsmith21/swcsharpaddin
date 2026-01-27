@@ -34,7 +34,9 @@ namespace NM.Core.Models
 
         public ModelType Type { get; private set; }
         public ProcessingState State { get; private set; }
-        public string ProblemDescription { get; private set; }
+        public string ProblemDescription { get; set; }
+        /// <summary>Component name when this model is part of an assembly.</summary>
+        public string ComponentName { get; set; }
 
         // Unified dirty flag: model edits OR pending custom property changes.
         private bool _modelDirty;

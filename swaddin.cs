@@ -849,6 +849,9 @@ namespace NM.Core
             /// <summary>Excel lookup file used for cutting information.</summary>
             public const string ExcelLookupFile = "NewLaser.xls";
 
+            /// <summary>Path to the ExtractData add-in DLL for external start.</summary>
+            public const string ExtractDataAddInPath = @"C:\Program Files\SolidWorks Corp\SolidWorks\Toolbox\data collector\ExtractData.dll";
+
             // TODO(vNext): Validate the paths at startup and provide user-friendly guidance if missing.
         }
 

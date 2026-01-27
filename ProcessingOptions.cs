@@ -50,6 +50,8 @@ namespace NM.Core
         public bool GrainConstraint { get; set; }
         /// <summary>Enable common cut (nesting) options if applicable.</summary>
         public bool CommonCut { get; set; }
+        /// <summary>Save changes to the model after processing.</summary>
+        public bool SaveChanges { get; set; }
 
         // Costing options
         /// <summary>Enable quoting/costing calculations.</summary>
@@ -92,6 +94,7 @@ namespace NM.Core
             UsePartNum = false;
             GrainConstraint = false;
             CommonCut = false;
+            SaveChanges = true;
 
             // Costing
             QuoteEnabled = false;

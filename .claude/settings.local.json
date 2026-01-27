@@ -8,7 +8,23 @@
       "Bash(powershell -ExecutionPolicy Bypass -File scripts/sync-csproj.ps1:*)",
       "Bash(powershell:*)",
       "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Professional\\\\MSBuild\\\\Current\\\\Bin\\\\amd64\\\\MSBuild.exe\" swcsharpaddin.csproj -p:Configuration=Debug -v:minimal -nologo)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add build infrastructure, tests, and documentation\n\nBuild Infrastructure:\n- scripts/build-and-test.ps1: VS MSBuild build + xUnit tests\n- scripts/sync-csproj.ps1: sync .cs files to old-style csproj\n- scripts/verify-registration.ps1: check add-in COM registration\n\nTesting:\n- src/NM.Core.Tests/: xUnit test project with smoke tests\n- Integration tests that skip gracefully when SW not running\n\nStatic Analysis:\n- .editorconfig: code style rules + analyzer severities\n- Roslynator + NetAnalyzers packages in csproj\n\nDocumentation:\n- CLAUDE.md: comprehensive guide for autonomous operation\n- .claude/skills/sw-api-patterns/: SW API reference patterns\n- VBA→C# conversion guide with gotchas table\n\nFixes:\n- ModelInfo.cs: proper discard pattern \\(var _ → _\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: port NM.Core domain models and services from broken commit\n\nPort all NM.Core files from bb89a66:\n- DataModel: PartData central DTO\n- Manufacturing: F140/F220/F325 calculators, cost constants, rates, \n  laser speed service, bend models\n- Materials: OptiMaterialService for thickness-based material lookup\n- Models: SwModelInfo pipeline wrapper\n- ProblemParts: ProblemPartManager with category tracking\n- Processing: PartDataPropertyMap for property conversion\n- Tubes: PipeScheduleService, cutting parameters, work center rules,\n  material code generator, round bar validator\n- Validation: ValidationResult and PartValidator\n\nAlso adds 4-arg back-compat overload to ErrorHandler for legacy callers.\n\nBuild passes with 76 warnings \\(mostly obsolete API usage\\).\nTests: 9/9 pass.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: add ExportManager for CSV/ERP export\n\nAdd NM.Core.Export.ExportManager with:\n- ExportToCsv: Full PartData export with all fields\n- ExportToErp: Minimal tab-delimited ERP routing format\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(for file in BendTableResolver.cs MainRunner.cs SimpleSheetMetalProcessor.cs ExternalStartAdapter.cs ProblemPartInfo.cs ProblemPartTracker.cs StepFileCleanupService.cs)",
+      "Bash(do if [ -f \"$file\" ])",
+      "Bash(then echo \"EXISTS: $file\")",
+      "Bash(else echo \"MISSING: $file\")",
+      "Bash(fi:*)",
+      "Bash(done)",
+      "Bash(git ls-tree:*)",
+      "Bash(test:*)",
+      "Bash(grep:*)",
+      "Bash(while read f)",
+      "Bash(do grep -q \"using NM.Core;\" \"$f\")",
+      "Bash(echo:*)"
     ]
   }
 }

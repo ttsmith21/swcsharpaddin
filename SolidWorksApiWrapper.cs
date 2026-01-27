@@ -1763,5 +1763,77 @@ namespace NM.SwAddin
             }
         }
         #endregion
+
+        #region Custom Property Helpers
+        /// <summary>
+        /// Gets a custom property value from a model.
+        /// </summary>
+        public static string GetCustomPropertyValue(IModelDoc2 model, string propName, string configName = "")
+        {
+            if (model == null || string.IsNullOrEmpty(propName)) return string.Empty;
+            try
+            {
+                var ext = model.Extension;
+                if (ext == null) return string.Empty;
+
+                var mgr = string.IsNullOrEmpty(configName)
+                    ? ext.get_CustomPropertyManager(string.Empty)
+                    : ext.get_CustomPropertyManager(configName);
+
+                if (mgr == null) return string.Empty;
+
+                string val = string.Empty;
+                string resolved = string.Empty;
+                bool wasResolved = false;
+                mgr.Get5(propName, false, out val, out resolved, out wasResolved);
+                return resolved ?? val ?? string.Empty;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        /// <summary>
+        /// Gets the fixed face from a model (for sheet metal processing).
+        /// Returns null if not found.
+        /// </summary>
+        public static IFace2 GetFixedFace(IModelDoc2 model)
+        {
+            if (model == null) return null;
+            try
+            {
+                var part = model as IPartDoc;
+                if (part == null) return null;
+
+                var bodies = part.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
+                if (bodies == null || bodies.Length == 0) return null;
+
+                foreach (var b in bodies)
+                {
+                    var body = b as IBody2;
+                    if (body == null) continue;
+                    var faces = body.GetFaces() as object[];
+                    if (faces == null) continue;
+                    foreach (var f in faces)
+                    {
+                        var face = f as IFace2;
+                        if (face == null) continue;
+                        var surf = face.IGetSurface();
+                        if (surf != null && surf.IsPlane())
+                        {
+                            // Return first planar face as fallback
+                            return face;
+                        }
+                    }
+                }
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+        #endregion
     }
 }

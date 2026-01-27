@@ -25,6 +25,7 @@ namespace NM.Core.ProblemParts
             Suppressed,
             Lightweight,
             Imported,
+            ProcessingError,
             Fatal
         }
 
