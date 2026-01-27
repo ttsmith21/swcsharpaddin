@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -Command \"& .\\scripts\\build-and-test.ps1 -SkipClean -SkipTests 2>&1 | Select-Object -Last 30\"",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -251,7 +251,7 @@ namespace NM.Core
             // Basic presence check for config constants. In .NET this will always be available if built.
             try
             {
-                var _ = Configuration.Materials.MetersToInches;
+                _ = Configuration.Materials.MetersToInches;
                 _ = Configuration.Materials.InchesToMeters;
                 return true;
             }

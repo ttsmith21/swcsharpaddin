@@ -1,0 +1,101 @@
+# EditorConfig for swcsharpaddin
+# https://editorconfig.org
+
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+end_of_line = crlf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.cs]
+# Formatting
+csharp_new_line_before_open_brace = all
+csharp_new_line_before_else = true
+csharp_new_line_before_catch = true
+csharp_new_line_before_finally = true
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+
+# Code style - prefer explicit types for clarity in COM interop code
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_elsewhere = false:suggestion
+
+# Expression-bodied members
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+csharp_style_expression_bodied_accessors = true:suggestion
+
+# Pattern matching
+csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
+csharp_style_pattern_matching_over_as_with_null_check = true:suggestion
+
+# Null checking
+csharp_style_throw_expression = true:suggestion
+csharp_style_conditional_delegate_call = true:suggestion
+
+# Using directives
+csharp_using_directive_placement = outside_namespace:warning
+
+# === Analyzer Rules ===
+
+# CA1062: Validate arguments of public methods - warning for now
+dotnet_diagnostic.CA1062.severity = warning
+
+# CA1822: Mark members as static - suggestion only (many SW callbacks can't be static)
+dotnet_diagnostic.CA1822.severity = suggestion
+
+# CA1031: Do not catch general exception types - suggestion (SW API throws generic exceptions)
+dotnet_diagnostic.CA1031.severity = suggestion
+
+# CA1303: Do not pass literals as localized parameters - none (not localizing)
+dotnet_diagnostic.CA1303.severity = none
+
+# CA1816: Call GC.SuppressFinalize correctly - warning
+dotnet_diagnostic.CA1816.severity = warning
+
+# CA2000: Dispose objects before losing scope - warning
+dotnet_diagnostic.CA2000.severity = warning
+
+# IDE0090: Use target-typed new - suggestion
+dotnet_diagnostic.IDE0090.severity = suggestion
+
+# IDE0059: Unnecessary assignment - warning
+dotnet_diagnostic.IDE0059.severity = warning
+
+# IDE0060: Remove unused parameter - warning
+dotnet_diagnostic.IDE0060.severity = warning
+
+# CS8600-CS8603: Nullable reference warnings - suggestion for now
+dotnet_diagnostic.CS8600.severity = suggestion
+dotnet_diagnostic.CS8601.severity = suggestion
+dotnet_diagnostic.CS8602.severity = suggestion
+dotnet_diagnostic.CS8603.severity = suggestion
+
+# RCS1036: Remove unnecessary blank line - suggestion
+dotnet_diagnostic.RCS1036.severity = suggestion
+
+# RCS1037: Remove trailing white-space - warning
+dotnet_diagnostic.RCS1037.severity = warning
+
+# RCS1018: Add accessibility modifiers - warning
+dotnet_diagnostic.RCS1018.severity = warning
+
+# RCS1163: Unused parameter - warning
+dotnet_diagnostic.RCS1163.severity = warning
+
+[*.{xml,csproj,props,targets}]
+indent_size = 2
+
+[*.{json,yml,yaml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.ps1]
+indent_size = 4

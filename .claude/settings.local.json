@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git reset:*)",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File scripts/sync-csproj.ps1:*)",
+      "Bash(powershell:*)",
+      "Bash(\"C:\\\\Program Files\\\\Microsoft Visual Studio\\\\2022\\\\Professional\\\\MSBuild\\\\Current\\\\Bin\\\\amd64\\\\MSBuild.exe\" swcsharpaddin.csproj -p:Configuration=Debug -v:minimal -nologo)",
+      "Bash(git add:*)"
+    ]
+  }
+}
