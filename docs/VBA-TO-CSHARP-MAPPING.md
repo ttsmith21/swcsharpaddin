@@ -183,7 +183,7 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 
 1. ~~**ERP Export** (`modExport.bas`) - The `Import.prn` generation is not ported~~ ✅ DONE via `ErpExportFormat`
 2. ~~**Cost Calculations** (`modMaterialCost.bas`) - `TotalCost()` incomplete~~ ✅ DONE via `TotalCostCalculator`, `MaterialCostCalculator`
-3. **Tube Geometry** - Cannot extract OD/ID/length from cylinder faces ⚠️ BLOCKED
+3. ~~**Tube Geometry** - Cannot extract OD/ID/length from cylinder faces~~ ✅ DONE via `TubeGeometryExtractor`
 4. ~~**Custom Properties Write** - `Add3` with `OverwriteExisting` not implemented~~ ✅ Already exists in `SolidWorksApiWrapper`
 
 ### Quick Wins - COMPLETED ✅

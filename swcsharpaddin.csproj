@@ -166,6 +166,9 @@
     <Compile Include="src\NM.SwAddin\Export\ReportService.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\QuoteWorkflow.cs" />
     <Compile Include="src\NM.SwAddin\Export\EDrawingExporter.cs" />
+    <Compile Include="src\NM.Core\Processing\TubeProfile.cs" />
+    <Compile Include="src\NM.SwAddin\Geometry\FaceWrapper.cs" />
+    <Compile Include="src\NM.SwAddin\Geometry\TubeGeometryExtractor.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />
