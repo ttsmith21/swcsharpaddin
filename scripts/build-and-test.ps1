@@ -126,7 +126,10 @@ if ($dllCreated -and $buildErrors.Count -eq 0) {
 } else {
     Write-Host "BUILD: FAILED" -ForegroundColor Red
     if ($buildErrors.Count -gt 0) {
-        Write-Host "  Errors: $($buildErrors.Count)" -ForegroundColor Red
+        # Write all errors to file for fix-usings.ps1 and analysis
+        $errorLogPath = Join-Path $projectRoot "build-errors.txt"
+        $buildErrors | Out-File -FilePath $errorLogPath -Encoding UTF8
+        Write-Host "  Errors: $($buildErrors.Count) (written to build-errors.txt)" -ForegroundColor Red
         $showCount = [Math]::Min($buildErrors.Count, 15)
         for ($i = 0; $i -lt $showCount; $i++) {
             Write-Host "    $($buildErrors[$i])" -ForegroundColor Red
