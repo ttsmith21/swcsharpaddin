@@ -16,8 +16,8 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 |--------------|---------------|--------|-------|
 | `main()` | `FolderProcessor.ProcessFolder()` | 🔶 | Batch processing loop |
 | `SingleMain()` | `MainRunner.ProcessActivePart()` | ✅ | Single part orchestration |
-| `QuoteStart()` | - | ❌ | Quote workflow entry |
-| `QuoteStartASM()` | - | ❌ | Assembly quote workflow |
+| `QuoteStart()` | `QuoteWorkflow.RunPartsQuote()` | ✅ | Quote workflow entry |
+| `QuoteStartASM()` | `QuoteWorkflow.RunAssemblyQuote()` | ✅ | Assembly quote workflow |
 | `Initialize()` | `SwAddin.ConnectToSW()` | ✅ | Add-in initialization |
 | `ProcessModel()` | `MainRunner.Run()` | 🔶 | Core processing logic |
 | `CustomProperties()` | `CustomPropertiesService.ReadIntoCache()` | 🔶 | Read works, write partial |
@@ -31,10 +31,10 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 | `SaveCurrentModel()` | `SolidWorksFileOperations.Save()` | ✅ | File save |
 | `GetLargestFace()` | `SolidWorksApiWrapper.GetFixedFace()` | ✅ | Face selection |
 | `ShowProgress()` | `ProgressForm.SetStep()` | ✅ | UI progress |
-| `Report()` | - | ❌ | Summary report generation |
-| `ReportPart()` | - | ❌ | Part-level reporting |
-| `CreateDrawing()` | - | ❌ | Drawing automation |
-| `SingleDrawing()` | - | ❌ | Single drawing creation |
+| `Report()` | `ReportService.GenerateAssemblyReport()` | ✅ | Summary report generation |
+| `ReportPart()` | `ReportService.GenerateFolderReport()` | ✅ | Part-level reporting |
+| `CreateDrawing()` | `DrawingGenerator.CreateDrawing()` | ✅ | Drawing automation |
+| `SingleDrawing()` | `DrawingGenerator.CreateDrawingForActiveDoc()` | ✅ | Single drawing creation |
 
 ### Tube Processing (SP.bas)
 
@@ -174,9 +174,9 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 
 | Status | Count | Percentage |
 |--------|-------|------------|
-| ✅ Done | ~45 | ~45% |
-| 🔶 Partial | ~25 | ~25% |
-| ❌ Not Started | ~20 | ~20% |
+| ✅ Done | ~55 | ~55% |
+| 🔶 Partial | ~20 | ~20% |
+| ❌ Not Started | ~15 | ~15% |
 | ⏭️ Skip | ~10 | ~10% |
 
 ### Critical Path - What's Blocking Production Use

@@ -161,6 +161,10 @@
     <Compile Include="src\NM.Core\Utils\StringUtils.cs" />
     <Compile Include="src\NM.Core\Manufacturing\MassValidator.cs" />
     <Compile Include="src\NM.Core\Manufacturing\MaterialCostCalculator.cs" />
+    <Compile Include="src\NM.Core\Export\ReportGenerator.cs" />
+    <Compile Include="src\NM.SwAddin\Drawing\DrawingGenerator.cs" />
+    <Compile Include="src\NM.SwAddin\Export\ReportService.cs" />
+    <Compile Include="src\NM.SwAddin\Pipeline\QuoteWorkflow.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />
