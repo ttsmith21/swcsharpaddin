@@ -15,6 +15,21 @@ namespace NM.SwAddin.Processing
         private readonly IPartProcessor _tube;
         private readonly IPartProcessor _machined;
 
+        /// <summary>
+        /// Convenience constructor that creates all processors with ISldWorks dependency.
+        /// This is the preferred constructor for production use.
+        /// </summary>
+        public ProcessorFactory(ISldWorks swApp)
+        {
+            _generic = new GenericPartProcessor();
+            _sheet = new SheetMetalPartProcessor(swApp);
+            _tube = new TubePartProcessor(swApp);
+            _machined = null; // Not implemented yet
+        }
+
+        /// <summary>
+        /// Full constructor for testing or custom processor injection.
+        /// </summary>
         public ProcessorFactory(IPartProcessor generic, IPartProcessor sheet = null, IPartProcessor tube = null, IPartProcessor machined = null)
         {
             _generic = generic ?? new GenericPartProcessor();

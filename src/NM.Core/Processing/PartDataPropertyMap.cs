@@ -35,12 +35,32 @@ namespace NM.Core.Processing
             p["F140_S_Cost"] = d.Cost.F140_S_Cost.ToString("0.####", Inv);
             p["F140_Price"] = d.Cost.F140_Price.ToString("0.####", Inv);
 
-            // F220
+            // F210 Deburr
+            p["F210_S"] = d.Cost.F210_S_min.ToString("0.####", Inv);
+            p["F210_R"] = d.Cost.F210_R_min.ToString("0.####", Inv);
+            p["F210_Price"] = d.Cost.F210_Price.ToString("0.####", Inv);
+
+            // F220 Tapping
             p["F220"] = d.Cost.F220_min.ToString("0.####", Inv);
             p["F220_S"] = d.Cost.F220_S_min.ToString("0.####", Inv);
             p["F220_R"] = d.Cost.F220_R_min.ToString("0.####", Inv);
             p["F220_RN"] = d.Cost.F220_RN.ToString(Inv);
             p["F220_Note"] = d.Cost.F220_Note ?? string.Empty;
+            p["F220_Price"] = d.Cost.F220_Price.ToString("0.####", Inv);
+
+            // F325 Roll Forming
+            p["F325_S"] = d.Cost.F325_S_min.ToString("0.####", Inv);
+            p["F325_R"] = d.Cost.F325_R_min.ToString("0.####", Inv);
+            p["F325_Price"] = d.Cost.F325_Price.ToString("0.####", Inv);
+
+            // Material costs and totals
+            p["MaterialCost"] = d.Cost.MaterialCost.ToString("0.##", Inv);
+            p["MaterialWeight_lb"] = d.Cost.MaterialWeight_lb.ToString("0.####", Inv);
+            p["TotalMaterialCost"] = d.Cost.TotalMaterialCost.ToString("0.##", Inv);
+            p["TotalProcessingCost"] = d.Cost.TotalProcessingCost.ToString("0.##", Inv);
+            p["TotalCost"] = d.Cost.TotalCost.ToString("0.##", Inv);
+            if (!string.IsNullOrEmpty(d.Cost.OP20_WorkCenter))
+                p["OP20_WorkCenter"] = d.Cost.OP20_WorkCenter;
 
             // Material and basics
             p["MaterialCostPerLB"] = d.MaterialCostPerLB.ToString("0.####", Inv);
@@ -82,11 +102,31 @@ namespace NM.Core.Processing
             d.Cost.F140_S_Cost = D("F140_S_Cost");
             d.Cost.F140_Price = D("F140_Price");
 
+            // F210 Deburr
+            d.Cost.F210_S_min = D("F210_S");
+            d.Cost.F210_R_min = D("F210_R");
+            d.Cost.F210_Price = D("F210_Price");
+
+            // F220 Tapping
             d.Cost.F220_min = D("F220");
             d.Cost.F220_S_min = D("F220_S");
             d.Cost.F220_R_min = D("F220_R");
             d.Cost.F220_RN = I("F220_RN");
             d.Cost.F220_Note = Get(props, "F220_Note");
+            d.Cost.F220_Price = D("F220_Price");
+
+            // F325 Roll Forming
+            d.Cost.F325_S_min = D("F325_S");
+            d.Cost.F325_R_min = D("F325_R");
+            d.Cost.F325_Price = D("F325_Price");
+
+            // Material costs and totals
+            d.Cost.MaterialCost = D("MaterialCost");
+            d.Cost.MaterialWeight_lb = D("MaterialWeight_lb");
+            d.Cost.TotalMaterialCost = D("TotalMaterialCost");
+            d.Cost.TotalProcessingCost = D("TotalProcessingCost");
+            d.Cost.TotalCost = D("TotalCost");
+            d.Cost.OP20_WorkCenter = Get(props, "OP20_WorkCenter");
 
             d.MaterialCostPerLB = D("MaterialCostPerLB");
             if (d.MaterialCostPerLB == 0)

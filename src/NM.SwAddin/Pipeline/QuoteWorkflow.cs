@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NM.Core;
+using NM.Core.DataModel;
+using NM.Core.Export;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
@@ -25,7 +27,9 @@ namespace NM.SwAddin.Pipeline
             public int FailedCount { get; set; }
             public List<string> FailedFiles { get; } = new List<string>();
             public List<string> ProcessedFiles { get; } = new List<string>();
+            public List<PartData> ProcessedParts { get; } = new List<PartData>();
             public string Message { get; set; }
+            public string ErpExportPath { get; set; }
         }
 
         public sealed class QuoteOptions
@@ -34,6 +38,15 @@ namespace NM.SwAddin.Pipeline
             public bool HideSolidWorks { get; set; } = true;
             public bool DeleteOriginalImports { get; set; } = false;
             public Action<string, int, int> ProgressCallback { get; set; }
+
+            // ERP Export options
+            public bool GenerateErpExport { get; set; } = false;
+            public string ErpExportPath { get; set; }
+            public string Customer { get; set; } = "";
+            public string ParentPartNumber { get; set; } = "";
+
+            // Processing options to pass to MainRunner
+            public ProcessingOptions ProcessingOptions { get; set; }
         }
 
         private static readonly string[] ImportExtensions = { ".igs", ".iges", ".step", ".stp", ".sat" };
@@ -81,6 +94,8 @@ namespace NM.SwAddin.Pipeline
                     _swApp.UserControl = false;
                 }
 
+                var procOptions = options.ProcessingOptions ?? new ProcessingOptions();
+
                 for (int i = 0; i < partFiles.Count; i++)
                 {
                     string partFile = partFiles[i];
@@ -88,16 +103,50 @@ namespace NM.SwAddin.Pipeline
 
                     options.ProgressCallback?.Invoke(partName, i + 1, partFiles.Count);
 
-                    bool processed = ProcessSinglePart(partFile);
-                    if (processed)
+                    var partData = ProcessSinglePartData(partFile, procOptions);
+                    if (partData != null && partData.Status == ProcessingStatus.Success)
                     {
                         result.ProcessedCount++;
                         result.ProcessedFiles.Add(partFile);
+                        result.ProcessedParts.Add(partData);
                     }
                     else
                     {
                         result.FailedCount++;
                         result.FailedFiles.Add(partFile);
+                    }
+                }
+
+                // Phase 4: Generate ERP export if requested
+                if (options.GenerateErpExport && result.ProcessedParts.Count > 0)
+                {
+                    try
+                    {
+                        string exportPath = options.ErpExportPath;
+                        if (string.IsNullOrEmpty(exportPath))
+                        {
+                            exportPath = Path.Combine(_workingFolder, "Import.prn");
+                        }
+
+                        string parentNumber = options.ParentPartNumber;
+                        if (string.IsNullOrEmpty(parentNumber))
+                        {
+                            parentNumber = Path.GetFileName(_workingFolder);
+                        }
+
+                        var erpData = ErpExportDataBuilder.FromPartDataCollection(
+                            result.ProcessedParts,
+                            parentNumber,
+                            options.Customer,
+                            $"Quote for {parentNumber}");
+
+                        var exporter = new ErpExportFormat { Customer = options.Customer };
+                        exporter.ExportToImportPrn(erpData, exportPath);
+                        result.ErpExportPath = exportPath;
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorHandler.HandleError(proc, "ERP export failed", ex);
                     }
                 }
 
@@ -278,6 +327,12 @@ namespace NM.SwAddin.Pipeline
 
         private bool ProcessSinglePart(string partPath)
         {
+            var partData = ProcessSinglePartData(partPath, new ProcessingOptions());
+            return partData != null && partData.Status == ProcessingStatus.Success;
+        }
+
+        private PartData ProcessSinglePartData(string partPath, ProcessingOptions procOptions)
+        {
             try
             {
                 int errors = 0;
@@ -291,13 +346,21 @@ namespace NM.SwAddin.Pipeline
                     ref errors,
                     ref warnings) as IModelDoc2;
 
-                if (model == null) return false;
+                if (model == null)
+                {
+                    return new PartData
+                    {
+                        FilePath = partPath,
+                        Status = ProcessingStatus.Failed,
+                        FailureReason = "Failed to open part file"
+                    };
+                }
 
-                // Run the main processing pipeline
-                var runResult = MainRunner.RunSinglePart(_swApp, model, new ProcessingOptions());
+                // Run the main processing pipeline and get PartData
+                var partData = MainRunner.RunSinglePartData(_swApp, model, procOptions);
 
                 // Save if successful
-                if (runResult.Success)
+                if (partData.Status == ProcessingStatus.Success)
                 {
                     model.Save3(
                         (int)swSaveAsOptions_e.swSaveAsOptions_Silent,
@@ -306,12 +369,17 @@ namespace NM.SwAddin.Pipeline
                 }
 
                 _swApp.CloseAllDocuments(true);
-                return runResult.Success;
+                return partData;
             }
             catch (Exception ex)
             {
-                ErrorHandler.DebugLog($"ProcessSinglePart failed: {ex.Message}");
-                return false;
+                ErrorHandler.DebugLog($"ProcessSinglePartData failed: {ex.Message}");
+                return new PartData
+                {
+                    FilePath = partPath,
+                    Status = ProcessingStatus.Failed,
+                    FailureReason = ex.Message
+                };
             }
         }
 

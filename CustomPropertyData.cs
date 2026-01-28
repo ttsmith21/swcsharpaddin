@@ -197,6 +197,38 @@ namespace NM.Core
             get => (GetPropertyValue("Customer") ?? string.Empty).ToString();
             set => SetPropertyValue("Customer", value ?? string.Empty, CustomPropertyType.Text);
         }
+
+        // Bend-related properties for cost calculations
+        public int BendCount
+        {
+            get => (int)Math.Round(ParseDouble(GetPropertyValue("BendCount")));
+            set => SetPropertyValue("BendCount", value.ToString(CultureInfo.InvariantCulture), CustomPropertyType.Number);
+        }
+
+        public double LongestBendIn
+        {
+            get => ParseDouble(GetPropertyValue("LongestBendIn"));
+            set => SetPropertyValue("LongestBendIn", value.ToString("0.###", CultureInfo.InvariantCulture), CustomPropertyType.Number);
+        }
+
+        public double MaxBendRadiusIn
+        {
+            get => ParseDouble(GetPropertyValue("MaxBendRadiusIn"));
+            set => SetPropertyValue("MaxBendRadiusIn", value.ToString("0.###", CultureInfo.InvariantCulture), CustomPropertyType.Number);
+        }
+
+        public double ArcLengthIn
+        {
+            get => ParseDouble(GetPropertyValue("ArcLengthIn"));
+            set => SetPropertyValue("ArcLengthIn", value.ToString("0.###", CultureInfo.InvariantCulture), CustomPropertyType.Number);
+        }
+
+        // Tapped hole count for F220 tapping calculations
+        public int TappedHoleCount
+        {
+            get => (int)Math.Round(ParseDouble(GetPropertyValue("TappedHoleCount")));
+            set => SetPropertyValue("TappedHoleCount", value.ToString(CultureInfo.InvariantCulture), CustomPropertyType.Number);
+        }
         #endregion
 
         #region Public Methods

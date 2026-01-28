@@ -13,7 +13,23 @@ namespace NM.SwAddin.Processing
     {
         public ProcessorType Type => ProcessorType.Tube;
 
-        private readonly SimpleTubeProcessor _core = new SimpleTubeProcessor();
+        private readonly SimpleTubeProcessor _core;
+
+        /// <summary>
+        /// Default constructor for backward compatibility.
+        /// </summary>
+        public TubePartProcessor()
+        {
+            _core = new SimpleTubeProcessor();
+        }
+
+        /// <summary>
+        /// Constructor with ISldWorks for enhanced tube geometry extraction.
+        /// </summary>
+        public TubePartProcessor(ISldWorks swApp)
+        {
+            _core = new SimpleTubeProcessor(swApp);
+        }
 
         public bool CanProcess(IModelDoc2 model)
         {

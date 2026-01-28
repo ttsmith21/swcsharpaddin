@@ -74,9 +74,15 @@ namespace NM.Core.DataModel
     public sealed class CostingData
     {
         // Laser / Waterjet (OP20)
+        public string OP20_WorkCenter { get; set; }  // e.g., "F115", "F116"
         public double OP20_S_min { get; set; }
         public double OP20_R_min { get; set; }
         public double F115_Price { get; set; }
+
+        // Deburr (F210)
+        public double F210_S_min { get; set; }
+        public double F210_R_min { get; set; }
+        public double F210_Price { get; set; }
 
         // Press brake (F140)
         public double F140_S_min { get; set; }
@@ -90,11 +96,21 @@ namespace NM.Core.DataModel
         public double F220_R_min { get; set; }
         public int F220_RN { get; set; }
         public string F220_Note { get; set; }
+        public double F220_Price { get; set; }
 
         // Forming (F325)
         public double F325_S_min { get; set; }
         public double F325_R_min { get; set; }
         public double F325_Price { get; set; }
+
+        // Material costs
+        public double MaterialCost { get; set; }
+        public double MaterialWeight_lb { get; set; }
+
+        // Totals
+        public double TotalMaterialCost { get; set; }
+        public double TotalProcessingCost { get; set; }
+        public double TotalCost { get; set; }
     }
 
     public enum ProcessingStatus { Pending, Success, Failed, Skipped }

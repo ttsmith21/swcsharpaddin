@@ -62,6 +62,14 @@ namespace NM.Core
         public int Quantity { get; set; }
         /// <summary>Difficulty factor (Tight, Normal, Loose) impacting costing multipliers.</summary>
         public DifficultyLevel Difficulty { get; set; }
+        /// <summary>Nest efficiency for material utilization (0.0-1.0, default 0.85 = 85%).</summary>
+        public double NestEfficiency { get; set; }
+
+        // Export options
+        /// <summary>Generate ERP Import.prn file at end of workflow.</summary>
+        public bool GenerateErpExport { get; set; }
+        /// <summary>Path for ERP export output. If null, uses working folder.</summary>
+        public string ErpExportPath { get; set; }
 
         /// <summary>
         /// Create a new options instance with defaults derived from Configuration constants
@@ -101,6 +109,11 @@ namespace NM.Core
             CostPerLB = Configuration.Defaults.DefaultCostPerLb; // DEFAULT_COST_PER_LB
             Quantity = Configuration.Defaults.DefaultQuantity;   // DEFAULT_QUANTITY
             Difficulty = DifficultyLevel.Normal;
+            NestEfficiency = 0.85; // 85% material utilization
+
+            // Export
+            GenerateErpExport = false;
+            ErpExportPath = string.Empty;
         }
     }
 

@@ -1,6 +1,7 @@
 using System;
 using NM.Core;
 using NM.Core.DataModel;
+using NM.Core.Manufacturing;
 using NM.Core.Processing;
 using NM.SwAddin.Processing;
 using SolidWorks.Interop.sldworks;
@@ -56,13 +57,11 @@ namespace NM.SwAddin.Pipeline
                 var swModel = new SolidWorksModel(info, swApp);
                 swModel.Attach(doc, cfg);
 
-                // Run a simple processor now (sheet/tube routing can be added later)
-                var processor = new GenericPartProcessor();
-                if (!processor.CanProcess(doc))
-                {
-                    return new RunResult { Success = false, Message = "Unsupported document type" };
-                }
+                // Use ProcessorFactory to detect part type and route to correct processor
+                var factory = new ProcessorFactory(swApp);
+                var processor = factory.DetectFor(doc);
 
+                // Processor will be SheetMetal, Tube, or Generic based on part characteristics
                 var pres = processor.Process(doc, info, options ?? new ProcessingOptions());
                 if (!pres.Success)
                 {
@@ -158,14 +157,15 @@ namespace NM.SwAddin.Pipeline
                 }
                 catch { }
 
-                // Run generic processor for baseline metrics/properties
-                var processor = new GenericPartProcessor();
-                if (!processor.CanProcess(doc))
-                {
-                    pd.Status = ProcessingStatus.Skipped;
-                    pd.FailureReason = "Unsupported document type";
-                    return pd;
-                }
+                // Use ProcessorFactory to detect part type and route to correct processor
+                var factory = new ProcessorFactory(swApp);
+                var processor = factory.DetectFor(doc);
+
+                // Update classification based on detected processor type
+                if (processor.Type == ProcessorType.SheetMetal)
+                    pd.Classification = PartType.SheetMetal;
+                else if (processor.Type == ProcessorType.Tube)
+                    pd.Classification = PartType.Tube;
 
                 var pres = processor.Process(doc, info, options ?? new ProcessingOptions());
                 if (!pres.Success)
@@ -192,6 +192,16 @@ namespace NM.SwAddin.Pipeline
 
                 // Sheet percent if written by processors
                 pd.SheetPercent = info.CustomProperties.SheetPercent;
+
+                // Read sheet metal data from custom properties if available
+                if (info.CustomProperties.BendCount > 0)
+                {
+                    pd.Sheet.IsSheetMetal = true;
+                    pd.Sheet.BendCount = info.CustomProperties.BendCount;
+                }
+
+                // ====== COST CALCULATIONS ======
+                CalculateCosts(pd, info, options ?? new ProcessingOptions());
 
                 // Map DTO -> properties and batch save
                 var mapped = PartDataPropertyMap.ToProperties(pd);
@@ -225,6 +235,105 @@ namespace NM.SwAddin.Pipeline
             finally
             {
                 ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Calculates all work center costs and populates PartData.Cost.
+        /// </summary>
+        private static void CalculateCosts(PartData pd, ModelInfo info, ProcessingOptions options)
+        {
+            const double KG_TO_LB = 2.20462;
+            const double M_TO_IN = 39.3701;
+
+            try
+            {
+                double rawWeightLb = pd.Mass_kg * KG_TO_LB;
+                pd.Cost.MaterialWeight_lb = rawWeightLb;
+                int quantity = Math.Max(1, options.Quantity > 0 ? options.Quantity : pd.QuoteQty);
+
+                // F210 Deburr - based on cut perimeter
+                if (pd.Sheet.TotalCutLength_m > 0)
+                {
+                    double cutPerimeterIn = pd.Sheet.TotalCutLength_m * M_TO_IN;
+                    double f210Hours = F210Calculator.ComputeHours(cutPerimeterIn);
+                    pd.Cost.F210_R_min = f210Hours * 60.0;
+                    pd.Cost.F210_Price = F210Calculator.ComputeCost(cutPerimeterIn, quantity);
+                }
+
+                // F140 Press Brake - based on bend info
+                if (pd.Sheet.BendCount > 0)
+                {
+                    var bendInfo = new BendInfo
+                    {
+                        Count = pd.Sheet.BendCount,
+                        LongestBendIn = info.CustomProperties.LongestBendIn > 0
+                            ? info.CustomProperties.LongestBendIn
+                            : pd.BBoxWidth_m * M_TO_IN, // Estimate from bounding box
+                        NeedsFlip = pd.Sheet.BendsBothDirections
+                    };
+
+                    var f140Result = F140Calculator.Compute(bendInfo, rawWeightLb, quantity);
+                    pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
+                    pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
+                    pd.Cost.F140_Price = f140Result.Price(quantity);
+                }
+
+                // F220 Tapping - based on tapped hole count
+                int tappedHoles = info.CustomProperties.TappedHoleCount;
+                if (tappedHoles > 0)
+                {
+                    var f220Input = new F220Input { Setups = 1, Holes = tappedHoles };
+                    var f220Result = F220Calculator.Compute(f220Input);
+                    pd.Cost.F220_S_min = f220Result.SetupHours * 60.0;
+                    pd.Cost.F220_R_min = f220Result.RunHours * 60.0;
+                    pd.Cost.F220_RN = tappedHoles;
+                    pd.Cost.F220_Price = (f220Result.SetupHours + f220Result.RunHours * quantity) * CostConstants.F220_COST;
+                }
+
+                // F325 Roll Forming - based on max bend radius
+                double maxRadiusIn = info.CustomProperties.MaxBendRadiusIn;
+                if (maxRadiusIn > 2.0) // Only if radius > 2 inches
+                {
+                    var f325Calc = new F325Calculator();
+                    double arcLengthIn = info.CustomProperties.ArcLengthIn > 0
+                        ? info.CustomProperties.ArcLengthIn
+                        : maxRadiusIn * 3.14159; // Rough estimate: half circle
+                    var f325Result = f325Calc.CalculateRollForming(maxRadiusIn, arcLengthIn, quantity);
+                    if (f325Result.RequiresRollForming)
+                    {
+                        pd.Cost.F325_S_min = f325Result.SetupHours * 60.0;
+                        pd.Cost.F325_R_min = f325Result.RunHours * 60.0;
+                        pd.Cost.F325_Price = f325Result.TotalCost;
+                    }
+                }
+
+                // Material Cost
+                if (rawWeightLb > 0 && !string.IsNullOrWhiteSpace(pd.Material))
+                {
+                    var matInput = new MaterialCostCalculator.MaterialCostInput
+                    {
+                        WeightLb = rawWeightLb,
+                        MaterialCode = pd.Material,
+                        Quantity = quantity,
+                        NestEfficiency = options.NestEfficiency > 0 ? options.NestEfficiency : 0.85
+                    };
+                    var matResult = MaterialCostCalculator.Calculate(matInput);
+                    pd.Cost.MaterialCost = matResult.CostPerPiece;
+                    pd.Cost.TotalMaterialCost = matResult.TotalMaterialCost;
+                    pd.MaterialCostPerLB = matResult.CostPerLb;
+                }
+
+                // Total Cost Rollup
+                double processingCost = pd.Cost.F115_Price + pd.Cost.F210_Price +
+                                        pd.Cost.F140_Price + pd.Cost.F220_Price +
+                                        pd.Cost.F325_Price;
+                pd.Cost.TotalProcessingCost = processingCost;
+                pd.Cost.TotalCost = pd.Cost.TotalMaterialCost + processingCost;
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError("CalculateCosts", "Cost calculation failed", ex, ErrorHandler.LogLevel.Warning);
             }
         }
     }
