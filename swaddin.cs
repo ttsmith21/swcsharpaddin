@@ -37,16 +37,13 @@ namespace swcsharpaddin
         public const int mainItemID1 = 0;
         public const int mainItemID2 = 1;
         public const int mainItemID3 = 2;
-        public const int flyoutGroupID = 91;
+        public const int mainItemID4 = 3;
 
         #region Event Handler Variables
         Hashtable openDocs = new Hashtable();
         SolidWorks.Interop.sldworks.SldWorks SwEventPtr = null;
         #endregion
 
-        #region Property Manager Variables
-        UserPMPage ppage = null;
-        #endregion
 
 
         // Public Properties
@@ -167,17 +164,12 @@ namespace swcsharpaddin
             AttachEventHandlers();
             #endregion
 
-            #region Setup Sample Property Manager
-            AddPMP();
-            #endregion
-
             return true;
         }
 
         public bool DisconnectFromSW()
         {
             RemoveCommandMgr();
-            RemovePMP();
             DetachEventHandlers();
 
 	    System.Runtime.InteropServices.Marshal.ReleaseComObject(iCmdMgr);
@@ -202,7 +194,7 @@ namespace swcsharpaddin
             if(iBmp == null)
                 iBmp = new BitmapHandler();
             Assembly thisAssembly;
-            int cmdIndex0, cmdIndex1, cmdIndex2;
+            int cmdIndex2 = -1;
             string Title = "C# Addin", ToolTip = "C# Addin";
 
 
@@ -237,8 +229,7 @@ namespace swcsharpaddin
             cmdGroup.SmallMainIcon = iBmp.CreateFileFromResourceBitmap("swcsharpaddin.MainIconSmall.bmp", thisAssembly);
 
             int menuToolbarOption = (int)(swCommandItemType_e.swMenuItem | swCommandItemType_e.swToolbarItem);
-            cmdIndex0 = cmdGroup.AddCommandItem2("CreateCube", -1, "Create a cube", "Create cube", 0, "CreateCube", "", mainItemID1, menuToolbarOption);
-            cmdIndex1 = cmdGroup.AddCommandItem2("Show PMP", -1, "Display sample property manager", "Show PMP", 2, "ShowPMP", "EnablePMP", mainItemID2, menuToolbarOption);
+            cmdGroup.AddCommandItem2("Run Pipeline", -1, "Run unified processing pipeline", "Run Pipeline", 1, "RunPipeline", "", mainItemID4, menuToolbarOption);
 #if DEBUG
             cmdIndex2 = cmdGroup.AddCommandItem2("Run Smoke Tests", -1, "Run automated smoke tests", "Run Tests", 3, "RunSmokeTests", "", mainItemID3, menuToolbarOption);
 #endif
@@ -248,16 +239,6 @@ namespace swcsharpaddin
                 cmdGroup.Activate();
 
                 bool bResult;
-
-
-
-            FlyoutGroup flyGroup = iCmdMgr.CreateFlyoutGroup(flyoutGroupID, "Dynamic Flyout", "Flyout Tooltip", "Flyout Hint",
-              cmdGroup.SmallMainIcon, cmdGroup.LargeMainIcon, cmdGroup.SmallIconList, cmdGroup.LargeIconList, "FlyoutCallback", "FlyoutEnable");
-
-           
-            flyGroup.AddCommandItem("FlyoutCommand 1", "test", 0, "FlyoutCommandItem1", "FlyoutEnableCommandItem1");
-
-            flyGroup.FlyoutType = (int)swCommandFlyoutStyle_e.swCommandFlyoutStyle_Simple;
             
             
                 foreach (int type in docTypes)
@@ -279,38 +260,24 @@ namespace swcsharpaddin
 
                         CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
 
-                        int[] cmdIDs = new int[4];
-                        int[] TextType = new int[4];
+#if DEBUG
+                        int[] cmdIDs = new int[2];
+                        int[] TextType = new int[2];
 
-                        cmdIDs[0] = cmdGroup.get_CommandID(cmdIndex0);
+                        cmdIDs[0] = cmdGroup.ToolbarId;
                         TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                        cmdIDs[1] = cmdGroup.get_CommandID(cmdIndex1);
+                        cmdIDs[1] = cmdGroup.get_CommandID(cmdIndex2);
                         TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+#else
+                        int[] cmdIDs = new int[1];
+                        int[] TextType = new int[1];
 
-#if DEBUG
-                        cmdIDs[2] = cmdGroup.get_CommandID(cmdIndex2);
-                        TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+                        cmdIDs[0] = cmdGroup.ToolbarId;
+                        TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #endif
 
-                        cmdIDs[3] = cmdGroup.ToolbarId;
-                        TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal | (int)swCommandTabButtonFlyoutStyle_e.swCommandTabButton_ActionFlyout;
-
                         bResult = cmdBox.AddCommands(cmdIDs, TextType);
-
-
-
-                        CommandTabBox cmdBox1 = cmdTab.AddCommandTabBox();
-                        cmdIDs = new int[1];
-                        TextType = new int[1];
-
-                    cmdIDs[0] = flyGroup.CmdID;
-                        TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextBelow | (int)swCommandTabButtonFlyoutStyle_e.swCommandTabButton_ActionFlyout;
-
-                        bResult = cmdBox1.AddCommands(cmdIDs, TextType);
-
-                    cmdTab.AddSeparator(cmdBox1, cmdIDs[0]);
-
                     }
 
                 }
@@ -321,9 +288,7 @@ namespace swcsharpaddin
         public void RemoveCommandMgr()
         {
             iBmp.Dispose();
-
             iCmdMgr.RemoveCommandGroup(mainCmdGroupID);
-            iCmdMgr.RemoveFlyoutGroup(flyoutGroupID);
         }
 
         public bool CompareIDs(int[] storedIDs, int[] addinIDs)
@@ -352,88 +317,9 @@ namespace swcsharpaddin
             return true;
         }
 
-        public Boolean AddPMP()
-        {
-            ppage = new UserPMPage(this);
-            return true;
-        }
-
-        public Boolean RemovePMP()
-        {
-            ppage = null;
-            return true;
-        }
-
         #endregion
 
         #region UI Callbacks
-        public void CreateCube()
-        {
-            //make sure we have a part open
-            string partTemplate = iSwApp.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplatePart);
-            if ((partTemplate != null) && (partTemplate != ""))
-            {
-                IModelDoc2 modDoc = (IModelDoc2)iSwApp.NewDocument(partTemplate, (int)swDwgPaperSizes_e.swDwgPaperA2size, 0.0, 0.0);
-
-                modDoc.InsertSketch2(true);
-                modDoc.SketchRectangle(0, 0, 0, .1, .1, .1, false);
-                //Extrude the sketch
-                IFeatureManager featMan = modDoc.FeatureManager;
-                featMan.FeatureExtrusion(true,
-                    false, false,
-                    (int)swEndConditions_e.swEndCondBlind, (int)swEndConditions_e.swEndCondBlind,
-                    0.1, 0.0,
-                    false, false,
-                    false, false,
-                    0.0, 0.0,
-                    false, false,
-                    false, false,
-                    true,
-                    false, false);
-            }
-            else
-            {
-                System.Windows.Forms.MessageBox.Show("There is no part template available. Please check your options and make sure there is a part template selected, or select a new part template.");
-            }
-        }
-
-
-        public void ShowPMP()
-        {
-            if (ppage != null)
-                ppage.Show();
-        }
-
-        public int EnablePMP()
-        {
-            if (iSwApp.ActiveDoc != null)
-                return 1;
-            else
-                return 0;
-        }
-
-        public void FlyoutCallback()
-        {
-            FlyoutGroup flyGroup = iCmdMgr.GetFlyoutGroup(flyoutGroupID);
-            flyGroup.RemoveAllCommandItems();
-
-            flyGroup.AddCommandItem(System.DateTime.Now.ToLongTimeString(), "test", 0, "FlyoutCommandItem1", "FlyoutEnableCommandItem1");
-
-        }
-        public int FlyoutEnable()
-        {
-            return 1;
-        }
-
-        public void FlyoutCommandItem1()
-        {
-            iSwApp.SendMsgToUser("Flyout command 1");
-        }
-
-        public int FlyoutEnableCommandItem1()
-        {
-            return 1;
-        }
         #endregion
 
         #region Event Methods
@@ -595,6 +481,28 @@ namespace swcsharpaddin
         }
 
         #endregion
+
+        /// <summary>
+        /// Runs the unified two-pass workflow: validate all → show problems → process good.
+        /// </summary>
+        public void RunPipeline()
+        {
+            NM.Core.ErrorHandler.PushCallStack("RunPipeline");
+            try
+            {
+                var dispatcher = new NM.SwAddin.Pipeline.WorkflowDispatcher(iSwApp);
+                dispatcher.Run();
+            }
+            catch (System.Exception ex)
+            {
+                NM.Core.ErrorHandler.HandleError("RunPipeline", ex.Message, ex, NM.Core.ErrorHandler.LogLevel.Error);
+                System.Windows.Forms.MessageBox.Show($"Pipeline error: {ex.Message}", "Error");
+            }
+            finally
+            {
+                NM.Core.ErrorHandler.PopCallStack();
+            }
+        }
 
 #if DEBUG
         public void RunSmokeTests()
