@@ -667,12 +667,20 @@ The `fix-usings.ps1` script knows these mappings and can auto-add them.
 
 ## VBA Reference
 
-The original VBA macro is in GitHub repo `ttsmith21/Solidworks-Automator-VBA`:
-- `SP.bas` - Main controller (batch processing, state management)
-- `modExport.bas` - ERP data export (Import.prn generation)
-- `modMaterialCost.bas` / `modMaterialUpdate.bas` - Costing calculators
-- `DimensionDrawing.bas` - Automated dimensioning
-- `sheetmetal1.bas` - Sheet metal validation
+The original VBA macro is in GitHub repo `ttsmith21/Solidworks-Automator-VBA`.
+VBA source files are cached in `docs/vba-reference/` for offline access.
+
+**See `docs/VBA-TO-CSHARP-MAPPING.md` for complete function-by-function mapping.**
+
+| VBA Module | Purpose | Port Status |
+|------------|---------|-------------|
+| `SP.bas` | Main controller, batch processing | 🔶 ~60% |
+| `modExport.bas` | ERP data export (Import.prn) | ❌ ~10% |
+| `modMaterialCost.bas` | Cost calculations | 🔶 ~40% |
+| `sheetmetal1.bas` | Sheet metal feature validation | 🔶 ~30% |
+| `modConfig.bas` | Configuration constants | ✅ Done |
+| `modErrorHandler.bas` | Error handling | ✅ Done |
+| `FileOps.bas` | File operations | ✅ Done |
 
 ## Git Notes
 
