@@ -141,11 +141,14 @@ namespace NM.Core.Processing
                 var faces = body.GetFaces() as object[];
                 if (faces == null || faces.Length == 0) return null;
 
-                // Collect cylinder radii and a representative axis
+                // Collect cylinder data with axis origin for concentricity check
                 double maxR_m = 0.0, minR_m = double.MaxValue;
                 double[] axis = null; // normalized
                 double[] axisOrigin = null;
                 int cylCount = 0;
+
+                // Tolerance for concentricity check: 1mm (0.001m) - cylinders must share same axis line
+                const double CONCENTRICITY_TOLERANCE_M = 0.001;
 
                 foreach (var f in faces)
                 {
@@ -160,17 +163,33 @@ namespace NM.Core.Processing
                         if (len < 1e-9) continue;
                         var n = new[] { a[0] / len, a[1] / len, a[2] / len };
                         var r = Math.Abs(p[6]);
+                        var origin = new[] { p[0], p[1], p[2] };
 
                         // Initialize axis with first cylinder
                         if (axis == null)
                         {
-                            axis = n; axisOrigin = new[] { p[0], p[1], p[2] };
+                            axis = n;
+                            axisOrigin = origin;
                         }
                         else
                         {
-                            // Ensure same orientation (flip if necessary)
-                            var dp = axis[0] * n[0] + axis[1] * n[1] + axis[2] * n[2];
-                            if (dp < 0) { n[0] = -n[0]; n[1] = -n[1]; n[2] = -n[2]; }
+                            // Check direction alignment (must be parallel)
+                            var dp = Math.Abs(axis[0] * n[0] + axis[1] * n[1] + axis[2] * n[2]);
+                            if (dp < 0.999) continue; // Not parallel, skip this cylinder
+
+                            // CONCENTRICITY CHECK: Verify this cylinder's origin lies on the reference axis line
+                            // Distance from point to line = ||(origin - axisOrigin) - ((origin - axisOrigin) · axis) * axis||
+                            var toOrigin = Sub(origin, axisOrigin);
+                            var projection = Dot(toOrigin, axis);
+                            var projectedPoint = new[] { axisOrigin[0] + projection * axis[0], axisOrigin[1] + projection * axis[1], axisOrigin[2] + projection * axis[2] };
+                            var distanceVec = Sub(origin, projectedPoint);
+                            var distanceToAxis = Math.Sqrt(Dot(distanceVec, distanceVec));
+
+                            if (distanceToAxis > CONCENTRICITY_TOLERANCE_M)
+                            {
+                                ErrorHandler.DebugLog($"{LogPrefix} Skipping non-concentric cylinder: distance={distanceToAxis * 1000:F2}mm from axis");
+                                continue; // Not concentric, skip this cylinder
+                            }
                         }
 
                         if (r > maxR_m) maxR_m = r;
@@ -234,7 +253,9 @@ namespace NM.Core.Processing
                 var id_m = 2 * minR_m;
                 var wall_m = (maxR_m - minR_m);
 
-                if (od_m <= 0 || wall_m <= 1e-6 || length_m <= 0) return null;
+                // Minimum wall thickness: 0.015" (0.381mm = 0.000381m) - thin-wall tubing minimum
+                const double MIN_WALL_THICKNESS_M = 0.000381;
+                if (od_m <= 0 || wall_m <= MIN_WALL_THICKNESS_M || length_m <= 0) return null;
 
                 // Convert to inches for TubeGeometry DTO
                 const double M_TO_IN = 39.37007874015748;

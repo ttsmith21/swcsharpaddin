@@ -233,6 +233,41 @@ namespace NM.SwAddin
                 {
                     if (!TryFlatten(model, info)) return false;
                     ErrorHandler.DebugLog("[6] Flattened OK");
+
+                    // Mass comparison validation (VBA CompareMass equivalent)
+                    // Validates: blank_area × thickness ≈ actual_volume within ±3%
+                    try
+                    {
+                        var bboxExtractor = new NM.SwAddin.Geometry.BoundingBoxExtractor();
+                        var (blankLengthIn, blankWidthIn) = bboxExtractor.GetBlankSize(model);
+                        if (blankLengthIn > 0 && blankWidthIn > 0)
+                        {
+                            double blankAreaIn2 = blankLengthIn * blankWidthIn;
+                            double thicknessIn = thickness * 39.37007874015748; // meters to inches
+                            double calculatedVolIn3 = blankAreaIn2 * thicknessIn;
+                            double actualVolIn3 = volAfter * 61023.7441; // m³ to in³
+
+                            var massResult = NM.Core.Manufacturing.MassValidator.Compare(calculatedVolIn3, actualVolIn3, 3.0);
+                            ErrorHandler.DebugLog($"[6.5] Mass comparison: calc={calculatedVolIn3:F4} in³, actual={actualVolIn3:F4} in³, diff={massResult.PercentDifference:F1}%, pass={massResult.IsWithinTolerance}");
+
+                            if (!massResult.IsWithinTolerance)
+                            {
+                                ErrorHandler.HandleError("SimpleSM", $"Mass comparison failed: {massResult.Message}", null, ErrorHandler.LogLevel.Warning);
+                                try { model.EditUndo2(2); } catch { }
+                                Fail(info, $"Mass validation failed (±3%): {massResult.PercentDifference:F1}% difference");
+                                return false;
+                            }
+                        }
+                        else
+                        {
+                            ErrorHandler.DebugLog("[6.5] Mass comparison skipped: could not get blank dimensions");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorHandler.HandleError("SimpleSM", "Mass comparison exception (continuing)", ex, ErrorHandler.LogLevel.Warning);
+                        // Don't fail on mass comparison exceptions - it's a secondary validation
+                    }
                 }
 
                 info.IsSheetMetal = true;

@@ -175,6 +175,7 @@
     <Compile Include="src\NM.SwAddin\Pipeline\WorkflowContext.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\WorkflowDispatcher.cs" />
     <Compile Include="src\NM.SwAddin\Validation\BatchValidator.cs" />
+    <Compile Include="src\NM.SwAddin\Processing\ClassificationPipeline.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />
