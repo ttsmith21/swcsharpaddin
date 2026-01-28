@@ -80,7 +80,7 @@ namespace NM.SwAddin.AssemblyProcessing
                     var newState = (swComponentSuppressionState_e)comp.GetSuppression2();
                     if (newState != swComponentSuppressionState_e.swComponentResolved && newState != swComponentSuppressionState_e.swComponentFullyResolved)
                     {
-                        ErrorHandler.HandleError(nameof(AssemblyPreprocessor) + ".EnsureComponentsResolved", $"Could not resolve: {Safe(() => comp.Name2)}", null, "Warning");
+                        ErrorHandler.HandleError(nameof(AssemblyPreprocessor) + ".EnsureComponentsResolved", $"Could not resolve: {Safe(() => comp.Name2)}", null, ErrorHandler.LogLevel.Warning);
                         allResolved = false;
                     }
                 }

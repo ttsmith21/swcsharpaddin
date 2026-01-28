@@ -87,7 +87,7 @@ namespace NM.SwAddin.AssemblyProcessing
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(nameof(ComponentValidator) + ".ValidateComponent", "Validation failed", ex, "Warning");
+                ErrorHandler.HandleError(nameof(ComponentValidator) + ".ValidateComponent", "Validation failed", ex, ErrorHandler.LogLevel.Warning);
                 return new ValidationResult { IsValid = false, Reason = "Validation error" };
             }
         }

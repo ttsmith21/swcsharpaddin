@@ -32,7 +32,7 @@ namespace NM.SwAddin
                 if (string.IsNullOrWhiteSpace(Info.FilePath) || !File.Exists(Info.FilePath))
                 {
                     // Allow unsaved/virtual docs only via active doc (not supported here)
-                    ErrorHandler.HandleError(nameof(OpenDocument), $"File not found: {Info.FilePath}", null, "Warning");
+                    ErrorHandler.HandleError(nameof(OpenDocument), $"File not found: {Info.FilePath}", null, ErrorHandler.LogLevel.Warning);
                     Info.CurrentState = ModelInfo.ModelState.Problem;
                     Info.ProblemDescription = "File not found";
                     return false;

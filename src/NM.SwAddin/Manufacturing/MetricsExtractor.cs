@@ -45,7 +45,7 @@ namespace NM.SwAddin.Manufacturing
             }
 
             // Has internal cuts heuristic (pierce > 0 or internal length > 0). Placeholder: set false for now.
-            bool hasInternalCuts = false;
+            bool hasInternalCuts = false; // Placeholder for future pierce/cut detection
 
             var pm = new PartMetrics
             {

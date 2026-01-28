@@ -86,7 +86,7 @@ namespace NM.SwAddin
                         }
                         catch (Exception ex)
                         {
-                            ErrorHandler.HandleError(proc, $"Registry discovery invoke error for '{key}'", ex, "Warning");
+                            ErrorHandler.HandleError(proc, $"Registry discovery invoke error for '{key}'", ex, ErrorHandler.LogLevel.Warning);
                         }
                     }
                 }
@@ -121,7 +121,7 @@ namespace NM.SwAddin
                         }
                         catch (Exception ex)
                         {
-                            ErrorHandler.HandleError(proc, $"GetAddInObject '{key}' error", ex, "Warning");
+                            ErrorHandler.HandleError(proc, $"GetAddInObject '{key}' error", ex, ErrorHandler.LogLevel.Warning);
                         }
                     }
                 }
@@ -145,7 +145,7 @@ namespace NM.SwAddin
                 }
                 catch (Exception ex)
                 {
-                    ErrorHandler.HandleError(proc, "Fallback ProgID invocation failed", ex, "Warning");
+                    ErrorHandler.HandleError(proc, "Fallback ProgID invocation failed", ex, ErrorHandler.LogLevel.Warning);
                 }
 
                 ErrorHandler.DebugLog("[ExternalStart] Completed with no automation available.");
@@ -153,7 +153,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(proc, "ExternalStart invocation failed", ex, "Warning");
+                ErrorHandler.HandleError(proc, "ExternalStart invocation failed", ex, ErrorHandler.LogLevel.Warning);
                 return false;
             }
         }
@@ -182,7 +182,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError("ExternalStartAdapter.TryCreateAndInvokeByProgId", $"ProgID '{progId}' failed", ex, "Warning");
+                ErrorHandler.HandleError("ExternalStartAdapter.TryCreateAndInvokeByProgId", $"ProgID '{progId}' failed", ex, ErrorHandler.LogLevel.Warning);
             }
             return false;
         }
@@ -202,7 +202,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError("ExternalStartAdapter.TryLoadByPath", "LoadAddIn failed", ex, "Warning");
+                ErrorHandler.HandleError("ExternalStartAdapter.TryLoadByPath", "LoadAddIn failed", ex, ErrorHandler.LogLevel.Warning);
             }
         }
 
@@ -237,7 +237,7 @@ namespace NM.SwAddin
                 }
                 catch (Exception ex)
                 {
-                    ErrorHandler.HandleError("ExternalStartAdapter.TryInvokePreferred", $"Invoke '{name}' failed", ex, "Warning");
+                    ErrorHandler.HandleError("ExternalStartAdapter.TryInvokePreferred", $"Invoke '{name}' failed", ex, ErrorHandler.LogLevel.Warning);
                 }
             }
             return false;
@@ -301,13 +301,13 @@ namespace NM.SwAddin
                     }
                     catch (Exception ex)
                     {
-                        ErrorHandler.HandleError("ExternalStartAdapter.TryBruteInvoke", $"Invoke '{m.Name}' failed", ex, "Warning");
+                        ErrorHandler.HandleError("ExternalStartAdapter.TryBruteInvoke", $"Invoke '{m.Name}' failed", ex, ErrorHandler.LogLevel.Warning);
                     }
                 }
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError("ExternalStartAdapter.TryBruteInvoke", "Reflection failed", ex, "Warning");
+                ErrorHandler.HandleError("ExternalStartAdapter.TryBruteInvoke", "Reflection failed", ex, ErrorHandler.LogLevel.Warning);
             }
             return false;
         }

@@ -282,7 +282,7 @@ namespace NM.SwAddin
                 }
                 catch (System.Exception ex)
                 {
-                    ErrorHandler.HandleError(proc, "F115 compute failed", ex, "Warning");
+                    ErrorHandler.HandleError(proc, "F115 compute failed", ex, ErrorHandler.LogLevel.Warning);
                 }
 
                 // F140: press brake timing and price
@@ -300,7 +300,7 @@ namespace NM.SwAddin
                 }
                 catch (System.Exception ex)
                 {
-                    ErrorHandler.HandleError(proc, "F140 compute failed", ex, "Warning");
+                    ErrorHandler.HandleError(proc, "F140 compute failed", ex, ErrorHandler.LogLevel.Warning);
                 }
 
                 // F220: tapped hole detection and timing
@@ -325,7 +325,7 @@ namespace NM.SwAddin
                 }
                 catch (System.Exception ex)
                 {
-                    ErrorHandler.HandleError(proc, "F220 compute failed", ex, "Warning");
+                    ErrorHandler.HandleError(proc, "F220 compute failed", ex, ErrorHandler.LogLevel.Warning);
                 }
 
                 // Quoting / Total cost aggregation per legacy rules
@@ -373,7 +373,7 @@ namespace NM.SwAddin
                 }
                 catch (System.Exception ex)
                 {
-                    ErrorHandler.HandleError(proc, "Total cost aggregation failed", ex, "Warning");
+                    ErrorHandler.HandleError(proc, "Total cost aggregation failed", ex, ErrorHandler.LogLevel.Warning);
                 }
 
                 try
@@ -389,7 +389,7 @@ namespace NM.SwAddin
                 }
                 catch (System.Exception ex)
                 {
-                    ErrorHandler.HandleError(proc, "Exception during property writeback", ex, "Warning");
+                    ErrorHandler.HandleError(proc, "Exception during property writeback", ex, ErrorHandler.LogLevel.Warning);
                     var reason = info?.ProblemDescription ?? ex.Message;
                     return new RunResult { Success = false, WasAlreadySheet = wasAlreadySheet, Message = "Property writeback exception.", ProblemDescription = reason };
                 }
@@ -446,12 +446,12 @@ namespace NM.SwAddin
                 {
                     if (!swModel.LoadPropertiesFromSolidWorks())
                     {
-                        ErrorHandler.HandleError(proc, "Failed to load custom properties; continuing with defaults", null, "Warning");
+                        ErrorHandler.HandleError(proc, "Failed to load custom properties; continuing with defaults", null, ErrorHandler.LogLevel.Warning);
                     }
                 }
                 catch
                 {
-                    ErrorHandler.HandleError(proc, "Exception while loading properties; continuing with defaults", null, "Warning");
+                    ErrorHandler.HandleError(proc, "Exception while loading properties; continuing with defaults", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 var tube = new SimpleTubeProcessor(swApp);

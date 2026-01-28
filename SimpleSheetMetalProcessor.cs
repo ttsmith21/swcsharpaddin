@@ -150,7 +150,7 @@ namespace NM.SwAddin
                 {
                     if (!File.Exists(bendPath))
                     {
-                        ErrorHandler.HandleError("SimpleSM", $"Bend table not found: '{bendPath}'. Falling back to K-factor {finalK}.", null, "Warning");
+                        ErrorHandler.HandleError("SimpleSM", $"Bend table not found: '{bendPath}'. Falling back to K-factor {finalK}.", null, ErrorHandler.LogLevel.Warning);
                         bendPath = NM.Core.Configuration.FilePaths.BendTableNone;
                     }
                 }
@@ -225,8 +225,8 @@ namespace NM.SwAddin
                 {
                     double up = volBefore * 1.005, dn = volBefore * 0.995;
                     bool within = (volAfter <= up) && (volAfter >= dn);
-                    ErrorHandler.DebugLog($"[5] Volume check: before={volBefore:E6}, after={volAfter:E6}, within±0.5%={within}");
-                    if (!within) { try { model.EditUndo2(2); } catch { } Fail(info, "Volume validation failed (±0.5%)"); return false; }
+                    ErrorHandler.DebugLog($"[5] Volume check: before={volBefore:E6}, after={volAfter:E6}, withinï¿½0.5%={within}");
+                    if (!within) { try { model.EditUndo2(2); } catch { } Fail(info, "Volume validation failed (ï¿½0.5%)"); return false; }
                 }
 
                 if (flatten)
@@ -513,7 +513,7 @@ namespace NM.SwAddin
                     catch (Exception ex)
                     {
                         // If unsuppress fails, try SetBendState fallback before failing
-                        ErrorHandler.HandleError("SimpleSM.Flatten", "Failed to unsuppress Flat-Pattern; attempting SetBendState fallback", ex, "Warning");
+                        ErrorHandler.HandleError("SimpleSM.Flatten", "Failed to unsuppress Flat-Pattern; attempting SetBendState fallback", ex, ErrorHandler.LogLevel.Warning);
                         try
                         {
                             var t = ((object)model).GetType();
@@ -528,7 +528,7 @@ namespace NM.SwAddin
                         }
                         catch (Exception ex2)
                         {
-                            ErrorHandler.HandleError("SimpleSM.Flatten", "SetBendState fallback failed", ex2, "Warning");
+                            ErrorHandler.HandleError("SimpleSM.Flatten", "SetBendState fallback failed", ex2, ErrorHandler.LogLevel.Warning);
                         }
                         Fail(info, "Failed to unsuppress Flat-Pattern", ex);
                         return false;

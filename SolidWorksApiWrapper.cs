@@ -366,7 +366,7 @@ namespace NM.SwAddin
 
                 if (largestFace == null)
                 {
-                    ErrorHandler.HandleError(procName, "No planar faces found in body.", null, "Warning");
+                    ErrorHandler.HandleError(procName, "No planar faces found in body.", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return largestFace;
@@ -469,7 +469,7 @@ namespace NM.SwAddin
 
                 if (longestEdge == null)
                 {
-                    ErrorHandler.HandleError(procName, "No linear edges found in body.", null, "Warning");
+                    ErrorHandler.HandleError(procName, "No linear edges found in body.", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return longestEdge;
@@ -619,7 +619,7 @@ namespace NM.SwAddin
                     bool rebuildAll = rebuildOption == SwRebuildOptions.SwForceRebuildAll;
                     if (!swModel.ForceRebuild3(rebuildAll))
                     {
-                        ErrorHandler.HandleError(procName, $"Failed to rebuild {(rebuildAll ? "all" : "active")} in '{docTitle}'. Status: {rebuildStatus}", null, "Warning");
+                        ErrorHandler.HandleError(procName, $"Failed to rebuild {(rebuildAll ? "all" : "active")} in '{docTitle}'. Status: {rebuildStatus}", null, ErrorHandler.LogLevel.Warning);
                         return false;
                     }
                 }
@@ -698,7 +698,7 @@ namespace NM.SwAddin
 
                 if (!result)
                 {
-                    ErrorHandler.HandleError(procName, $"Failed to select: [{objName}] Type: {objType}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Failed to select: [{objName}] Type: {objType}", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return result;
@@ -734,7 +734,7 @@ namespace NM.SwAddin
                 var swFeat = FindFeatureByName(swModel, featName);
                 if (swFeat == null)
                 {
-                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return swFeat;
@@ -768,7 +768,7 @@ namespace NM.SwAddin
                 var swFeat = FindFeatureByName(swModel, featName);
                 if (swFeat == null)
                 {
-                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -778,7 +778,7 @@ namespace NM.SwAddin
 
                 if (!success)
                 {
-                    ErrorHandler.HandleError(procName, $"Failed to suppress: {featName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Failed to suppress: {featName}", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return success;
@@ -812,7 +812,7 @@ namespace NM.SwAddin
                 var swFeat = FindFeatureByName(swModel, featName);
                 if (swFeat == null)
                 {
-                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Feature not found: {featName}", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -822,7 +822,7 @@ namespace NM.SwAddin
 
                 if (!success)
                 {
-                    ErrorHandler.HandleError(procName, $"Failed to unsuppress: {featName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Failed to unsuppress: {featName}", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 return success;
@@ -858,7 +858,7 @@ namespace NM.SwAddin
                 var swFeat = FindFeatureByName(swModel, oldName);
                 if (swFeat == null)
                 {
-                    ErrorHandler.HandleError(procName, $"Feature not found: {oldName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Feature not found: {oldName}", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -975,7 +975,7 @@ namespace NM.SwAddin
                 {
                     ErrorHandler.HandleError(procName, 
                         $"Verification failed: Active configuration is '{swCfgMgr.ActiveConfiguration.Name}' not '{configName}'", 
-                        null, "Warning");
+                        null, ErrorHandler.LogLevel.Warning);
                 }
                 else
                 {
@@ -1121,7 +1121,7 @@ namespace NM.SwAddin
 
                 if (NM.Core.Configuration.Logging.EnableDebugMode && !string.IsNullOrEmpty(dbName))
                 {
-                    ErrorHandler.HandleError(procName, $"Material retrieved from database: {dbName}", null, "Info");
+                    ErrorHandler.HandleError(procName, $"Material retrieved from database: {dbName}", null, ErrorHandler.LogLevel.Info);
                 }
 
                 return material ?? string.Empty;
@@ -1180,7 +1180,7 @@ namespace NM.SwAddin
                 var swView = swModel.ActiveView as IModelView;
                 if (swView == null)
                 {
-                    ErrorHandler.HandleError(procName, "No active view to set display mode.", null, "Warning");
+                    ErrorHandler.HandleError(procName, "No active view to set display mode.", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -1224,7 +1224,7 @@ namespace NM.SwAddin
                 var arrCOM = swMassProp.CenterOfMass as object[];
                 if (arrCOM == null || arrCOM.Length != 3)
                 {
-                    ErrorHandler.HandleError(procName, "Invalid center of mass data", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Invalid center of mass data", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -1257,7 +1257,7 @@ namespace NM.SwAddin
                 var swMassProp = swModel.Extension.CreateMassProperty() as IMassProperty;
                 if (swMassProp == null)
                 {
-                    ErrorHandler.HandleError(procName, "Failed to create mass property", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Failed to create mass property", null, ErrorHandler.LogLevel.Warning);
                     return -1;
                 }
 
@@ -1283,7 +1283,7 @@ namespace NM.SwAddin
                 var swMassProp = swModel.Extension.CreateMassProperty() as IMassProperty;
                 if (swMassProp == null)
                 {
-                    ErrorHandler.HandleError(procName, "Failed to create mass property", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Failed to create mass property", null, ErrorHandler.LogLevel.Warning);
                     return -1;
                 }
 
@@ -1346,7 +1346,7 @@ namespace NM.SwAddin
                 if (!ValidateModel(swModel, procName)) return null;
                 if (x1 == x2 && y1 == y2)
                 {
-                    ErrorHandler.HandleError(procName, "Zero-length line not allowed", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Zero-length line not allowed", null, ErrorHandler.LogLevel.Warning);
                     return null;
                 }
 
@@ -1356,7 +1356,7 @@ namespace NM.SwAddin
                 var seg = swSkMgr.CreateLine(x1, y1, 0.0, x2, y2, 0.0) as ISketchSegment;
                 if (seg == null)
                 {
-                    ErrorHandler.HandleError(procName, "Failed to create line", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Failed to create line", null, ErrorHandler.LogLevel.Warning);
                 }
                 return seg;
             }
@@ -1387,7 +1387,7 @@ namespace NM.SwAddin
 
                 if (!SelectByName(swModel, planeName, "PLANE", 0, 0, 0))
                 {
-                    ErrorHandler.HandleError(procName, $"Failed to select plane: {planeName}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"Failed to select plane: {planeName}", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -1476,7 +1476,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, "Error", $"Property: {propName}");
+                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, ErrorHandler.LogLevel.Error, $"Property: {propName}");
                 return false;
             }
             finally
@@ -1512,7 +1512,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, "Error", $"Property: {propName}");
+                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, ErrorHandler.LogLevel.Error, $"Property: {propName}");
                 return false;
             }
             finally
@@ -1565,7 +1565,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, "Error");
+                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, ErrorHandler.LogLevel.Error);
                 return false;
             }
             finally
@@ -1599,7 +1599,7 @@ namespace NM.SwAddin
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, "Error", $"Property: {propName}");
+                ErrorHandler.HandleError(procName, $"Exception: {ex.Message}", ex, ErrorHandler.LogLevel.Error, $"Property: {propName}");
                 return false;
             }
             finally

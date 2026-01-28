@@ -48,21 +48,21 @@ namespace NM.SwAddin.AssemblyProcessing
                     if (bomItem.Quantity != kv.Value.Quantity)
                     {
                         ErrorHandler.HandleError(nameof(AssemblyComponentQuantifier),
-                            $"Quantity mismatch for {kv.Key}: BOM={bomItem.Quantity}, Rec={kv.Value.Quantity}", null, "Warning");
+                            $"Quantity mismatch for {kv.Key}: BOM={bomItem.Quantity}, Rec={kv.Value.Quantity}", null, ErrorHandler.LogLevel.Warning);
                     }
                 }
                 else
                 {
                     // Not present in BOM, but found by recursion
                     ErrorHandler.HandleError(nameof(AssemblyComponentQuantifier),
-                        $"Recursion found component not in BOM: {kv.Key} x{kv.Value.Quantity}", null, "Warning");
+                        $"Recursion found component not in BOM: {kv.Key} x{kv.Value.Quantity}", null, ErrorHandler.LogLevel.Warning);
                 }
             }
 
             // If BOM is empty (failed), fall back to recursion
             if (bomCounts.Count == 0 && recCounts.Count > 0)
             {
-                ErrorHandler.HandleError(nameof(AssemblyComponentQuantifier), "BOM collection failed/empty. Falling back to recursive quantities.", null, "Warning");
+                ErrorHandler.HandleError(nameof(AssemblyComponentQuantifier), "BOM collection failed/empty. Falling back to recursive quantities.", null, ErrorHandler.LogLevel.Warning);
                 return recCounts;
             }
             return bomCounts;
@@ -156,7 +156,7 @@ namespace NM.SwAddin.AssemblyProcessing
 
                 if (bom == null)
                 {
-                    ErrorHandler.HandleError(nameof(AssemblyComponentQuantifier), "InsertBomTable3 returned null.", null, "Warning");
+                    ErrorHandler.HandleError(nameof(AssemblyComponentQuantifier), "InsertBomTable3 returned null.", null, ErrorHandler.LogLevel.Warning);
                     return result;
                 }
 
@@ -212,7 +212,7 @@ namespace NM.SwAddin.AssemblyProcessing
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(nameof(AssemblyComponentQuantifier), "BOM collection error", ex, "Warning");
+                ErrorHandler.HandleError(nameof(AssemblyComponentQuantifier), "BOM collection error", ex, ErrorHandler.LogLevel.Warning);
             }
             finally
             {

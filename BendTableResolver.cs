@@ -37,7 +37,7 @@ namespace NM.Core
                         WarnIfXlsx(resolved);
                         return resolved;
                     }
-                    NM.Core.ErrorHandler.HandleError("BendTableResolver", $"Requested bend table not found: '{options.BendTable}'", null, "Warning");
+                    NM.Core.ErrorHandler.HandleError("BendTableResolver", $"Requested bend table not found: '{options.BendTable}'", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 // Aluminum: always use K-factor
@@ -114,7 +114,7 @@ namespace NM.Core
                     }
                     catch (Exception ex)
                     {
-                        NM.Core.ErrorHandler.HandleError("BendTableResolver", $"scanDir exception for '{baseDir}'", ex, "Warning");
+                        NM.Core.ErrorHandler.HandleError("BendTableResolver", $"scanDir exception for '{baseDir}'", ex, ErrorHandler.LogLevel.Warning);
                         return null;
                     }
                 };
@@ -129,13 +129,13 @@ namespace NM.Core
                         var found = scanDir(d);
                         if (!string.IsNullOrWhiteSpace(found))
                         {
-                            NM.Core.ErrorHandler.HandleError("BendTableResolver", $"Using discovered bend table: {found}", null, "Warning");
+                            NM.Core.ErrorHandler.HandleError("BendTableResolver", $"Using discovered bend table: {found}", null, ErrorHandler.LogLevel.Warning);
                             return found;
                         }
                     }
                     catch (Exception ex)
                     {
-                        NM.Core.ErrorHandler.HandleError("BendTableResolver", "Error probing candidate parent dir", ex, "Warning");
+                        NM.Core.ErrorHandler.HandleError("BendTableResolver", "Error probing candidate parent dir", ex, ErrorHandler.LogLevel.Warning);
                     }
                 }
 
@@ -158,7 +158,7 @@ namespace NM.Core
                         var found = scanDir(full);
                         if (!string.IsNullOrWhiteSpace(found))
                         {
-                            NM.Core.ErrorHandler.HandleError("BendTableResolver", $"Using discovered SW bend table: {found}", null, "Warning");
+                            NM.Core.ErrorHandler.HandleError("BendTableResolver", $"Using discovered SW bend table: {found}", null, ErrorHandler.LogLevel.Warning);
                             return found;
                         }
                     }
@@ -169,7 +169,7 @@ namespace NM.Core
             }
             catch (Exception ex)
             {
-                NM.Core.ErrorHandler.HandleError("BendTableResolver", "Resolver exception -> K-Factor", ex, "Warning");
+                NM.Core.ErrorHandler.HandleError("BendTableResolver", "Resolver exception -> K-Factor", ex, ErrorHandler.LogLevel.Warning);
                 return Configuration.FilePaths.BendTableNone;
             }
         }
@@ -245,7 +245,7 @@ namespace NM.Core
             }
             catch (Exception ex)
             {
-                NM.Core.ErrorHandler.HandleError("BendTableResolver", $"TryResolveExistingPathVariants exception for '{p}'", ex, "Warning");
+                NM.Core.ErrorHandler.HandleError("BendTableResolver", $"TryResolveExistingPathVariants exception for '{p}'", ex, ErrorHandler.LogLevel.Warning);
             }
             return null;
         }
@@ -283,7 +283,7 @@ namespace NM.Core
                 var ext = Path.GetExtension(path);
                 if (ext != null && ext.Equals(".xlsx", StringComparison.OrdinalIgnoreCase))
                 {
-                    NM.Core.ErrorHandler.HandleError("BendTableResolver", $"Selected bend table is .xlsx: '{path}'. Some SOLIDWORKS versions expect .xls.", null, "Warning");
+                    NM.Core.ErrorHandler.HandleError("BendTableResolver", $"Selected bend table is .xlsx: '{path}'. Some SOLIDWORKS versions expect .xls.", null, ErrorHandler.LogLevel.Warning);
                 }
             }
             catch { }

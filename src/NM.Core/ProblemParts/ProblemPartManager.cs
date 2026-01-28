@@ -60,7 +60,7 @@ namespace NM.Core.ProblemParts
                 existing.LastAttempted = DateTime.Now;
                 existing.ProblemDescription = reason ?? existing.ProblemDescription;
                 existing.Category = category;
-                ErrorHandler.HandleError(nameof(ProblemPartManager), $"Problem part retry #{existing.RetryCount}: {existing.DisplayName}", null, "Warning");
+                ErrorHandler.HandleError(nameof(ProblemPartManager), $"Problem part retry #{existing.RetryCount}: {existing.DisplayName}", null, ErrorHandler.LogLevel.Warning);
             }
             else
             {
@@ -76,7 +76,7 @@ namespace NM.Core.ProblemParts
                     LastAttempted = DateTime.Now
                 };
                 _items.Add(item);
-                ErrorHandler.HandleError(nameof(ProblemPartManager), $"New problem part: {item.DisplayName} - {item.ProblemDescription}", null, "Warning");
+                ErrorHandler.HandleError(nameof(ProblemPartManager), $"New problem part: {item.DisplayName} - {item.ProblemDescription}", null, ErrorHandler.LogLevel.Warning);
             }
         }
 

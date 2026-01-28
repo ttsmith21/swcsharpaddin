@@ -188,7 +188,7 @@ namespace NM.SwAddin.Data
                 }
                 catch
                 {
-                    ErrorHandler.HandleError(proc, $"Worksheet not found: {sheetName}", null, "Critical");
+                    ErrorHandler.HandleError(proc, $"Worksheet not found: {sheetName}", null, ErrorHandler.LogLevel.Critical);
                     return false;
                 }
 
@@ -207,13 +207,13 @@ namespace NM.SwAddin.Data
                 }
                 else
                 {
-                    ErrorHandler.HandleError(proc, $"No data in sheet: {sheetName}", null, "Warning");
+                    ErrorHandler.HandleError(proc, $"No data in sheet: {sheetName}", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(proc, $"Error loading data from {filePath} :: {sheetName}", ex, "Critical");
+                ErrorHandler.HandleError(proc, $"Error loading data from {filePath} :: {sheetName}", ex, ErrorHandler.LogLevel.Critical);
                 return false;
             }
             finally { ErrorHandler.PopCallStack(); }
@@ -232,7 +232,7 @@ namespace NM.SwAddin.Data
                     var t = Type.GetTypeFromProgID("Excel.Application");
                     if (t == null)
                     {
-                        ErrorHandler.HandleError(proc, "Excel is not installed (ProgID Excel.Application not found)", null, "Critical");
+                        ErrorHandler.HandleError(proc, "Excel is not installed (ProgID Excel.Application not found)", null, ErrorHandler.LogLevel.Critical);
                         return null;
                     }
                     _excelApp = Activator.CreateInstance(t);
@@ -243,7 +243,7 @@ namespace NM.SwAddin.Data
                 // Validate file exists
                 if (!System.IO.File.Exists(filePath))
                 {
-                    ErrorHandler.HandleError(proc, $"File not found: {filePath}", null, "Critical");
+                    ErrorHandler.HandleError(proc, $"File not found: {filePath}", null, ErrorHandler.LogLevel.Critical);
                     return null;
                 }
 
@@ -260,7 +260,7 @@ namespace NM.SwAddin.Data
                     }
                     catch (Exception ex)
                     {
-                        ErrorHandler.HandleError(proc, $"Open attempt {attempt + 1} failed: {ex.Message}", ex, "Warning");
+                        ErrorHandler.HandleError(proc, $"Open attempt {attempt + 1} failed: {ex.Message}", ex, ErrorHandler.LogLevel.Warning);
                         System.Threading.Thread.Sleep(200);
                     }
                 }

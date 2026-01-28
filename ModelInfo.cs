@@ -120,7 +120,7 @@ namespace NM.Core
             {
                 if (value <= 0)
                 {
-                    ErrorHandler.HandleError("ModelInfo.BendRadius", $"Invalid bend radius: {value}", null, "Warning");
+                    ErrorHandler.HandleError("ModelInfo.BendRadius", $"Invalid bend radius: {value}", null, ErrorHandler.LogLevel.Warning);
                     return;
                 }
                 _bendRadius = value; IsDirty = true;
@@ -136,7 +136,7 @@ namespace NM.Core
             {
                 if (value < 0 || value > 1)
                 {
-                    ErrorHandler.HandleError("ModelInfo.KFactor", $"Invalid K-factor: {value}", null, "Warning");
+                    ErrorHandler.HandleError("ModelInfo.KFactor", $"Invalid K-factor: {value}", null, ErrorHandler.LogLevel.Warning);
                     return;
                 }
                 _kFactor = value; IsDirty = true;
@@ -149,21 +149,21 @@ namespace NM.Core
         public double InitialMass
         {
             get => _initialMass;
-            set { if (value >= 0) { _initialMass = value; IsDirty = true; } else ErrorHandler.HandleError("ModelInfo.InitialMass", $"Invalid InitialMass: {value}", null, "Warning"); }
+            set { if (value >= 0) { _initialMass = value; IsDirty = true; } else ErrorHandler.HandleError("ModelInfo.InitialMass", $"Invalid InitialMass: {value}", null, ErrorHandler.LogLevel.Warning); }
         }
         private double _initialMass;
         /// <summary>Initial volume (m^3).</summary>
         public double InitialVolume
         {
             get => _initialVolume;
-            set { if (value >= 0) { _initialVolume = value; IsDirty = true; } else ErrorHandler.HandleError("ModelInfo.InitialVolume", $"Invalid InitialVolume: {value}", null, "Warning"); }
+            set { if (value >= 0) { _initialVolume = value; IsDirty = true; } else ErrorHandler.HandleError("ModelInfo.InitialVolume", $"Invalid InitialVolume: {value}", null, ErrorHandler.LogLevel.Warning); }
         }
         private double _initialVolume;
         /// <summary>Final volume (m^3).</summary>
         public double FinalVolume
         {
             get => _finalVolume;
-            set { if (value >= 0) { _finalVolume = value; IsDirty = true; } else ErrorHandler.HandleError("ModelInfo.FinalVolume", $"Invalid FinalVolume: {value}", null, "Warning"); }
+            set { if (value >= 0) { _finalVolume = value; IsDirty = true; } else ErrorHandler.HandleError("ModelInfo.FinalVolume", $"Invalid FinalVolume: {value}", null, ErrorHandler.LogLevel.Warning); }
         }
         private double _finalVolume;
 
@@ -178,7 +178,7 @@ namespace NM.Core
         {
             if (radius <= 0 || thickness <= 0 || kFactor < 0 || kFactor > 1)
             {
-                ErrorHandler.HandleError("ModelInfo.AddBendParameter", $"Invalid input - Thickness={thickness}, Radius={radius}, KFactor={kFactor}", null, "Warning");
+                ErrorHandler.HandleError("ModelInfo.AddBendParameter", $"Invalid input - Thickness={thickness}, Radius={radius}, KFactor={kFactor}", null, ErrorHandler.LogLevel.Warning);
                 return;
             }
             _bendParameters.Add(new BendParameter { Radius = radius, Thickness = thickness, KFactor = kFactor });
@@ -206,17 +206,17 @@ namespace NM.Core
                 // We still store the provided value and expose IsValidFile for consumers.
                 if (string.IsNullOrWhiteSpace(filePath))
                 {
-                    ErrorHandler.HandleError(procName, "Model initialized with empty path (unsaved document)", null, "Warning");
+                    ErrorHandler.HandleError(procName, "Model initialized with empty path (unsaved document)", null, ErrorHandler.LogLevel.Warning);
                 }
                 else if (!File.Exists(filePath))
                 {
                     // Don't throw; just warn and continue so in-memory docs can work.
-                    ErrorHandler.HandleError(procName, $"File does not exist: {filePath}", null, "Warning");
+                    ErrorHandler.HandleError(procName, $"File does not exist: {filePath}", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 if (!ValidateDependencies())
                 {
-                    ErrorHandler.HandleError(procName, "Missing required dependencies", null, "Error", $"Path: {filePath}");
+                    ErrorHandler.HandleError(procName, "Missing required dependencies", null, ErrorHandler.LogLevel.Error, $"Path: {filePath}");
                     throw new InvalidOperationException("Missing dependencies");
                 }
 

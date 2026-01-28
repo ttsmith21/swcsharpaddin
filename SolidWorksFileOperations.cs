@@ -231,7 +231,7 @@ namespace NM.SwAddin
                 }
                 if (!_settingsInitialized || _original == null)
                 {
-                    ErrorHandler.HandleError(proc, "Settings not initialized", null, "Warning");
+                    ErrorHandler.HandleError(proc, "Settings not initialized", null, ErrorHandler.LogLevel.Warning);
                     return false;
                 }
 
@@ -300,7 +300,7 @@ namespace NM.SwAddin
                 }
                 if (err != 0 || warn != 0)
                 {
-                    ErrorHandler.HandleError(proc, $"Opened with issues: {filePath}\n{TranslateOpenDocErrors(err, warn)}", null, "Warning");
+                    ErrorHandler.HandleError(proc, $"Opened with issues: {filePath}\n{TranslateOpenDocErrors(err, warn)}", null, ErrorHandler.LogLevel.Warning);
                 }
 
                 SaveOriginalSettings(model);
