@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using NM.Core.ProblemParts;
+using NM.SwAddin.Pipeline;
 using NM.SwAddin.Validation;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
@@ -23,9 +24,23 @@ namespace NM.SwAddin.UI
         private Button _btnExport;
         private Button _btnClose;
         private Button _btnRevalidateAll;
+        private Button _btnContinue;
         private Label _lblSummary;
         private Label _lblStatus;
+        private Label _lblGoodCount;
         private ProgressBar _progress;
+
+        /// <summary>
+        /// Action selected by user when closing the dialog.
+        /// </summary>
+        public ProblemAction SelectedAction { get; private set; } = ProblemAction.Cancel;
+
+        private int _goodCount;
+
+        /// <summary>
+        /// Creates the form using the default ProblemPartManager singleton.
+        /// </summary>
+        public ProblemPartsForm() : this(ProblemPartManager.Instance, null) { }
 
         public ProblemPartsForm(ProblemPartManager manager, ISldWorks swApp = null)
         {
@@ -41,6 +56,19 @@ namespace NM.SwAddin.UI
             BuildUi();
             BindGrid();
             UpdateSummary();
+        }
+
+        /// <summary>
+        /// Sets the count of good models that will be processed if user continues.
+        /// </summary>
+        public void ShowGoodCount(int count)
+        {
+            _goodCount = count;
+            if (_lblGoodCount != null)
+            {
+                _lblGoodCount.Text = $"{count} valid parts ready to process";
+                _btnContinue.Enabled = count > 0;
+            }
         }
 
         private void BuildUi()
@@ -74,14 +102,30 @@ namespace NM.SwAddin.UI
             _btnRevalidateAll = new Button { Text = "Revalidate All", Left = 270, Top = 370, Width = 120 };
             _btnRevalidateAll.Click += OnRevalidateAll;
 
-            _btnClose = new Button { Text = "Close", Left = 400, Top = 370, Width = 80 };
-            _btnClose.Click += (s, e) => Close();
+            _btnContinue = new Button { Text = "Continue with Good", Left = 400, Top = 370, Width = 140, Enabled = false };
+            _btnContinue.Click += OnContinueWithGood;
 
+            _btnClose = new Button { Text = "Cancel", Left = 550, Top = 370, Width = 80 };
+            _btnClose.Click += (s, e) =>
+            {
+                SelectedAction = ProblemAction.Cancel;
+                DialogResult = DialogResult.Cancel;
+                Close();
+            };
+
+            _lblGoodCount = new Label { Left = 650, Top = 374, Width = 200, Height = 20, AutoSize = false, ForeColor = Color.DarkGreen };
             _lblSummary = new Label { Left = 10, Top = 410, Width = 900, Height = 60, AutoSize = false };
             _lblStatus = new Label { Left = 10, Top = 470, Width = 700, Height = 20, AutoSize = false, Text = "Ready" };
             _progress = new ProgressBar { Left = 720, Top = 468, Width = 200, Height = 22 };
 
-            Controls.AddRange(new Control[] { _grid, _btnRetry, _btnExport, _btnRevalidateAll, _btnClose, _lblSummary, _lblStatus, _progress });
+            Controls.AddRange(new Control[] { _grid, _btnRetry, _btnExport, _btnRevalidateAll, _btnContinue, _btnClose, _lblGoodCount, _lblSummary, _lblStatus, _progress });
+        }
+
+        private void OnContinueWithGood(object sender, EventArgs e)
+        {
+            SelectedAction = ProblemAction.ContinueWithGood;
+            DialogResult = DialogResult.OK;
+            Close();
         }
 
         private void BindGrid()

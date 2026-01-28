@@ -171,6 +171,10 @@
     <Compile Include="src\NM.SwAddin\Geometry\TubeGeometryExtractor.cs" />
     <Compile Include="src\NM.SwAddin\Processing\SheetMetalPartProcessor.cs" />
     <Compile Include="src\NM.Core\Export\ErpExportDataBuilder.cs" />
+    <Compile Include="src\NM.SwAddin\Drawing\DrawingReferenceExtractor.cs" />
+    <Compile Include="src\NM.SwAddin\Pipeline\WorkflowContext.cs" />
+    <Compile Include="src\NM.SwAddin\Pipeline\WorkflowDispatcher.cs" />
+    <Compile Include="src\NM.SwAddin\Validation\BatchValidator.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />

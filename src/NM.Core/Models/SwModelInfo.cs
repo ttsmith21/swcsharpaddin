@@ -108,6 +108,18 @@ namespace NM.Core.Models
         }
 
         /// <summary>
+        /// Resets state to Unprocessed to allow re-validation.
+        /// Use after user fixes a problem part.
+        /// </summary>
+        public void ResetState()
+        {
+            State = ProcessingState.Unprocessed;
+            ProblemDescription = null;
+            ValidatedAt = null;
+            ProcessedAt = null;
+        }
+
+        /// <summary>
         /// Mark that the underlying SOLIDWORKS document has unsaved changes (non-property edits).
         /// </summary>
         public void MarkModelDirty() => _modelDirty = true;
