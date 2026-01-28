@@ -165,6 +165,7 @@
     <Compile Include="src\NM.SwAddin\Drawing\DrawingGenerator.cs" />
     <Compile Include="src\NM.SwAddin\Export\ReportService.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\QuoteWorkflow.cs" />
+    <Compile Include="src\NM.SwAddin\Export\EDrawingExporter.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />

@@ -77,7 +77,7 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 | `PartMaterialRelationships()` | - | ❌ | Material linkages |
 | `RecalculateSetupTime()` | - | ❌ | Setup time recalc |
 | `FixUnits()` | - | ❌ | Unit conversion |
-| `SaveAsEDrawing()` | - | ❌ | eDrawings export |
+| `SaveAsEDrawing()` | `EDrawingExporter.Export()` | ✅ | eDrawings export |
 | `FileNameWithoutExtension()` | `Path.GetFileNameWithoutExtension()` | ✅ | .NET built-in |
 | `RemoveInstance()` | `StringUtils.RemoveInstance()` | ✅ | String parsing |
 | `IsAssembly()` | - | ⏭️ | Type check |
