@@ -27,7 +27,7 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 | `FindFlatPattern()` | `FlatPatternAnalyzer.GetFlatPatternFeature()` | 🔶 | Feature location |
 | `ValidateFlatPattern()` | `PartPreflight.Run()` | ✅ | Validation pipeline |
 | `NumberOfBodies()` | `SolidWorksApiWrapper.CountSolidBodies()` | ✅ | Body count check |
-| `CompareMass()` | - | ❌ | Mass validation |
+| `CompareMass()` | `MassValidator.Compare()` | ✅ | Mass validation |
 | `SaveCurrentModel()` | `SolidWorksFileOperations.Save()` | ✅ | File save |
 | `GetLargestFace()` | `SolidWorksApiWrapper.GetFixedFace()` | ✅ | Face selection |
 | `ShowProgress()` | `ProgressForm.SetStep()` | ✅ | UI progress |
@@ -44,8 +44,8 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 | `TubeCustomProperties()` | - | ❌ | Tube property writes |
 | `RoundBar()` | `RoundBarValidator.IsRoundBar()` | ✅ | Round bar detection |
 | `PipeDiam()` | `PipeScheduleService.TryGet()` | ✅ | Pipe schedule lookup |
-| `TubeFeedRate()` | - | ❌ | Tube cutting rates |
-| `TubePierceTime()` | - | ❌ | Pierce time calculation |
+| `TubeFeedRate()` | `TubeCuttingParameterService.Get()` | ✅ | Tube cutting rates |
+| `TubePierceTime()` | `TubeCuttingParameterService.Get()` | ✅ | Pierce time calculation |
 | `GetLinearEdge()` | `SimpleTubeProcessor.FindLongestLinearEdge()` | 🔶 | Edge detection |
 | `ExGeo()` | - | ❌ | Geometry export |
 
@@ -55,7 +55,7 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 |--------------|---------------|--------|-------|
 | `N325()` | `F325Calculator.Calculate()` | 🔶 | Roll forming calc |
 | `CalcN325()` | `F325Calculator.Calculate()` | 🔶 | Same |
-| `N210()` | - | ❌ | Deburr calculation |
+| `N210()` | `F210Calculator.ComputeHours()` | ✅ | Deburr calculation |
 | `BendAllowanceType()` | - | ❌ | Bend allowance logic |
 
 ---
@@ -65,11 +65,11 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 | VBA Function | C# Equivalent | Status | Notes |
 |--------------|---------------|--------|-------|
 | `ExportBOM()` | `ExportManager.ExportToErp()` | 🔶 | Main export routine |
-| `PopulateItemMaster()` | - | ❌ | Item master records |
-| `PopulateProductStructure()` | - | ❌ | BOM structure |
-| `PopulateRouting()` | - | ❌ | Routing records |
-| `PopulateRoutingNotes()` | - | ❌ | Routing notes |
-| `PopulateParentRoute()` | - | ❌ | Parent assembly routes |
+| `PopulateItemMaster()` | `ErpExportFormat.WriteItemMaster()` | ✅ | Item master records |
+| `PopulateProductStructure()` | `ErpExportFormat.WriteProductStructure()` | ✅ | BOM structure |
+| `PopulateRouting()` | `ErpExportFormat.WriteRouting()` | ✅ | Routing records |
+| `PopulateRoutingNotes()` | `ErpExportFormat.WriteRoutingNotes()` | ✅ | Routing notes |
+| `PopulateParentRoute()` | `ErpExportFormat.WriteRouting()` | 🔶 | Parent assembly routes |
 | `PopulateParts()` | `AssemblyComponentQuantifier.CollectQuantitiesHybrid()` | 🔶 | Part list from BOM |
 | `GetBOM()` / `GetBOM1()` | `AssemblyComponentQuantifier.TryCollectViaBom()` | 🔶 | BOM table access |
 | `TraverseComponent()` | `ComponentCollector.CollectComponents()` | ✅ | Assembly traversal |
@@ -79,9 +79,9 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 | `FixUnits()` | - | ❌ | Unit conversion |
 | `SaveAsEDrawing()` | - | ❌ | eDrawings export |
 | `FileNameWithoutExtension()` | `Path.GetFileNameWithoutExtension()` | ✅ | .NET built-in |
-| `RemoveInstance()` | - | ⏭️ | String parsing |
+| `RemoveInstance()` | `StringUtils.RemoveInstance()` | ✅ | String parsing |
 | `IsAssembly()` | - | ⏭️ | Type check |
-| `AssemblyDepth()` | - | ❌ | BOM indentation |
+| `AssemblyDepth()` | `StringUtils.AssemblyDepth()` | ✅ | BOM indentation |
 
 ---
 
@@ -89,13 +89,13 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 
 | VBA Function | C# Equivalent | Status | Notes |
 |--------------|---------------|--------|-------|
-| `MaterialCost()` | - | ❌ | Main cost calculation |
+| `MaterialCost()` | `MaterialCostCalculator.Calculate()` | ✅ | Main cost calculation |
 | `TotalCost()` | `TotalCostCalculator.Calculate()` | 🔶 | Total cost rollup |
 | `CalcWeight()` | `MetricsExtractor.FromModel()` | 🔶 | Weight calculation |
 | `CalculateBendInfo()` | `BendAnalyzer.GetBendInfo()` | 🔶 | Bend analysis |
 | `CalculateCutInfo()` | `FlatPatternAnalyzer.GetCutMetrics()` | 🔶 | Cut length/pierce |
 | `CountBends()` | `BendAnalyzer.GetBendInfo()` | 🔶 | Bend count |
-| `CheckBendTonnage()` | - | ❌ | Tonnage validation |
+| `CheckBendTonnage()` | `BendTonnageCalculator.CheckBend()` | ✅ | Tonnage validation |
 | `GetThickness()` | `ModelInfo.ThicknessInInches` | ✅ | Thickness extraction |
 | `GetSelectedFace()` | `SolidWorksApiWrapper.GetFixedFace()` | ✅ | Face selection |
 | `GetMass()` | `SolidWorksApiWrapper.GetMassKg()` | ✅ | Mass property |
@@ -105,13 +105,13 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 | `FindRate()` | - | ❌ | Rate lookup |
 | `LengthWidth()` | `FlatPatternAnalyzer.GetBlankDimensions()` | 🔶 | Blank size |
 | `FlattenPart()` | `BendStateManager.SelectFlatPattern()` | 🔶 | Flatten operation |
-| `UnFlattenPart()` | - | ❌ | Unflatten |
+| `UnFlattenPart()` | `BendStateManager.UnFlattenPart()` | ✅ | Unflatten |
 | `GetFlatFeatures()` | `FlatPatternAnalyzer.*` | 🔶 | Feature extraction |
 | `GetFixedFace()` | `SolidWorksApiWrapper.GetFixedFace()` | ✅ | Fixed face for SM |
 | `SelectFlatPattern()` | `BendStateManager.SelectFlatPattern()` | 🔶 | Flat pattern selection |
 | `SelectSheetMetal()` | - | ❌ | SM feature selection |
 | `BendData()` | `BendAnalyzer.GetBendInfo()` | 🔶 | Bend data extraction |
-| `TappedHoles()` | - | ❌ | Tapped hole detection |
+| `TappedHoles()` | `TappedHoleAnalyzer.Analyze()` | ✅ | Tapped hole detection |
 | `FlipPart()` | - | ⏭️ | Orientation fix |
 | `Fuzz()` | `Math.Abs(a-b) < tol` | ✅ | Tolerance compare |
 
@@ -174,21 +174,26 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 
 | Status | Count | Percentage |
 |--------|-------|------------|
-| ✅ Done | ~25 | ~25% |
-| 🔶 Partial | ~30 | ~30% |
-| ❌ Not Started | ~35 | ~35% |
+| ✅ Done | ~45 | ~45% |
+| 🔶 Partial | ~25 | ~25% |
+| ❌ Not Started | ~20 | ~20% |
 | ⏭️ Skip | ~10 | ~10% |
 
 ### Critical Path - What's Blocking Production Use
 
-1. **ERP Export** (`modExport.bas`) - The `Import.prn` generation is not ported
-2. **Cost Calculations** (`modMaterialCost.bas`) - `TotalCost()` incomplete
-3. **Tube Geometry** - Cannot extract OD/ID/length from cylinder faces
-4. **Custom Properties Write** - `Add3` with `OverwriteExisting` not implemented
+1. ~~**ERP Export** (`modExport.bas`) - The `Import.prn` generation is not ported~~ ✅ DONE via `ErpExportFormat`
+2. ~~**Cost Calculations** (`modMaterialCost.bas`) - `TotalCost()` incomplete~~ ✅ DONE via `TotalCostCalculator`, `MaterialCostCalculator`
+3. **Tube Geometry** - Cannot extract OD/ID/length from cylinder faces ⚠️ BLOCKED
+4. ~~**Custom Properties Write** - `Add3` with `OverwriteExisting` not implemented~~ ✅ Already exists in `SolidWorksApiWrapper`
 
-### Quick Wins - Easy to Port
+### Quick Wins - COMPLETED ✅
 
-1. `CompareMass()` - Simple mass comparison
-2. `N210()` - Deburr time calculation
-3. `UnFlattenPart()` - Opposite of flatten
-4. `AssemblyDepth()` - String parsing for indentation
+1. ✅ `CompareMass()` → `MassValidator.Compare()` - Mass comparison
+2. ✅ `N210()` → `F210Calculator.ComputeHours()` - Deburr time calculation
+3. ✅ `UnFlattenPart()` → `BendStateManager.UnFlattenPart()` - Unflatten operation
+4. ✅ `AssemblyDepth()` → `StringUtils.AssemblyDepth()` - BOM indentation
+5. ✅ `CheckBendTonnage()` → `BendTonnageCalculator.CheckBend()` - Tonnage validation
+6. ✅ `TappedHoles()` → `TappedHoleAnalyzer.Analyze()` - Tapped hole detection
+7. ✅ `RemoveInstance()` → `StringUtils.RemoveInstance()` - Instance suffix removal
+8. ✅ `MaterialCost()` → `MaterialCostCalculator.Calculate()` - Material cost calculation
+9. ✅ `TubeFeedRate()` / `TubePierceTime()` → `TubeCuttingParameterService` - Tube cutting rates

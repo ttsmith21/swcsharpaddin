@@ -307,14 +307,14 @@ namespace NM.SwAddin
                 try
                 {
                     var th = TappedHoleAnalyzer.Analyze(doc, info?.CustomProperties?.GetPropertyValue("rbMaterialType") as string ?? string.Empty);
-                    if (th != null && (th.Setups > 0 || th.Holes > 0))
+                    if (th != null && (th.TotalSetups > 0 || th.TotalHoles > 0))
                     {
-                        var f220 = F220Calculator.Compute(new F220Input { Setups = th.Setups, Holes = th.Holes });
+                        var f220 = F220Calculator.Compute(new F220Input { Setups = th.TotalSetups, Holes = th.TotalHoles });
                         info.CustomProperties.SetPropertyValue("F220", "1");
                         info.CustomProperties.SetPropertyValue("F220_S", f220.SetupHours.ToString("0.##", CultureInfo.InvariantCulture));
                         info.CustomProperties.SetPropertyValue("F220_R", f220.RunHours.ToString("0.###", CultureInfo.InvariantCulture));
                         info.CustomProperties.SetPropertyValue("F220_RN", "TAP HOLES PER CAD");
-                        if (th.StainlessNote)
+                        if (th.RequiresStainlessNote)
                         {
                             info.CustomProperties.SetPropertyValue("F220_Note", "Verify drill size for stainless");
                         }

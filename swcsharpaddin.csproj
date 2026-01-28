@@ -155,6 +155,12 @@
     <Compile Include="src\NM.SwAddin\Validation\PartPreflight.cs" />
     <Compile Include="src\NM.SwAddin\Validation\PartValidationAdapter.cs" />
     <Compile Include="src\NM.SwAddin\Validation\ValidationStats.cs" />
+    <Compile Include="src\NM.Core\Export\ErpExportFormat.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\BendTonnageCalculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\F210Calculator.cs" />
+    <Compile Include="src\NM.Core\Utils\StringUtils.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\MassValidator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\MaterialCostCalculator.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />
