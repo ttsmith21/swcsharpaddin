@@ -69,6 +69,12 @@ namespace NM.Core.DataModel
         public double Wall_m { get; set; }
         public double ID_m { get; set; }
         public double Length_m { get; set; }
+
+        // Additional tube properties
+        public string TubeShape { get; set; } = "Round";  // Round, Square, Rectangular, etc.
+        public string NpsText { get; set; }               // NPS designation, e.g., "2\"", "4\""
+        public string ScheduleCode { get; set; }          // Schedule code, e.g., "40", "80S", "XX"
+        public int NumberOfHoles { get; set; }            // Count of holes in the tube
     }
 
     public sealed class CostingData

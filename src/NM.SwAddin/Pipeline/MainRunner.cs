@@ -3,6 +3,7 @@ using NM.Core;
 using NM.Core.DataModel;
 using NM.Core.Manufacturing;
 using NM.Core.Processing;
+using NM.Core.Tubes;
 using NM.SwAddin.Processing;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
@@ -140,7 +141,7 @@ namespace NM.SwAddin.Pipeline
                 var swModel = new SolidWorksModel(info, swApp);
                 swModel.Attach(doc, cfg);
 
-                // Detect tube geometry (inches ? meters)
+                // Detect tube geometry (inches -> meters) and resolve schedule
                 try
                 {
                     var tube = new SimpleTubeProcessor().TryGetGeometry(doc);
@@ -153,6 +154,16 @@ namespace NM.SwAddin.Pipeline
                         pd.Tube.Wall_m = tube.WallThickness * IN_TO_M;
                         pd.Tube.ID_m = Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
                         pd.Tube.Length_m = tube.Length * IN_TO_M;
+                        pd.Tube.TubeShape = "Round"; // Currently only round tubes detected
+
+                        // Resolve pipe schedule (NPS and schedule code)
+                        var pipeService = new PipeScheduleService();
+                        string materialCategory = info.CustomProperties.MaterialCategory;
+                        if (pipeService.TryResolveByOdAndWall(tube.OuterDiameter, tube.WallThickness, materialCategory, out string npsText, out string scheduleCode))
+                        {
+                            pd.Tube.NpsText = npsText;
+                            pd.Tube.ScheduleCode = scheduleCode;
+                        }
                     }
                 }
                 catch { }
@@ -240,11 +251,11 @@ namespace NM.SwAddin.Pipeline
 
         /// <summary>
         /// Calculates all work center costs and populates PartData.Cost.
+        /// Routes to tube or sheet metal cost calculations based on part type.
         /// </summary>
         private static void CalculateCosts(PartData pd, ModelInfo info, ProcessingOptions options)
         {
             const double KG_TO_LB = 2.20462;
-            const double M_TO_IN = 39.3701;
 
             try
             {
@@ -252,63 +263,17 @@ namespace NM.SwAddin.Pipeline
                 pd.Cost.MaterialWeight_lb = rawWeightLb;
                 int quantity = Math.Max(1, options.Quantity > 0 ? options.Quantity : pd.QuoteQty);
 
-                // F210 Deburr - based on cut perimeter
-                if (pd.Sheet.TotalCutLength_m > 0)
+                // Route to appropriate cost calculator based on part type
+                if (pd.Classification == PartType.Tube && pd.Tube.IsTube)
                 {
-                    double cutPerimeterIn = pd.Sheet.TotalCutLength_m * M_TO_IN;
-                    double f210Hours = F210Calculator.ComputeHours(cutPerimeterIn);
-                    pd.Cost.F210_R_min = f210Hours * 60.0;
-                    pd.Cost.F210_Price = F210Calculator.ComputeCost(cutPerimeterIn, quantity);
+                    CalculateTubeCosts(pd, rawWeightLb, quantity);
+                }
+                else
+                {
+                    CalculateSheetMetalCosts(pd, info, rawWeightLb, quantity);
                 }
 
-                // F140 Press Brake - based on bend info
-                if (pd.Sheet.BendCount > 0)
-                {
-                    var bendInfo = new BendInfo
-                    {
-                        Count = pd.Sheet.BendCount,
-                        LongestBendIn = info.CustomProperties.LongestBendIn > 0
-                            ? info.CustomProperties.LongestBendIn
-                            : pd.BBoxWidth_m * M_TO_IN, // Estimate from bounding box
-                        NeedsFlip = pd.Sheet.BendsBothDirections
-                    };
-
-                    var f140Result = F140Calculator.Compute(bendInfo, rawWeightLb, quantity);
-                    pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
-                    pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
-                    pd.Cost.F140_Price = f140Result.Price(quantity);
-                }
-
-                // F220 Tapping - based on tapped hole count
-                int tappedHoles = info.CustomProperties.TappedHoleCount;
-                if (tappedHoles > 0)
-                {
-                    var f220Input = new F220Input { Setups = 1, Holes = tappedHoles };
-                    var f220Result = F220Calculator.Compute(f220Input);
-                    pd.Cost.F220_S_min = f220Result.SetupHours * 60.0;
-                    pd.Cost.F220_R_min = f220Result.RunHours * 60.0;
-                    pd.Cost.F220_RN = tappedHoles;
-                    pd.Cost.F220_Price = (f220Result.SetupHours + f220Result.RunHours * quantity) * CostConstants.F220_COST;
-                }
-
-                // F325 Roll Forming - based on max bend radius
-                double maxRadiusIn = info.CustomProperties.MaxBendRadiusIn;
-                if (maxRadiusIn > 2.0) // Only if radius > 2 inches
-                {
-                    var f325Calc = new F325Calculator();
-                    double arcLengthIn = info.CustomProperties.ArcLengthIn > 0
-                        ? info.CustomProperties.ArcLengthIn
-                        : maxRadiusIn * 3.14159; // Rough estimate: half circle
-                    var f325Result = f325Calc.CalculateRollForming(maxRadiusIn, arcLengthIn, quantity);
-                    if (f325Result.RequiresRollForming)
-                    {
-                        pd.Cost.F325_S_min = f325Result.SetupHours * 60.0;
-                        pd.Cost.F325_R_min = f325Result.RunHours * 60.0;
-                        pd.Cost.F325_Price = f325Result.TotalCost;
-                    }
-                }
-
-                // Material Cost
+                // Material Cost (applies to both tube and sheet metal)
                 if (rawWeightLb > 0 && !string.IsNullOrWhiteSpace(pd.Material))
                 {
                     var matInput = new MaterialCostCalculator.MaterialCostInput
@@ -334,6 +299,108 @@ namespace NM.SwAddin.Pipeline
             catch (Exception ex)
             {
                 ErrorHandler.HandleError("CalculateCosts", "Cost calculation failed", ex, ErrorHandler.LogLevel.Warning);
+            }
+        }
+
+        /// <summary>
+        /// Calculates tube-specific work center costs using TubeWorkCenterRules.
+        /// F325 (Roll Form), F140 (Press Brake if required), F210 (Deburr).
+        /// </summary>
+        private static void CalculateTubeCosts(PartData pd, double rawWeightLb, int quantity)
+        {
+            const double M_TO_IN = 39.3701;
+
+            // Convert tube dimensions to inches
+            double wallIn = pd.Tube.Wall_m * M_TO_IN;
+            double lengthIn = pd.Tube.Length_m * M_TO_IN;
+
+            // F325 Roll Form - always applies to tubes
+            var f325Result = TubeWorkCenterRules.ComputeF325(rawWeightLb, wallIn);
+            pd.Cost.F325_S_min = f325Result.SetupHours * 60.0;
+            pd.Cost.F325_R_min = f325Result.RunHours * 60.0;
+            pd.Cost.F325_Price = (f325Result.SetupHours + f325Result.RunHours * quantity) * CostConstants.F325_COST;
+
+            // F140 Press Brake - only if F325 requires it (heavy tube with thick wall)
+            if (f325Result.RequiresPressBrake)
+            {
+                var f140Result = TubeWorkCenterRules.ComputeF140(rawWeightLb, wallIn);
+                pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
+                pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
+                pd.Cost.F140_Price = (f140Result.SetupHours + f140Result.RunHours * quantity) * CostConstants.F140_COST;
+            }
+
+            // F210 Deburr - based on tube length
+            if (lengthIn > 0)
+            {
+                var f210Result = TubeWorkCenterRules.ComputeF210(lengthIn);
+                pd.Cost.F210_S_min = f210Result.SetupHours * 60.0;
+                pd.Cost.F210_R_min = f210Result.RunHours * 60.0;
+                pd.Cost.F210_Price = (f210Result.SetupHours + f210Result.RunHours * quantity) * CostConstants.F210_COST;
+            }
+        }
+
+        /// <summary>
+        /// Calculates sheet metal work center costs.
+        /// F210 (Deburr), F140 (Press Brake), F220 (Tapping), F325 (Roll Forming if large radius).
+        /// </summary>
+        private static void CalculateSheetMetalCosts(PartData pd, ModelInfo info, double rawWeightLb, int quantity)
+        {
+            const double M_TO_IN = 39.3701;
+
+            // F210 Deburr - based on cut perimeter
+            if (pd.Sheet.TotalCutLength_m > 0)
+            {
+                double cutPerimeterIn = pd.Sheet.TotalCutLength_m * M_TO_IN;
+                double f210Hours = F210Calculator.ComputeHours(cutPerimeterIn);
+                pd.Cost.F210_R_min = f210Hours * 60.0;
+                pd.Cost.F210_Price = F210Calculator.ComputeCost(cutPerimeterIn, quantity);
+            }
+
+            // F140 Press Brake - based on bend info
+            if (pd.Sheet.BendCount > 0)
+            {
+                var bendInfo = new BendInfo
+                {
+                    Count = pd.Sheet.BendCount,
+                    LongestBendIn = info.CustomProperties.LongestBendIn > 0
+                        ? info.CustomProperties.LongestBendIn
+                        : pd.BBoxWidth_m * M_TO_IN, // Estimate from bounding box
+                    NeedsFlip = pd.Sheet.BendsBothDirections
+                };
+
+                var f140Result = F140Calculator.Compute(bendInfo, rawWeightLb, quantity);
+                pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
+                pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
+                pd.Cost.F140_Price = f140Result.Price(quantity);
+            }
+
+            // F220 Tapping - based on tapped hole count
+            int tappedHoles = info.CustomProperties.TappedHoleCount;
+            if (tappedHoles > 0)
+            {
+                var f220Input = new F220Input { Setups = 1, Holes = tappedHoles };
+                var f220Result = F220Calculator.Compute(f220Input);
+                pd.Cost.F220_S_min = f220Result.SetupHours * 60.0;
+                pd.Cost.F220_R_min = f220Result.RunHours * 60.0;
+                pd.Cost.F220_RN = tappedHoles;
+                pd.Cost.F220_Price = (f220Result.SetupHours + f220Result.RunHours * quantity) * CostConstants.F220_COST;
+            }
+
+            // F325 Roll Forming - based on max bend radius (only if radius > 2 inches)
+            double maxRadiusIn = info.CustomProperties.MaxBendRadiusIn;
+            if (maxRadiusIn > 2.0)
+            {
+                var f325Calc = new F325Calculator();
+                double arcLengthIn = info.CustomProperties.ArcLengthIn > 0
+                    ? info.CustomProperties.ArcLengthIn
+                    : maxRadiusIn * 3.14159; // Rough estimate: half circle
+                var f325Result = f325Calc.CalculateRollForming(maxRadiusIn, arcLengthIn, quantity);
+                if (f325Result.RequiresRollForming)
+                {
+                    pd.Cost.F325_S_min = f325Result.SetupHours * 60.0;
+                    pd.Cost.F325_R_min = f325Result.RunHours * 60.0;
+                    pd.Cost.F325_Price = f325Result.TotalCost;
+                }
             }
         }
     }

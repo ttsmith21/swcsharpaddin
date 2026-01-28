@@ -76,6 +76,21 @@ namespace NM.Core.Processing
             p["IsSheetMetal"] = d.Sheet.IsSheetMetal ? "True" : "False";
             p["IsTube"] = d.Tube.IsTube ? "True" : "False";
 
+            // Tube-specific properties (dimensions in inches)
+            if (d.Tube.IsTube)
+            {
+                p["TubeOD"] = (d.Tube.OD_m * M_TO_IN).ToString("0.####", Inv);
+                p["TubeWall"] = (d.Tube.Wall_m * M_TO_IN).ToString("0.####", Inv);
+                p["TubeLength"] = (d.Tube.Length_m * M_TO_IN).ToString("0.####", Inv);
+                p["TubeShape"] = d.Tube.TubeShape ?? "Round";
+                if (!string.IsNullOrEmpty(d.Tube.NpsText))
+                    p["TubeNPS"] = d.Tube.NpsText;
+                if (!string.IsNullOrEmpty(d.Tube.ScheduleCode))
+                    p["TubeSchedule"] = d.Tube.ScheduleCode;
+                if (d.Tube.NumberOfHoles > 0)
+                    p["NumberOfHoles"] = d.Tube.NumberOfHoles.ToString(Inv);
+            }
+
             foreach (var kv in d.Extra)
                 p[kv.Key] = kv.Value ?? string.Empty;
 
@@ -144,6 +159,18 @@ namespace NM.Core.Processing
 
             d.Sheet.IsSheetMetal = EqualsTrue(Get(props, "IsSheetMetal"));
             d.Tube.IsTube = EqualsTrue(Get(props, "IsTube"));
+
+            // Tube-specific properties
+            if (d.Tube.IsTube)
+            {
+                d.Tube.OD_m = D("TubeOD") / M_TO_IN;
+                d.Tube.Wall_m = D("TubeWall") / M_TO_IN;
+                d.Tube.Length_m = D("TubeLength") / M_TO_IN;
+                d.Tube.TubeShape = Get(props, "TubeShape");
+                d.Tube.NpsText = Get(props, "TubeNPS");
+                d.Tube.ScheduleCode = Get(props, "TubeSchedule");
+                d.Tube.NumberOfHoles = I("NumberOfHoles");
+            }
 
             return d;
         }

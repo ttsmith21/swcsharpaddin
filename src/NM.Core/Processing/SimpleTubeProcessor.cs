@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using NM.Core;
+using NM.Core.Tubes;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
@@ -76,13 +77,38 @@ namespace NM.Core.Processing
                 // Write properties to ModelInfo if provided
                 if (info?.CustomProperties != null)
                 {
-                    info.CustomProperties.SetPropertyValue("TubeOD", geom.OuterDiameter.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture), CustomPropertyType.Number);
-                    info.CustomProperties.SetPropertyValue("TubeWall", geom.WallThickness.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture), CustomPropertyType.Number);
-                    info.CustomProperties.SetPropertyValue("TubeLength", geom.Length.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture), CustomPropertyType.Number);
+                    var inv = System.Globalization.CultureInfo.InvariantCulture;
+
+                    // Basic geometry properties
+                    info.CustomProperties.SetPropertyValue("TubeOD", geom.OuterDiameter.ToString("0.###", inv), CustomPropertyType.Number);
+                    info.CustomProperties.SetPropertyValue("TubeWall", geom.WallThickness.ToString("0.###", inv), CustomPropertyType.Number);
+                    info.CustomProperties.SetPropertyValue("TubeLength", geom.Length.ToString("0.###", inv), CustomPropertyType.Number);
                     info.CustomProperties.IsTube = true;
+
+                    // Resolve pipe schedule (NPS and schedule code)
+                    var pipeService = new PipeScheduleService();
+                    string materialCategory = info.CustomProperties.MaterialCategory;
+                    if (pipeService.TryResolveByOdAndWall(geom.OuterDiameter, geom.WallThickness, materialCategory, out string npsText, out string scheduleCode))
+                    {
+                        info.CustomProperties.SetPropertyValue("TubeNPS", npsText, CustomPropertyType.Text);
+                        info.CustomProperties.SetPropertyValue("TubeSchedule", scheduleCode, CustomPropertyType.Text);
+                        ErrorHandler.DebugLog($"{LogPrefix} Schedule resolved: NPS={npsText}, Schedule={scheduleCode}");
+                    }
+                    else
+                    {
+                        ErrorHandler.DebugLog($"{LogPrefix} Schedule not found for OD={geom.OuterDiameter:F3}, Wall={geom.WallThickness:F3}");
+                    }
+
+                    // Generate OptiMaterial code for tubes
+                    string rbMaterial = info.CustomProperties.rbMaterialType;
+                    if (!string.IsNullOrWhiteSpace(rbMaterial))
+                    {
+                        string optiMaterial = TubeMaterialCodeGenerator.Generate(rbMaterial, geom.OuterDiameter, geom.WallThickness);
+                        info.CustomProperties.OptiMaterial = optiMaterial;
+                        ErrorHandler.DebugLog($"{LogPrefix} OptiMaterial={optiMaterial}");
+                    }
                 }
 
-                // TODO(vNext): Use PipeScheduleService, TubeMaterialCodeGenerator, TubeCuttingParameterService, ExternalStart
                 return true;
             }
             catch (Exception ex)
