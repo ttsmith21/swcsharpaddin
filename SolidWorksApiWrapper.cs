@@ -384,6 +384,7 @@ namespace NM.SwAddin
 
         /// <summary>
         /// Checks if the model contains a SheetMetal or FlatPattern feature.
+        /// VBA approach: Check body.GetFeatures() first, then fall back to model traversal.
         /// </summary>
         /// <param name="swModel">The model to check.</param>
         /// <returns>True if a sheet metal feature is found, false otherwise.</returns>
@@ -395,6 +396,29 @@ namespace NM.SwAddin
             {
                 if (!ValidateModel(swModel, procName)) return false;
 
+                // VBA approach: Check body features first (swBody.GetFeatures)
+                // This is how VBA's SMInsertBends() checks: Features = swBody.GetFeatures
+                var body = GetMainBody(swModel);
+                if (body != null)
+                {
+                    var bodyFeatures = body.GetFeatures() as object[];
+                    if (bodyFeatures != null)
+                    {
+                        foreach (var featObj in bodyFeatures)
+                        {
+                            var feat = featObj as IFeature;
+                            if (feat == null) continue;
+                            string featType = feat.GetTypeName2();
+                            // VBA checks: If Feature = "SheetMetal" Then (exact match)
+                            if (string.Equals(featType, "SheetMetal", StringComparison.OrdinalIgnoreCase))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                // Fallback: also check model feature tree for FlatPattern (may not be on body)
                 var swFeat = swModel.FirstFeature() as IFeature;
                 while (swFeat != null)
                 {

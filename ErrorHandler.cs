@@ -15,6 +15,12 @@ namespace NM.Core
         private static readonly List<string> _callStack = new List<string>();
         private static readonly object _lockObject = new object();
 
+        /// <summary>
+        /// Additional debug log file path (used by QA runner for session-specific logging).
+        /// Set to a file path to capture all DebugLog calls to that file as well.
+        /// </summary>
+        public static string AdditionalDebugLogPath { get; set; }
+
         /// <summary>Structured log level values for compile-time safety and easy mapping to sinks.</summary>
         public enum LogLevel
         {
@@ -61,6 +67,24 @@ namespace NM.Core
             {
                 TryWriteToLog(line);
             }
+
+            // Also write to additional debug log if set (used by QA runner)
+            if (!string.IsNullOrEmpty(AdditionalDebugLogPath))
+            {
+                TryWriteToAdditionalLog(line);
+            }
+        }
+
+        private static void TryWriteToAdditionalLog(string message)
+        {
+            try
+            {
+                lock (_lockObject)
+                {
+                    File.AppendAllText(AdditionalDebugLogPath, message + Environment.NewLine);
+                }
+            }
+            catch { /* ignore logging failures */ }
         }
 
         /// <summary>New preferred overload using LogLevel. Centralized error handler to build and write a formatted log entry.</summary>

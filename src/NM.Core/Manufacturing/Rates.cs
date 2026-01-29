@@ -9,11 +9,24 @@ namespace NM.Core.Manufacturing
 
         public static double GetDensityLbPerIn3(string material)
         {
+            return GetDensityLbPerIn3(material, out _);
+        }
+
+        public static double GetDensityLbPerIn3(string material, out bool isUnknownMaterial)
+        {
+            isUnknownMaterial = false;
             var m = (material ?? string.Empty).ToUpperInvariant();
             if (m.Contains("304") || m.Contains("316")) return Density304_316;
             if (m.Contains("A36") || m.Contains("CS") || m.Contains("CARBON")) return DensityA36;
             if (m.Contains("6061") || m.Contains("5052") || m.Contains("AL")) return DensityAl;
-            return Density304_316; // default conservative
+
+            // WARN: Unknown material - using SS304 density as conservative fallback
+            // This may be 2-3x off for aluminum parts!
+            isUnknownMaterial = true;
+            ErrorHandler.HandleError("Rates.GetDensityLbPerIn3",
+                $"Unknown material '{material}' - using SS304 density ({Density304_316} lb/in³). Verify calculations!",
+                null, ErrorHandler.LogLevel.Warning);
+            return Density304_316;
         }
 
         // Laser rates (rough; v1 placeholders)

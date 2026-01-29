@@ -38,6 +38,7 @@ namespace swcsharpaddin
         public const int mainItemID2 = 1;
         public const int mainItemID3 = 2;
         public const int mainItemID4 = 3;
+        public const int mainItemID5 = 4;  // QA Runner command
 
         #region Event Handler Variables
         Hashtable openDocs = new Hashtable();
@@ -212,7 +213,7 @@ namespace swcsharpaddin
             //get the ID information stored in the registry
             bool getDataResult = iCmdMgr.GetGroupDataFromRegistry(mainCmdGroupID, out registryIDs);
 
-            int[] knownIDs = new int[2] { mainItemID1, mainItemID2};
+            int[] knownIDs = new int[3] { mainItemID3, mainItemID4, mainItemID5};  // Must match command IDs actually registered
             
             if (getDataResult)
             {
@@ -230,6 +231,7 @@ namespace swcsharpaddin
 
             int menuToolbarOption = (int)(swCommandItemType_e.swMenuItem | swCommandItemType_e.swToolbarItem);
             cmdGroup.AddCommandItem2("Run Pipeline", -1, "Run unified processing pipeline", "Run Pipeline", 1, "RunPipeline", "", mainItemID4, menuToolbarOption);
+            cmdGroup.AddCommandItem2("Run QA", -1, "Run Gold Standard QA tests", "Run QA", 2, "RunQA", "", mainItemID5, menuToolbarOption);
 #if DEBUG
             cmdIndex2 = cmdGroup.AddCommandItem2("Run Smoke Tests", -1, "Run automated smoke tests", "Run Tests", 3, "RunSmokeTests", "", mainItemID3, menuToolbarOption);
 #endif
@@ -497,6 +499,41 @@ namespace swcsharpaddin
             {
                 NM.Core.ErrorHandler.HandleError("RunPipeline", ex.Message, ex, NM.Core.ErrorHandler.LogLevel.Error);
                 System.Windows.Forms.MessageBox.Show($"Pipeline error: {ex.Message}", "Error");
+            }
+            finally
+            {
+                NM.Core.ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Runs the Gold Standard QA tests by processing files from C:\Temp\nm_qa_config.json
+        /// </summary>
+        public void RunQA()
+        {
+            NM.Core.ErrorHandler.PushCallStack("RunQA");
+            try
+            {
+                var runner = new NM.SwAddin.Pipeline.QARunner(iSwApp);
+                var summary = runner.Run();
+
+                var msg = $"QA Complete:\n" +
+                          $"  Total: {summary.TotalFiles}\n" +
+                          $"  Passed: {summary.Passed}\n" +
+                          $"  Failed: {summary.Failed}\n" +
+                          $"  Errors: {summary.Errors}\n" +
+                          $"  Time: {summary.TotalElapsedMs:F0}ms";
+
+                System.Windows.Forms.MessageBox.Show(msg, "QA Results",
+                    System.Windows.Forms.MessageBoxButtons.OK,
+                    summary.Errors > 0 || summary.Failed > 0
+                        ? System.Windows.Forms.MessageBoxIcon.Warning
+                        : System.Windows.Forms.MessageBoxIcon.Information);
+            }
+            catch (System.Exception ex)
+            {
+                NM.Core.ErrorHandler.HandleError("RunQA", ex.Message, ex, NM.Core.ErrorHandler.LogLevel.Error);
+                System.Windows.Forms.MessageBox.Show($"QA error: {ex.Message}", "Error");
             }
             finally
             {

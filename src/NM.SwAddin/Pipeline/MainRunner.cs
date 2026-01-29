@@ -69,8 +69,9 @@ namespace NM.SwAddin.Pipeline
                     return new RunResult { Success = false, Message = pres.ErrorMessage ?? "Processing failed" };
                 }
 
-                // Batched custom property writeback
-                if (info.CustomProperties.IsDirty)
+                // Batched custom property writeback (only if SaveChanges is enabled)
+                var opts = options ?? new ProcessingOptions();
+                if (opts.SaveChanges && info.CustomProperties.IsDirty)
                 {
                     if (!swModel.SavePropertiesToSolidWorks())
                     {
@@ -141,44 +142,87 @@ namespace NM.SwAddin.Pipeline
                 var swModel = new SolidWorksModel(info, swApp);
                 swModel.Attach(doc, cfg);
 
-                // Detect tube geometry (inches -> meters) and resolve schedule
-                try
-                {
-                    var tube = new SimpleTubeProcessor().TryGetGeometry(doc);
-                    if (tube != null && tube.OuterDiameter > 0 && tube.WallThickness > 0 && tube.Length > 0)
-                    {
-                        const double IN_TO_M = 0.0254;
-                        pd.Tube.IsTube = true;
-                        pd.Classification = PartType.Tube;
-                        pd.Tube.OD_m = tube.OuterDiameter * IN_TO_M;
-                        pd.Tube.Wall_m = tube.WallThickness * IN_TO_M;
-                        pd.Tube.ID_m = Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
-                        pd.Tube.Length_m = tube.Length * IN_TO_M;
-                        pd.Tube.TubeShape = "Round"; // Currently only round tubes detected
+                // VBA Logic: Try sheet metal FIRST, only fall back to tube if sheet metal fails
+                ErrorHandler.DebugLog("[SMDBG] === CLASSIFICATION START ===");
+                ErrorHandler.DebugLog($"[SMDBG] File: {pathOrTitle}");
 
-                        // Resolve pipe schedule (NPS and schedule code)
-                        var pipeService = new PipeScheduleService();
-                        string materialCategory = info.CustomProperties.MaterialCategory;
-                        if (pipeService.TryResolveByOdAndWall(tube.OuterDiameter, tube.WallThickness, materialCategory, out string npsText, out string scheduleCode))
-                        {
-                            pd.Tube.NpsText = npsText;
-                            pd.Tube.ScheduleCode = scheduleCode;
-                        }
+                var factory = new ProcessorFactory(swApp);
+                var sheetProcessor = factory.Get(ProcessorType.SheetMetal);
+                ErrorHandler.DebugLog($"[SMDBG] SheetProcessor obtained: {(sheetProcessor != null ? sheetProcessor.GetType().Name : "NULL")}");
+
+                // Step 1: Try sheet metal processing first (like VBA's SMInsertBends)
+                bool isSheetMetal = false;
+                if (sheetProcessor != null)
+                {
+                    ErrorHandler.DebugLog("[SMDBG] Step 1: Calling sheetProcessor.Process()...");
+                    var sheetResult = sheetProcessor.Process(doc, info, options ?? new ProcessingOptions());
+                    ErrorHandler.DebugLog($"[SMDBG] Step 1 Result: Success={sheetResult.Success}, Error={sheetResult.ErrorMessage ?? "none"}");
+                    if (sheetResult.Success)
+                    {
+                        isSheetMetal = true;
+                        pd.Classification = PartType.SheetMetal;
+                        ErrorHandler.DebugLog("[SMDBG] Step 1: SHEET METAL DETECTED - Classification set to SheetMetal");
+                    }
+                    else
+                    {
+                        ErrorHandler.DebugLog("[SMDBG] Step 1: Sheet metal processing FAILED - will try tube");
                     }
                 }
-                catch { }
+                else
+                {
+                    ErrorHandler.DebugLog("[SMDBG] Step 1: SKIPPED - sheetProcessor is NULL");
+                }
 
-                // Use ProcessorFactory to detect part type and route to correct processor
-                var factory = new ProcessorFactory(swApp);
-                var processor = factory.DetectFor(doc);
+                // Step 2: Only try tube detection if sheet metal failed (like VBA)
+                ErrorHandler.DebugLog($"[SMDBG] Step 2: isSheetMetal={isSheetMetal}, will try tube={!isSheetMetal}");
+                if (!isSheetMetal)
+                {
+                    try
+                    {
+                        var tube = new SimpleTubeProcessor().TryGetGeometry(doc);
+                        if (tube != null && tube.OuterDiameter > 0 && tube.WallThickness > 0 && tube.Length > 0)
+                        {
+                            const double IN_TO_M = 0.0254;
+                            pd.Tube.IsTube = true;
+                            pd.Classification = PartType.Tube;
+                            pd.Tube.OD_m = tube.OuterDiameter * IN_TO_M;
+                            pd.Tube.Wall_m = tube.WallThickness * IN_TO_M;
+                            pd.Tube.ID_m = Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
+                            pd.Tube.Length_m = tube.Length * IN_TO_M;
+                            pd.Tube.TubeShape = "Round"; // Currently only round tubes detected
 
-                // Update classification based on detected processor type
-                if (processor.Type == ProcessorType.SheetMetal)
-                    pd.Classification = PartType.SheetMetal;
-                else if (processor.Type == ProcessorType.Tube)
-                    pd.Classification = PartType.Tube;
+                            // Resolve pipe schedule (NPS and schedule code)
+                            var pipeService = new PipeScheduleService();
+                            string materialCategory = info.CustomProperties.MaterialCategory;
+                            if (pipeService.TryResolveByOdAndWall(tube.OuterDiameter, tube.WallThickness, materialCategory, out string npsText, out string scheduleCode))
+                            {
+                                pd.Tube.NpsText = npsText;
+                                pd.Tube.ScheduleCode = scheduleCode;
+                            }
+                        }
+                    }
+                    catch { }
+                }
 
-                var pres = processor.Process(doc, info, options ?? new ProcessingOptions());
+                // Step 3: If neither sheet metal nor tube, use generic processor
+                IPartProcessor processor;
+                ProcessingResult pres;
+                if (isSheetMetal)
+                {
+                    // Already processed as sheet metal above
+                    processor = sheetProcessor;
+                    pres = ProcessingResult.Ok("SheetMetal");
+                }
+                else if (pd.Classification == PartType.Tube)
+                {
+                    processor = factory.Get(ProcessorType.Tube);
+                    pres = processor.Process(doc, info, options ?? new ProcessingOptions());
+                }
+                else
+                {
+                    processor = factory.Get(ProcessorType.Generic);
+                    pres = processor.Process(doc, info, options ?? new ProcessingOptions());
+                }
                 if (!pres.Success)
                 {
                     pd.Status = ProcessingStatus.Failed;
@@ -225,7 +269,9 @@ namespace NM.SwAddin.Pipeline
                         info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
                 }
 
-                if (info.CustomProperties.IsDirty)
+                // Only save if SaveChanges is enabled (default true, but QA disables it)
+                var opts2 = options ?? new ProcessingOptions();
+                if (opts2.SaveChanges && info.CustomProperties.IsDirty)
                 {
                     if (!swModel.SavePropertiesToSolidWorks())
                     {

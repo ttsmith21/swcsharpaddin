@@ -25,8 +25,25 @@ namespace NM.Core.Manufacturing
             /// </summary>
             public static double GetCostPerLb(string materialCode)
             {
+                return GetCostPerLb(materialCode, out _);
+            }
+
+            /// <summary>
+            /// Gets material cost per pound based on material code, with unknown material flag.
+            /// </summary>
+            public static double GetCostPerLb(string materialCode, out bool isUnknownMaterial)
+            {
+                isUnknownMaterial = false;
+
                 if (string.IsNullOrWhiteSpace(materialCode))
+                {
+                    // Empty material code - this is a data error
+                    isUnknownMaterial = true;
+                    ErrorHandler.HandleError("MaterialCostCalculator.GetCostPerLb",
+                        "Empty material code - using Carbon Steel price. Verify material is set!",
+                        null, ErrorHandler.LogLevel.Warning);
                     return CarbonSteel_PerLb;
+                }
 
                 var m = materialCode.ToUpperInvariant();
 
@@ -38,6 +55,12 @@ namespace NM.Core.Manufacturing
                 if (m.Contains("5052") || m.Contains("AL")) return Aluminum5052_PerLb;
                 if (m.Contains("A36") || m.Contains("CS") || m.Contains("CARBON")) return CarbonSteel_PerLb;
 
+                // WARN: Unknown material - using Carbon Steel as conservative fallback
+                // This may be 3-4x off for stainless!
+                isUnknownMaterial = true;
+                ErrorHandler.HandleError("MaterialCostCalculator.GetCostPerLb",
+                    $"Unknown material '{materialCode}' - using Carbon Steel price (${CarbonSteel_PerLb}/lb). Verify pricing!",
+                    null, ErrorHandler.LogLevel.Warning);
                 return CarbonSteel_PerLb;
             }
         }

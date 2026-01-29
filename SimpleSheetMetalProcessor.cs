@@ -19,62 +19,87 @@ namespace NM.SwAddin
             _swApp = swApp ?? throw new ArgumentNullException(nameof(swApp));
         }
 
+        /// <summary>
+        /// Converts a solid body to sheet metal using the VBA two-phase approach:
+        /// PHASE 1: Probe insert → extract thickness → volume check → flatten → mass check
+        /// PHASE 2: Undo probe → final insert (bend table first, K-factor fallback) → flatten
+        /// </summary>
         public bool ConvertToSheetMetalAndOptionallyFlatten(ModelInfo info, IModelDoc2 model, bool flatten = true, ProcessingOptions options = null)
         {
             const string proc = nameof(ConvertToSheetMetalAndOptionallyFlatten);
             ErrorHandler.PushCallStack(proc);
+            ErrorHandler.DebugLog("[SMDBG] ====== ConvertToSheetMetalAndOptionallyFlatten() ENTER (VBA Two-Phase) ======");
+            ErrorHandler.DebugLog($"[SMDBG] Parameters: model={(model != null ? "valid" : "NULL")}, info={(info != null ? "valid" : "NULL")}, flatten={flatten}");
             try
             {
                 options = options ?? new ProcessingOptions();
+                ErrorHandler.DebugLog($"[SMDBG] ProcessingOptions: KFactor={options.KFactor}, BendTable='{options.BendTable ?? "null"}'");
 
-                if (model == null) { Fail(info, "No active model"); return false; }
-                if (model.GetType() != (int)swDocumentTypes_e.swDocPART) { Fail(info, "Active document is not a part"); return false; }
-
-                // If ExternalStart identified this as tube stock, or model properties indicate a tube, skip sheet-metal ops
-                try
+                // ========================================
+                // PRE-CHECKS
+                // ========================================
+                if (model == null)
                 {
-                    if (info != null && info.CustomProperties != null && info.CustomProperties.IsTube)
-                    {
-                        ErrorHandler.DebugLog("[0] Tube detected via ExternalStart; skipping InsertBends/flatten.");
-                        info.IsSheetMetal = false;
-                        info.IsFlattened = false;
-                        info.InsertSuccessful = true;
-                        return true;
-                    }
-                    // Fallback: read common property names written by external extractor (Shape/IsTube/Profile/Section)
-                    var cfg = SafeGetActiveConfigName(model);
-                    if (IsTubeByModelProperties(model, cfg))
-                    {
-                        if (info?.CustomProperties != null) info.CustomProperties.IsTube = true;
-                        ErrorHandler.DebugLog("[0] Tube detected via custom properties; skipping InsertBends/flatten.");
-                        info.IsSheetMetal = false;
-                        info.IsFlattened = false;
-                        info.InsertSuccessful = true;
-                        return true;
-                    }
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: model is NULL");
+                    Fail(info, "No active model");
+                    return false;
                 }
-                catch { /* best-effort guard; continue if properties unavailable */ }
 
+                int modelType = model.GetType();
+                if (modelType != (int)swDocumentTypes_e.swDocPART)
+                {
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: Not a part document");
+                    Fail(info, "Active document is not a part");
+                    return false;
+                }
+
+                var part = model as IPartDoc;
+                if (part == null)
+                {
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: Could not cast model to IPartDoc");
+                    Fail(info, "Not a part document");
+                    return false;
+                }
+
+                ErrorHandler.DebugLog("[SMDBG] VBA approach: Try sheet metal first, let geometry decide");
                 var body = SolidWorksApiWrapper.GetMainBody(model);
-                if (body == null) { Fail(info, "No solid body detected"); return false; }
-                ErrorHandler.DebugLog("[1] Solid body OK");
+                if (body == null)
+                {
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: No solid body detected");
+                    Fail(info, "No solid body detected");
+                    return false;
+                }
+                ErrorHandler.DebugLog("[SMDBG] [1] Solid body OK");
 
+                // Check if already sheet metal
                 if (SolidWorksApiWrapper.HasSheetMetalFeature(model))
                 {
-                    string cfg = SafeGetActiveConfigName(model);
-                    bool hasFlat = HasFlatPatternFeature(model);
-                    ErrorHandler.DebugLog($"[2] Already sheet metal | flatten={flatten}, cfg='{cfg}', hasFlatPattern={hasFlat}");
-                    if (flatten && !TryFlatten(model, info)) return false;
+                    ErrorHandler.DebugLog("[SMDBG] [2] Already sheet metal");
+                    if (flatten && !TryFlatten(model, info))
+                    {
+                        ErrorHandler.DebugLog("[SMDBG] FAIL: TryFlatten returned false");
+                        return false;
+                    }
                     info.IsSheetMetal = true;
                     info.IsFlattened = flatten;
                     info.InsertSuccessful = true;
+                    ErrorHandler.DebugLog("[SMDBG] SUCCESS: Part already had sheet metal features");
                     return true;
                 }
 
-                // Select reference (planar face preferred; else longest linear edge)
+                // ========================================
+                // SELECT REFERENCE (planar face or linear edge)
+                // ========================================
+                ErrorHandler.DebugLog("[SMDBG] Part needs conversion - selecting reference...");
                 SolidWorksApiWrapper.ClearSelection(model);
                 var largestFace = GetLargestFace(body);
-                if (largestFace == null) { Fail(info, "No faces found on body"); return false; }
+                if (largestFace == null)
+                {
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: No faces found on body");
+                    Fail(info, "No faces found on body");
+                    return false;
+                }
+
                 bool isPlane = false, isCyl = false;
                 try
                 {
@@ -87,244 +112,296 @@ namespace NM.SwAddin
                 }
                 catch { }
 
-                if (isPlane)
+                if (!SelectReference(model, body, isPlane, isCyl, info))
+                    return false;
+
+                double volBefore = SafeGetVolume(model);
+                ErrorHandler.DebugLog($"[SMDBG] Volume before: {volBefore:E6} m³");
+
+                // ========================================
+                // PHASE 1: PROBE INSERT (extract thickness, validate)
+                // ========================================
+                ErrorHandler.DebugLog("[SMDBG] === PHASE 1: PROBE INSERT ===");
+                const double seedRadius = 0.001; // 1mm - VBA uses 0.001
+                const double seedK = 0.5;
+
+                ErrorHandler.DebugLog($"[SMDBG] Calling InsertBends2 (PROBE): radius={seedRadius}m, K={seedK}");
+                bool okProbe = part.InsertBends2(seedRadius, string.Empty, seedK, -1, true, 1.0, true);
+
+                if (!okProbe || !SolidWorksApiWrapper.HasSheetMetalFeature(model))
                 {
-                    if (!((largestFace as IEntity)?.Select4(false, null) ?? false)) { Fail(info, "Failed to select planar face"); return false; }
-                    ErrorHandler.DebugLog("[3] Selected planar face");
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: Probe InsertBends2 failed - part cannot be converted");
+                    Fail(info, "InsertBends2 probe failed - part may not be convertible to sheet metal");
+                    return false;
                 }
-                else if (isCyl)
+                ErrorHandler.DebugLog("[SMDBG] Probe insert successful");
+
+                // Extract thickness from probe (MUST succeed)
+                double thickness = GetSheetMetalThicknessViaLinkedProperty(model);
+                if (thickness <= 0)
                 {
-                    var edge = FindLongestLinearEdge(body);
-                    if (edge == null) { Fail(info, "Largest face is cylindrical but no linear edge found"); return false; }
-                    if (!((edge as IEntity)?.Select4(false, null) ?? false)) { Fail(info, "Failed to select linear edge"); return false; }
-                    ErrorHandler.DebugLog("[3] Selected longest linear edge");
+                    thickness = GetSheetMetalThicknessFromFeatureDefinition(model);
                 }
-                else
+                ErrorHandler.DebugLog($"[SMDBG] Probe thickness: {thickness:E6} m ({thickness * 39.37:F4} inches)");
+
+                if (thickness <= 0)
                 {
-                    Fail(info, "Largest face not planar/cylindrical; skipping InsertBends");
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: Could not extract thickness from probe");
+                    try { model.EditUndo2(2); } catch { }
+                    Fail(info, "Could not extract sheet metal thickness from probe feature");
                     return false;
                 }
 
-                double volBefore = SafeGetVolume(model);
-                var part = model as IPartDoc; if (part == null) { Fail(info, "Not a part document"); return false; }
+                // Volume check on probe (±3% - VBA tolerance)
+                double volAfterProbe = SafeGetVolume(model);
+                ErrorHandler.DebugLog($"[SMDBG] Volume after probe: {volAfterProbe:E6} m³");
+                if (volBefore > 0)
+                {
+                    double up = volBefore * 1.03, dn = volBefore * 0.97;
+                    bool withinVol = (volAfterProbe <= up) && (volAfterProbe >= dn);
+                    ErrorHandler.DebugLog($"[SMDBG] Probe volume check (±3%): {withinVol}");
+                    if (!withinVol)
+                    {
+                        ErrorHandler.DebugLog("[SMDBG] FAIL: Probe volume check failed (±3%)");
+                        try { model.EditUndo2(2); } catch { }
+                        Fail(info, "Probe volume check failed (±3%)");
+                        return false;
+                    }
+                }
 
-                // Probe with seed values to infer thickness (temporary feature)
-                const double seedRadius = 0.001; // m
-                const double seedK = 0.5;
-                bool okSeed = part.InsertBends2(seedRadius, string.Empty, seedK, -1, true, 1.0, true);
-                if (!okSeed || !SolidWorksApiWrapper.HasSheetMetalFeature(model))
-                { Fail(info, "InsertBends2 (seed) failed"); return false; }
-                ErrorHandler.DebugLog("[4] Seed bends created");
+                // Flatten probe and do mass comparison (±3%)
+                ErrorHandler.DebugLog("[SMDBG] Flattening probe for mass comparison...");
+                if (!TryFlatten(model, info))
+                {
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: Could not flatten probe");
+                    try { model.EditUndo2(2); } catch { }
+                    Fail(info, "Could not flatten probe for validation");
+                    return false;
+                }
 
-                double thickness = GetSheetMetalThicknessFromFeature(model);
-                if (thickness <= 0) thickness = 0.001; // 1mm fallback
+                // Mass comparison: blankArea × thickness ≈ actualVolume (±3%)
+                body = SolidWorksApiWrapper.GetMainBody(model);
+                double biggestAreaM2 = GetLargestFaceArea(body);
+                if (biggestAreaM2 > 0 && thickness > 0)
+                {
+                    double calcVolumeM3 = biggestAreaM2 * thickness;
+                    double actualVolumeM3 = SafeGetVolume(model);
 
-                // Undo probe
+                    // VBA: swVolumeUP = swVolume * 1.03, swVolumeDN = swVolume * 0.97
+                    double swVolumeUP = actualVolumeM3 * 1.03;
+                    double swVolumeDN = actualVolumeM3 * 0.97;
+                    bool bVolumeUP = swVolumeUP > calcVolumeM3;
+                    bool bVolumeDN = swVolumeDN < calcVolumeM3;
+                    bool withinMass = bVolumeUP && bVolumeDN;
+
+                    double percentDiff = actualVolumeM3 > 0 ? Math.Abs(calcVolumeM3 - actualVolumeM3) / actualVolumeM3 * 100 : 100;
+                    ErrorHandler.DebugLog($"[SMDBG] Mass comparison: calcVol={calcVolumeM3:E6}, actualVol={actualVolumeM3:E6}, diff={percentDiff:F1}%, pass={withinMass}");
+
+                    if (!withinMass)
+                    {
+                        ErrorHandler.DebugLog("[SMDBG] FAIL: Mass comparison failed (±3%)");
+                        try { model.EditUndo2(2); } catch { }
+                        Fail(info, $"Mass validation failed (±3%): {percentDiff:F1}% difference");
+                        return false;
+                    }
+                }
+
+                // ========================================
+                // PHASE 2: UNDO PROBE, DO FINAL INSERT
+                // ========================================
+                ErrorHandler.DebugLog("[SMDBG] === PHASE 2: FINAL INSERT ===");
+                ErrorHandler.DebugLog("[SMDBG] Undoing probe...");
                 try { model.EditUndo2(2); } catch { }
                 try { model.EditRebuild3(); } catch { }
 
-                // Reselect after undo
+                // Reselect reference after undo
                 body = SolidWorksApiWrapper.GetMainBody(model);
-                if (body == null) { Fail(info, "Body lost after undo"); return false; }
+                if (body == null)
+                {
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: Body lost after undo");
+                    Fail(info, "Body lost after undo");
+                    return false;
+                }
                 SolidWorksApiWrapper.ClearSelection(model);
-                if (isPlane)
-                {
-                    var f2 = GetLargestFace(body); if (f2 == null) { Fail(info, "Cannot reselect planar face"); return false; }
-                    if (!((f2 as IEntity)?.Select4(false, null) ?? false)) { Fail(info, "Failed to reselect planar face"); return false; }
-                }
-                else
-                {
-                    var e2 = FindLongestLinearEdge(body); if (e2 == null) { Fail(info, "Cannot reselect linear edge"); return false; }
-                    if (!((e2 as IEntity)?.Select4(false, null) ?? false)) { Fail(info, "Failed to reselect linear edge"); return false; }
-                }
+                if (!SelectReference(model, body, isPlane, isCyl, info))
+                    return false;
 
-                // Final parameters honoring options
+                // Calculate final parameters
                 double defaultK = isPlane ? 0.4 : 0.5;
                 double finalK = (options.KFactor > 0) ? options.KFactor : defaultK;
                 double finalR = isPlane ? (thickness * 1.5) : thickness;
+                ErrorHandler.DebugLog($"[SMDBG] Final params: K={finalK}, R={finalR * 1000:F3}mm");
 
-                // Resolve bend table with fallback and log
+                // Resolve bend table
                 string bendPath = NM.Core.BendTableResolver.Resolve(options);
-                ErrorHandler.DebugLog($"[3.5] Bend table resolved: '{bendPath}'");
-                if (!string.Equals(bendPath, NM.Core.Configuration.FilePaths.BendTableNone, StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!File.Exists(bendPath))
-                    {
-                        ErrorHandler.HandleError("SimpleSM", $"Bend table not found: '{bendPath}'. Falling back to K-factor {finalK}.", null, ErrorHandler.LogLevel.Warning);
-                        bendPath = NM.Core.Configuration.FilePaths.BendTableNone;
-                    }
-                }
+                bool hasBendTable = !string.IsNullOrEmpty(bendPath)
+                    && !string.Equals(bendPath, NM.Core.Configuration.FilePaths.BendTableNone, StringComparison.OrdinalIgnoreCase)
+                    && File.Exists(bendPath);
+                ErrorHandler.DebugLog($"[SMDBG] Bend table: '{bendPath}', exists={hasBendTable}");
 
-                // STEP 1: Always try K-Factor final insert first (probe/validate real params)
-                bool okK = part.InsertBends2(finalR, string.Empty, finalK, -1, true, 1.0, true);
-                if (!okK || !SolidWorksApiWrapper.HasSheetMetalFeature(model))
-                { Fail(info, "InsertBends2 (K-Factor final) failed"); return false; }
-                ErrorHandler.DebugLog($"[4] K-Factor insert OK: K={finalK}, R={finalR*1000:F2} mm");
-
+                // FINAL INSERT: Try bend table FIRST (VBA order), K-factor as fallback
+                bool finalOk = false;
                 bool usedBendTable = false;
 
-                // STEP 2: If a bend table is available/selected, undo K and re-apply with table
-                if (!string.Equals(bendPath, NM.Core.Configuration.FilePaths.BendTableNone, StringComparison.OrdinalIgnoreCase))
+                if (hasBendTable)
                 {
-                    // Undo the K-factor insert
-                    try { model.EditUndo2(1); } catch { }
-                    try { model.EditRebuild3(); } catch { }
-
-                    // Reselect reference
-                    body = SolidWorksApiWrapper.GetMainBody(model);
-                    if (body == null) { Fail(info, "Body lost after undo (bend table phase)"); return false; }
-                    SolidWorksApiWrapper.ClearSelection(model);
-                    if (isPlane)
-                    {
-                        var f3 = GetLargestFace(body); if (f3 == null) { Fail(info, "Cannot reselect planar face (bend table phase)"); return false; }
-                        if (!((f3 as IEntity)?.Select4(false, null) ?? false)) { Fail(info, "Failed to reselect planar face (bend table phase)"); return false; }
-                    }
-                    else
-                    {
-                        var e3 = FindLongestLinearEdge(body); if (e3 == null) { Fail(info, "Cannot reselect linear edge (bend table phase)"); return false; }
-                        if (!((e3 as IEntity)?.Select4(false, null) ?? false)) { Fail(info, "Failed to reselect linear edge (bend table phase)"); return false; }
-                    }
-
-                    // IMPORTANT: when using a bend table, pass KFactor= -1 and BendAllowance=-1
-                    bool okTable = part.InsertBends2(finalR, bendPath, -1.0, -1, true, 1.0, true);
-                    if (okTable && SolidWorksApiWrapper.HasSheetMetalFeature(model))
+                    // With bend table: K=-1, BA=-1 (table provides values)
+                    ErrorHandler.DebugLog($"[SMDBG] Trying final insert with bend table...");
+                    finalOk = part.InsertBends2(finalR, bendPath, -1.0, -1, true, 1.0, true);
+                    if (finalOk && SolidWorksApiWrapper.HasSheetMetalFeature(model))
                     {
                         usedBendTable = true;
-                        ErrorHandler.DebugLog($"[4] InsertBends2 via bend table: {bendPath}");
-                        // Inspect and log final sheet-metal settings
+                        ErrorHandler.DebugLog($"[SMDBG] Final insert with bend table: SUCCESS");
                         TryLogSheetMetalBendSettings(model);
                     }
                     else
                     {
-                        ErrorHandler.DebugLog("[4] Bend table insert failed; falling back to K-factor (reapply)");
-                        // Re-apply K-Factor so the model remains converted
-                        // Reselect again for safety
+                        ErrorHandler.DebugLog($"[SMDBG] Bend table insert failed, will try K-factor");
+                        finalOk = false;
+                        // Need to reselect for K-factor attempt
                         body = SolidWorksApiWrapper.GetMainBody(model);
-                        if (body == null) { Fail(info, "Body lost during fallback to K-Factor"); return false; }
-                        SolidWorksApiWrapper.ClearSelection(model);
-                        if (isPlane)
+                        if (body != null)
                         {
-                            var f4 = GetLargestFace(body); if (f4 == null) { Fail(info, "Cannot reselect planar face (fallback)"); return false; }
-                            if (!((f4 as IEntity)?.Select4(false, null) ?? false)) { Fail(info, "Failed to reselect planar face (fallback)"); return false; }
+                            SolidWorksApiWrapper.ClearSelection(model);
+                            SelectReference(model, body, isPlane, isCyl, null); // Don't fail on reselect
                         }
-                        else
-                        {
-                            var e4 = FindLongestLinearEdge(body); if (e4 == null) { Fail(info, "Cannot reselect linear edge (fallback)"); return false; }
-                            if (!((e4 as IEntity)?.Select4(false, null) ?? false)) { Fail(info, "Failed to reselect linear edge (fallback)"); return false; }
-                        }
-
-                        bool okK2 = part.InsertBends2(finalR, string.Empty, finalK, -1, true, 1.0, true);
-                        if (!okK2 || !SolidWorksApiWrapper.HasSheetMetalFeature(model))
-                        { Fail(info, "InsertBends2 (K-Factor fallback) failed"); return false; }
                     }
                 }
 
-                // Volume consistency check (on final state)
-                double volAfter = SafeGetVolume(model);
-                if (volBefore > 0)
+                if (!finalOk)
                 {
-                    double up = volBefore * 1.005, dn = volBefore * 0.995;
-                    bool within = (volAfter <= up) && (volAfter >= dn);
-                    ErrorHandler.DebugLog($"[5] Volume check: before={volBefore:E6}, after={volAfter:E6}, within�0.5%={within}");
-                    if (!within) { try { model.EditUndo2(2); } catch { } Fail(info, "Volume validation failed (�0.5%)"); return false; }
+                    // K-factor insert (primary if no bend table, fallback if table failed)
+                    ErrorHandler.DebugLog($"[SMDBG] Final insert with K-factor: K={finalK}");
+                    finalOk = part.InsertBends2(finalR, string.Empty, finalK, -1, true, 1.0, true);
+                    if (finalOk)
+                    {
+                        ErrorHandler.DebugLog($"[SMDBG] Final insert with K-factor: SUCCESS");
+                    }
                 }
 
+                if (!finalOk || !SolidWorksApiWrapper.HasSheetMetalFeature(model))
+                {
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: Final InsertBends2 failed");
+                    Fail(info, "Final InsertBends2 failed");
+                    return false;
+                }
+
+                // ========================================
+                // PHASE 3: FINAL FLATTEN
+                // ========================================
                 if (flatten)
                 {
-                    if (!TryFlatten(model, info)) return false;
-                    ErrorHandler.DebugLog("[6] Flattened OK");
-
-                    // Mass comparison validation (VBA CompareMass equivalent)
-                    // Validates: blank_area × thickness ≈ actual_volume within ±3%
-                    try
+                    ErrorHandler.DebugLog("[SMDBG] Final flatten...");
+                    if (!TryFlatten(model, info))
                     {
-                        var bboxExtractor = new NM.SwAddin.Geometry.BoundingBoxExtractor();
-                        var (blankLengthIn, blankWidthIn) = bboxExtractor.GetBlankSize(model);
-                        if (blankLengthIn > 0 && blankWidthIn > 0)
-                        {
-                            double blankAreaIn2 = blankLengthIn * blankWidthIn;
-                            double thicknessIn = thickness * 39.37007874015748; // meters to inches
-                            double calculatedVolIn3 = blankAreaIn2 * thicknessIn;
-                            double actualVolIn3 = volAfter * 61023.7441; // m³ to in³
-
-                            var massResult = NM.Core.Manufacturing.MassValidator.Compare(calculatedVolIn3, actualVolIn3, 3.0);
-                            ErrorHandler.DebugLog($"[6.5] Mass comparison: calc={calculatedVolIn3:F4} in³, actual={actualVolIn3:F4} in³, diff={massResult.PercentDifference:F1}%, pass={massResult.IsWithinTolerance}");
-
-                            if (!massResult.IsWithinTolerance)
-                            {
-                                ErrorHandler.HandleError("SimpleSM", $"Mass comparison failed: {massResult.Message}", null, ErrorHandler.LogLevel.Warning);
-                                try { model.EditUndo2(2); } catch { }
-                                Fail(info, $"Mass validation failed (±3%): {massResult.PercentDifference:F1}% difference");
-                                return false;
-                            }
-                        }
-                        else
-                        {
-                            ErrorHandler.DebugLog("[6.5] Mass comparison skipped: could not get blank dimensions");
-                        }
+                        ErrorHandler.DebugLog("[SMDBG] FAIL: Final TryFlatten failed");
+                        return false;
                     }
-                    catch (Exception ex)
-                    {
-                        ErrorHandler.HandleError("SimpleSM", "Mass comparison exception (continuing)", ex, ErrorHandler.LogLevel.Warning);
-                        // Don't fail on mass comparison exceptions - it's a secondary validation
-                    }
+                    ErrorHandler.DebugLog("[SMDBG] Final flatten: SUCCESS");
                 }
 
+                // Store results
                 info.IsSheetMetal = true;
                 info.IsFlattened = flatten;
                 info.InsertSuccessful = true;
                 info.ThicknessInMeters = thickness;
                 info.BendRadius = finalR;
-                info.KFactor = finalK;
+                info.KFactor = usedBendTable ? -1 : finalK; // -1 indicates bend table was used
+
+                ErrorHandler.DebugLog("[SMDBG] ====== ConvertToSheetMetalAndOptionallyFlatten() SUCCESS ======");
+                ErrorHandler.DebugLog($"[SMDBG] Final: thickness={thickness * 39.37:F4}in, R={finalR * 1000:F2}mm, usedBendTable={usedBendTable}");
                 return true;
             }
             catch (Exception ex)
             {
+                ErrorHandler.DebugLog($"[SMDBG] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
                 Fail(info, ex.Message, ex);
                 return false;
             }
-            finally { ErrorHandler.PopCallStack(); }
+            finally
+            {
+                ErrorHandler.DebugLog("[SMDBG] <<< ConvertToSheetMetalAndOptionallyFlatten() EXIT");
+                ErrorHandler.PopCallStack();
+            }
         }
 
-        private static bool IsTubeByModelProperties(IModelDoc2 model, string cfg)
+        /// <summary>
+        /// Selects the reference entity (planar face or linear edge) for InsertBends.
+        /// </summary>
+        private bool SelectReference(IModelDoc2 model, IBody2 body, bool isPlane, bool isCyl, ModelInfo info)
         {
+            if (isPlane)
+            {
+                var face = GetLargestFace(body);
+                if (face == null)
+                {
+                    if (info != null) Fail(info, "Cannot find planar face");
+                    return false;
+                }
+                bool ok = (face as IEntity)?.Select4(false, null) ?? false;
+                if (!ok)
+                {
+                    if (info != null) Fail(info, "Failed to select planar face");
+                    return false;
+                }
+                ErrorHandler.DebugLog("[SMDBG] Selected planar face");
+                return true;
+            }
+            else if (isCyl)
+            {
+                var edge = FindLongestLinearEdge(body);
+                if (edge == null)
+                {
+                    if (info != null) Fail(info, "Cannot find linear edge for cylindrical face");
+                    return false;
+                }
+                bool ok = (edge as IEntity)?.Select4(false, null) ?? false;
+                if (!ok)
+                {
+                    if (info != null) Fail(info, "Failed to select linear edge");
+                    return false;
+                }
+                ErrorHandler.DebugLog("[SMDBG] Selected linear edge");
+                return true;
+            }
+            else
+            {
+                if (info != null) Fail(info, "Largest face not planar/cylindrical");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Gets the largest face area from a body.
+        /// </summary>
+        private static double GetLargestFaceArea(IBody2 body)
+        {
+            double maxArea = 0;
             try
             {
-                // Common names our legacy extractor uses in properties
-                string[] names = { "IsTube", "ISTUBE", "Is Tube", "Shape", "SHAPE", "shape", "Profile", "PROFILE", "Section", "SECTION", "Type", "TYPE", "CrossSection", "CROSSSECTION", "Cross Section", "CROSS SECTION" };
-                foreach (var n in names)
+                var faces = body?.GetFaces() as object[];
+                if (faces != null)
                 {
-                    var v = SolidWorksApiWrapper.GetCustomPropertyValue(model, n, cfg);
-                    if (string.IsNullOrEmpty(v)) continue;
-                    if (LooksLikeTube(v)) return true;
-                    // Shape present (non-empty) is enough to treat as tube
-                    if (n.Equals("Shape", System.StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(v)) return true;
-                }
-                // Fallback to global only
-                foreach (var n in names)
-                {
-                    var v = SolidWorksApiWrapper.GetCustomPropertyValue(model, n, "");
-                    if (string.IsNullOrEmpty(v)) continue;
-                    if (LooksLikeTube(v)) return true;
-                    if (n.Equals("Shape", System.StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(v)) return true;
+                    foreach (var fo in faces)
+                    {
+                        var f = fo as IFace2;
+                        if (f == null) continue;
+                        try
+                        {
+                            double a = f.GetArea();
+                            if (a > maxArea) maxArea = a;
+                        }
+                        catch { }
+                    }
                 }
             }
             catch { }
-            return false;
+            return maxArea;
         }
 
-        private static bool LooksLikeTube(string value)
-        {
-            try
-            {
-                var s = (value ?? string.Empty).Trim();
-                if (string.IsNullOrEmpty(s)) return false;
-                s = s.ToUpperInvariant();
-                if (s == "YES" || s == "TRUE" || s == "1") return true; // for IsTube
-                return s.Contains("TUBE") || s.Contains("TUBING") || s.Contains("PIPE");
-            }
-            catch { return false; }
-        }
+        // NOTE: IsTubeByModelProperties and LooksLikeTube methods were REMOVED
+        // VBA approach: Try InsertBends first, let geometry decide - don't pre-classify from properties
+        // Pre-classification from stale/contaminated properties caused incorrect results
 
         private static void TryLogSheetMetalBendSettings(IModelDoc2 model)
         {
@@ -414,46 +491,94 @@ namespace NM.SwAddin
             return best;
         }
 
+        /// <summary>
+        /// Find the longest linear edge on the body.
+        /// VBA equivalent: GetLinearEdge() in SP.bas
+        /// - Gets edges directly from body (not from faces)
+        /// - Checks swCurve.Identity = 3001 (line)
+        /// - Uses GetLength2 for accurate length
+        /// </summary>
         private static IEdge FindLongestLinearEdge(IBody2 body)
         {
-            IEdge best = null; double bestLen = 0.0;
-            try
-            {
-                var faces = body?.GetFaces() as object[]; if (faces == null) return null;
-                foreach (var fo in faces)
-                {
-                    var f = fo as IFace2; if (f == null) continue;
-                    var edges = f.GetEdges() as object[]; if (edges == null) continue;
-                    foreach (var eo in edges)
-                    {
-                        var e = eo as IEdge; if (e == null) continue;
-                        if (!IsLinearEdge(e)) continue;
-                        double len = GetEdgeChordLength(e);
-                        if (len > bestLen) { bestLen = len; best = e; }
-                    }
-                }
-            }
-            catch { }
-            return best;
-        }
+            IEdge best = null;
+            double bestLen = 0.0;
 
-        private static bool IsLinearEdge(IEdge edge)
-        {
             try
             {
-                var c = edge?.GetCurve() as ICurve;
-                if (c != null)
+                // VBA: vEdge = swBody.GetEdges
+                var edgesRaw = body?.GetEdges() as object[];
+                if (edgesRaw == null || edgesRaw.Length == 0)
                 {
-                    var mi = c.GetType().GetMethod("IsLine");
-                    if (mi != null)
+                    ErrorHandler.DebugLog("[SMDBG] FindLongestLinearEdge: No edges on body");
+                    return null;
+                }
+
+                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Checking {edgesRaw.Length} edges");
+
+                foreach (var eo in edgesRaw)
+                {
+                    var edge = eo as IEdge;
+                    if (edge == null) continue;
+
+                    var curve = edge.GetCurve() as ICurve;
+                    if (curve == null) continue;
+
+                    // VBA: If swCurve.Identity = 3001 Then (3001 = swCurveTypes_e.LINE_TYPE)
+                    // Check if curve is a line using Identity property
+                    int curveIdentity = 0;
+                    try
                     {
-                        var r = mi.Invoke(c, null);
-                        if (r is bool b) return b;
+                        // ICurve.Identity returns the curve type
+                        curveIdentity = curve.Identity();
+                    }
+                    catch
+                    {
+                        // Fallback: try IsLine method
+                        try { if (curve.IsLine()) curveIdentity = 3001; } catch { }
+                    }
+
+                    // 3001 = LINE_TYPE in swCurveTypes_e
+                    if (curveIdentity != 3001)
+                    {
+                        continue; // Not a linear edge
+                    }
+
+                    // VBA: vCurveParam = swEdge.GetCurveParams2
+                    //      currentedge = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
+                    double edgeLength = 0;
+                    try
+                    {
+                        // GetCurveParams2 returns object[] with: StartPt(3), EndPt(3), StartParam, EndParam, ...
+                        var curveParams = edge.GetCurveParams2() as object[];
+                        if (curveParams != null && curveParams.Length >= 8)
+                        {
+                            // Params[6] = start param, Params[7] = end param
+                            double startParam = Convert.ToDouble(curveParams[6]);
+                            double endParam = Convert.ToDouble(curveParams[7]);
+                            edgeLength = curve.GetLength3(startParam, endParam);
+                        }
+                    }
+                    catch
+                    {
+                        // Fallback to chord length
+                        edgeLength = GetEdgeChordLength(edge);
+                    }
+
+                    if (edgeLength > bestLen)
+                    {
+                        bestLen = edgeLength;
+                        best = edge;
                     }
                 }
+
+                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Best linear edge length = {bestLen:F6} m");
             }
-            catch { }
-            return true; // assume linear if unknown
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge exception: {ex.Message}");
+            }
+
+            return best;
         }
 
         private static double GetEdgeChordLength(IEdge edge)
@@ -476,29 +601,211 @@ namespace NM.SwAddin
             return 0.0;
         }
 
-        private static double GetSheetMetalThicknessFromFeature(IModelDoc2 model)
+        /// <summary>
+        /// Gets sheet metal thickness using VBA-style linked property approach.
+        /// Creates a temporary custom property with equation "Thickness@$PRP:SW-File Name.SLDPRT"
+        /// which SolidWorks evaluates to the actual thickness dimension.
+        /// </summary>
+        private static double GetSheetMetalThicknessViaLinkedProperty(IModelDoc2 model)
         {
-            var feat = model?.FirstFeature() as IFeature;
-            while (feat != null)
+            const string tempPropName = "SMThick_Temp";
+            const string proc = "GetSheetMetalThicknessViaLinkedProperty";
+            double thickness = 0.0;
+
+            try
             {
-                string typeName = string.Empty;
-                try { typeName = feat.GetTypeName2(); } catch { }
-                if (!string.IsNullOrEmpty(typeName) && typeName.IndexOf("SheetMetal", StringComparison.OrdinalIgnoreCase) >= 0)
+                // Get configuration name (VBA uses gstrConfigName)
+                string cfg = string.Empty;
+                try { cfg = model?.ConfigurationManager?.ActiveConfiguration?.Name ?? string.Empty; }
+                catch { cfg = string.Empty; }
+
+                // Delete any existing temp property first
+                try { model.DeleteCustomInfo2(cfg, tempPropName); } catch { }
+                try { model.DeleteCustomInfo(tempPropName); } catch { }
+
+                // VBA formula: """Thickness@$PRP:""SW-File Name"".SLDPRT"""
+                // This creates a linked value that evaluates to the sheet metal thickness
+                string linkedFormula = "\"Thickness@$PRP:\"\"SW-File Name\"\".SLDPRT\"";
+
+                // Add linked property (type 30 = swCustomInfoText in VBA)
+                // Try config-specific first, then file-level
+                bool added = false;
+                try
+                {
+                    if (!string.IsNullOrEmpty(cfg))
+                    {
+                        var ext = model?.Extension;
+                        var cpm = ext?.CustomPropertyManager[cfg];
+                        if (cpm != null)
+                        {
+                            int result = cpm.Add3(tempPropName, (int)swCustomInfoType_e.swCustomInfoText, linkedFormula, (int)swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd);
+                            added = (result == 0 || result == 1);
+                            ErrorHandler.DebugLog($"[{proc}] AddCustomInfo3 (config='{cfg}') result={result}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.DebugLog($"[{proc}] Config property exception: {ex.Message}");
+                }
+
+                if (!added)
+                {
+                    // Fallback to file-level property
+                    try
+                    {
+                        var ext = model?.Extension;
+                        var cpm = ext?.CustomPropertyManager[""];
+                        if (cpm != null)
+                        {
+                            int result = cpm.Add3(tempPropName, (int)swCustomInfoType_e.swCustomInfoText, linkedFormula, (int)swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd);
+                            added = (result == 0 || result == 1);
+                            ErrorHandler.DebugLog($"[{proc}] AddCustomInfo3 (file-level) result={result}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorHandler.DebugLog($"[{proc}] File-level property exception: {ex.Message}");
+                    }
+                }
+
+                // Read the resolved value
+                string thicknessStr = null;
+                try
+                {
+                    if (!string.IsNullOrEmpty(cfg))
+                    {
+                        var ext = model?.Extension;
+                        var cpm = ext?.CustomPropertyManager[cfg];
+                        if (cpm != null)
+                        {
+                            string valOut = null, resolvedOut = null;
+                            bool wasResolved = false;
+                            cpm.Get5(tempPropName, true, out valOut, out resolvedOut, out wasResolved);
+                            thicknessStr = resolvedOut ?? valOut;
+                            ErrorHandler.DebugLog($"[{proc}] Get5 (config): val='{valOut}', resolved='{resolvedOut}', wasResolved={wasResolved}");
+                        }
+                    }
+                }
+                catch { }
+
+                if (string.IsNullOrEmpty(thicknessStr))
                 {
                     try
                     {
-                        var def = feat.GetDefinition();
-                        var prop = def?.GetType().GetProperty("Thickness");
-                        if (prop != null)
+                        var ext = model?.Extension;
+                        var cpm = ext?.CustomPropertyManager[""];
+                        if (cpm != null)
                         {
-                            var val = prop.GetValue(def, null);
-                            double t = Convert.ToDouble(val);
-                            if (t > 0) return t;
+                            string valOut = null, resolvedOut = null;
+                            bool wasResolved = false;
+                            cpm.Get5(tempPropName, true, out valOut, out resolvedOut, out wasResolved);
+                            thicknessStr = resolvedOut ?? valOut;
+                            ErrorHandler.DebugLog($"[{proc}] Get5 (file-level): val='{valOut}', resolved='{resolvedOut}', wasResolved={wasResolved}");
                         }
                     }
                     catch { }
                 }
-                feat = feat.GetNextFeature() as IFeature;
+
+                // VBA check: strThicknessCheck = UCase(Right(strThickness, 7)) ... If strThicknessCheck <> badThickness
+                // The "bad" value contains "SLDPRT"" at the end, meaning the linked value wasn't resolved
+                if (!string.IsNullOrEmpty(thicknessStr))
+                {
+                    string check = thicknessStr.Length >= 7 ? thicknessStr.Substring(thicknessStr.Length - 7).ToUpperInvariant() : "";
+                    if (check.Contains("SLDPRT"))
+                    {
+                        ErrorHandler.DebugLog($"[{proc}] Linked property not resolved (contains SLDPRT): '{thicknessStr}'");
+                    }
+                    else
+                    {
+                        // VBA: Thickness = strThickness * 0.0254  (inches to meters)
+                        if (double.TryParse(thicknessStr, out double thickInches))
+                        {
+                            thickness = thickInches * 0.0254; // Convert inches to meters
+                            ErrorHandler.DebugLog($"[{proc}] Parsed thickness: {thickInches} in = {thickness} m");
+                        }
+                        else
+                        {
+                            ErrorHandler.DebugLog($"[{proc}] Could not parse thickness value: '{thicknessStr}'");
+                        }
+                    }
+                }
+
+                // Cleanup: delete temp property
+                try { model.DeleteCustomInfo2(cfg, tempPropName); } catch { }
+                try { model.DeleteCustomInfo(tempPropName); } catch { }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"[{proc}] Exception: {ex.Message}");
+            }
+
+            // If linked property approach failed, fall back to feature definition approach
+            if (thickness <= 0)
+            {
+                ErrorHandler.DebugLog($"[{proc}] Linked property failed, trying feature definition...");
+                thickness = GetSheetMetalThicknessFromFeatureDefinition(model);
+            }
+
+            return thickness;
+        }
+
+        /// <summary>
+        /// Gets thickness directly from sheet metal feature definition.
+        /// VBA approach: objSheetMetal.Thickness (direct property access, no reflection)
+        /// </summary>
+        private static double GetSheetMetalThicknessFromFeatureDefinition(IModelDoc2 model)
+        {
+            const string proc = "GetSheetMetalThicknessFromFeatureDefinition";
+            try
+            {
+                var feat = model?.FirstFeature() as IFeature;
+                while (feat != null)
+                {
+                    string typeName = string.Empty;
+                    try { typeName = feat.GetTypeName2(); } catch { }
+
+                    // VBA checks: If objFeature.GetTypeName2 = "SheetMetal" Then (exact match)
+                    if (string.Equals(typeName, "SheetMetal", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            var def = feat.GetDefinition();
+                            if (def != null)
+                            {
+                                // VBA approach: direct cast and property access
+                                // Set objSheetMetal = objFeature.GetDefinition
+                                // dblThickness = objSheetMetal.Thickness
+                                var smDef = def as ISheetMetalFeatureData;
+                                if (smDef != null)
+                                {
+                                    double t = smDef.Thickness;
+                                    ErrorHandler.DebugLog($"[{proc}] ISheetMetalFeatureData.Thickness = {t} m ({t * 1000:F3} mm)");
+                                    if (t > 0) return t;
+
+                                    // VBA returns -1 on failure, we return 0 (caller will fail)
+                                    ErrorHandler.DebugLog($"[{proc}] WARNING: Thickness property returned {t} (invalid)");
+                                }
+                                else
+                                {
+                                    // Cast failed - this is unexpected, log it
+                                    ErrorHandler.DebugLog($"[{proc}] WARNING: Could not cast to ISheetMetalFeatureData (def type: {def.GetType().Name})");
+                                }
+                                // NOTE: Reflection fallback REMOVED - if direct cast fails, we should fail
+                                // Using reflection was masking problems and could return wrong values
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            ErrorHandler.DebugLog($"[{proc}] Feature definition exception: {ex.Message}");
+                        }
+                    }
+                    feat = feat.GetNextFeature() as IFeature;
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"[{proc}] Exception: {ex.Message}");
             }
             return 0.0;
         }

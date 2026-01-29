@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using NM.Core;
 using NM.Core.DataModel;
 using NM.Core.Utils;
 
@@ -183,7 +184,14 @@ namespace NM.Core.Export
                         else
                         {
                             // Generic: use raw weight
-                            if (rawWeight <= 0) rawWeight = 0.0001;
+                            // CRITICAL: Do NOT export fabricated data - skip with warning
+                            if (rawWeight <= 0)
+                            {
+                                ErrorHandler.HandleError("ErpExport",
+                                    $"Part {part.PartNumber} has invalid weight ({rawWeight}). Skipping material relationship - review manually.",
+                                    null, ErrorHandler.LogLevel.Warning);
+                                break; // Skip this part's material relationship
+                            }
                             sw.WriteLine($"{Q(part.PartNumber)}{Q(optiMaterial)}{Q("COMMON SET")}{Q("01")}" +
                                        $"{rawWeight:0.####} 0 2 1 1 1 20");
                         }

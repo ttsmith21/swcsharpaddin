@@ -41,18 +41,29 @@ namespace NM.SwAddin.Processing
         {
             const string proc = "SheetMetalPartProcessor.Process";
             ErrorHandler.PushCallStack(proc);
+            ErrorHandler.DebugLog("[SMDBG] >>> SheetMetalPartProcessor.Process() ENTER");
             try
             {
                 if (model == null || info == null)
                 {
+                    ErrorHandler.DebugLog($"[SMDBG] FAIL: Invalid inputs (model={model != null}, info={info != null})");
                     return ProcessingResult.Fail("Invalid inputs", ProblemPartManager.ProblemCategory.Fatal);
                 }
 
+                // Check if already has sheet metal features
+                bool hasExistingFeatures = SolidWorksApiWrapper.HasSheetMetalFeature(model);
+                ErrorHandler.DebugLog($"[SMDBG] HasSheetMetalFeature={hasExistingFeatures}");
+
+                ErrorHandler.DebugLog("[SMDBG] Creating SimpleSheetMetalProcessor...");
                 var processor = new SimpleSheetMetalProcessor(_swApp);
+
+                ErrorHandler.DebugLog("[SMDBG] Calling ConvertToSheetMetalAndOptionallyFlatten()...");
                 bool success = processor.ConvertToSheetMetalAndOptionallyFlatten(info, model, true, options);
+                ErrorHandler.DebugLog($"[SMDBG] ConvertToSheetMetalAndOptionallyFlatten returned: {success}");
 
                 if (success)
                 {
+                    ErrorHandler.DebugLog("[SMDBG] SUCCESS - marking as SheetMetal");
                     // Mark as sheet metal in custom properties
                     info.CustomProperties.SetPropertyValue("PartType", "SheetMetal", CustomPropertyType.Text);
                     return ProcessingResult.Ok(Type.ToString());
@@ -60,16 +71,19 @@ namespace NM.SwAddin.Processing
                 else
                 {
                     string reason = info.ProblemDescription ?? "Sheet metal processing failed";
+                    ErrorHandler.DebugLog($"[SMDBG] FAIL - reason: {reason}");
                     return ProcessingResult.Fail(reason, ProblemPartManager.ProblemCategory.ProcessingError);
                 }
             }
             catch (Exception ex)
             {
+                ErrorHandler.DebugLog($"[SMDBG] EXCEPTION: {ex.Message}");
                 ErrorHandler.HandleError(proc, "Sheet metal processing exception", ex, ErrorHandler.LogLevel.Error);
                 return ProcessingResult.Fail("Exception: " + ex.Message, ProblemPartManager.ProblemCategory.ProcessingError);
             }
             finally
             {
+                ErrorHandler.DebugLog("[SMDBG] <<< SheetMetalPartProcessor.Process() EXIT");
                 ErrorHandler.PopCallStack();
             }
         }

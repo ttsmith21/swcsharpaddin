@@ -47,10 +47,19 @@ namespace NM.SwAddin.Manufacturing
             // Has internal cuts heuristic (pierce > 0 or internal length > 0). Placeholder: set false for now.
             bool hasInternalCuts = false; // Placeholder for future pierce/cut detection
 
+            // WARN if thickness is missing - this will corrupt downstream calculations
+            double thicknessIn = info?.ThicknessInInches ?? 0;
+            if (thicknessIn <= 0)
+            {
+                ErrorHandler.HandleError("MetricsExtractor.ExtractPartMetrics",
+                    $"Part has missing or zero thickness ({thicknessIn} in). Weight and cost calculations will be wrong!",
+                    null, ErrorHandler.LogLevel.Warning);
+            }
+
             var pm = new PartMetrics
             {
                 MaterialCode = materialCode ?? string.Empty,
-                ThicknessIn = info?.ThicknessInInches ?? 0,
+                ThicknessIn = thicknessIn,
                 BendCount = TryGetBendCount(doc),
                 ApproxCutLengthIn = 0, // vNext: compute perimeter+internal cut length
                 PierceCount = 0,        // vNext: compute pierces
