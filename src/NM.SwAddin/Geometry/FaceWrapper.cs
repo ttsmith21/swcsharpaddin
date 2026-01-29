@@ -210,7 +210,8 @@ namespace NM.SwAddin.Geometry
             foreach (var edge in edges)
             {
                 var curve = (ICurve)edge.GetCurve();
-                if (curve == null || !curve.IsLine()) continue;
+                // Use Identity() == 3001 (LINE_TYPE) for consistency with VBA
+                if (curve == null || curve.Identity() != 3001) continue;
 
                 double start = 0, end = 0;
                 bool isClosed = false, isPeriodic = false;

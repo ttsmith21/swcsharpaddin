@@ -327,9 +327,25 @@ namespace NM.SwAddin
 
         /// <summary>
         /// Selects the reference entity (planar face or linear edge) for InsertBends.
+        /// VBA: Set swSelMgr = swPart.SelectionManager
+        ///      Set swSelData = swSelMgr.CreateSelectData
+        ///      bRet = swEnt.Select4(True, swSelData)
         /// </summary>
         private bool SelectReference(IModelDoc2 model, IBody2 body, bool isPlane, bool isCyl, ModelInfo info)
         {
+            // VBA creates SelectionData object for proper selection context
+            // Note: Select4 expects SelectData (concrete), not ISelectData (interface)
+            SelectData selData = null;
+            try
+            {
+                var selMgr = model.SelectionManager as ISelectionMgr;
+                if (selMgr != null)
+                {
+                    selData = selMgr.CreateSelectData() as SelectData;
+                }
+            }
+            catch { }
+
             if (isPlane)
             {
                 var face = GetLargestFace(body);
@@ -338,13 +354,14 @@ namespace NM.SwAddin
                     if (info != null) Fail(info, "Cannot find planar face");
                     return false;
                 }
-                bool ok = (face as IEntity)?.Select4(false, null) ?? false;
+                // VBA: bRet = swEnt.Select4(True, swSelData) - Append=TRUE, use SelectionData
+                bool ok = (face as IEntity)?.Select4(true, selData) ?? false;
                 if (!ok)
                 {
                     if (info != null) Fail(info, "Failed to select planar face");
                     return false;
                 }
-                ErrorHandler.DebugLog("[SMDBG] Selected planar face");
+                ErrorHandler.DebugLog("[SMDBG] Selected planar face (with SelectionData)");
                 return true;
             }
             else if (isCyl)
@@ -355,13 +372,14 @@ namespace NM.SwAddin
                     if (info != null) Fail(info, "Cannot find linear edge for cylindrical face");
                     return false;
                 }
-                bool ok = (edge as IEntity)?.Select4(false, null) ?? false;
+                // VBA: bRet = swEnt.Select4(True, swSelData) - Append=TRUE, use SelectionData
+                bool ok = (edge as IEntity)?.Select4(true, selData) ?? false;
                 if (!ok)
                 {
                     if (info != null) Fail(info, "Failed to select linear edge");
                     return false;
                 }
-                ErrorHandler.DebugLog("[SMDBG] Selected linear edge");
+                ErrorHandler.DebugLog("[SMDBG] Selected linear edge (with SelectionData)");
                 return true;
             }
             else
@@ -514,54 +532,95 @@ namespace NM.SwAddin
                 }
 
                 ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Checking {edgesRaw.Length} edges");
+                int linearCount = 0;
+                int nonLinearCount = 0;
 
+                int edgeIndex = 0;
+                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Starting foreach loop over {edgesRaw.Length} edges");
                 foreach (var eo in edgesRaw)
                 {
+                    edgeIndex++;
+                    ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: Processing (eo is null: {eo == null})");
                     var edge = eo as IEdge;
-                    if (edge == null) continue;
+                    if (edge == null)
+                    {
+                        ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: cast to IEdge returned NULL");
+                        continue;
+                    }
 
                     var curve = edge.GetCurve() as ICurve;
-                    if (curve == null) continue;
+                    if (curve == null)
+                    {
+                        ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: GetCurve() returned NULL");
+                        continue;
+                    }
 
-                    // VBA: If swCurve.Identity = 3001 Then (3001 = swCurveTypes_e.LINE_TYPE)
-                    // Check if curve is a line using Identity property
-                    int curveIdentity = 0;
+                    // Check if curve is a line using Identity() == 3001 (LINE_TYPE)
+                    // NOTE: ICurve.IsLine() only exists in SW 2024+, so use Identity() for 2022 compatibility
+                    bool isLine = false;
+                    int curveIdentity = -1;
+                    bool identityException = false;
+
                     try
                     {
-                        // ICurve.Identity returns the curve type
                         curveIdentity = curve.Identity();
+                        isLine = (curveIdentity == 3001); // 3001 = LINE_TYPE in swCurveTypes_e
                     }
-                    catch
+                    catch (Exception ex)
                     {
-                        // Fallback: try IsLine method
-                        try { if (curve.IsLine()) curveIdentity = 3001; } catch { }
+                        identityException = true;
+                        ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: Identity() threw: {ex.Message}");
                     }
 
-                    // 3001 = LINE_TYPE in swCurveTypes_e
-                    if (curveIdentity != 3001)
-                    {
-                        continue; // Not a linear edge
-                    }
-
-                    // VBA: vCurveParam = swEdge.GetCurveParams2
-                    //      currentedge = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
-                    double edgeLength = 0;
+                    // Log EVERY edge for diagnostic purposes using GetCurveParams3 (returns CurveParamData object)
+                    // NOTE: Per API docs, must call GetCurve() first (done above) to generate curve info
+                    double diagLength = 0;
+                    string cpInfo = "null";
+                    double startParam = 0, endParam = 0;
                     try
                     {
-                        // GetCurveParams2 returns object[] with: StartPt(3), EndPt(3), StartParam, EndParam, ...
-                        var curveParams = edge.GetCurveParams2() as object[];
-                        if (curveParams != null && curveParams.Length >= 8)
+                        // Try GetCurveParams3 first (returns ICurveParamData object)
+                        var cpData = edge.GetCurveParams3();
+                        if (cpData != null)
                         {
-                            // Params[6] = start param, Params[7] = end param
-                            double startParam = Convert.ToDouble(curveParams[6]);
-                            double endParam = Convert.ToDouble(curveParams[7]);
-                            edgeLength = curve.GetLength3(startParam, endParam);
+                            startParam = cpData.UMinValue;
+                            endParam = cpData.UMaxValue;
+                            cpInfo = $"UMin={startParam:F6},UMax={endParam:F6}";
+                            diagLength = curve.GetLength3(startParam, endParam);
+                        }
+                        else
+                        {
+                            // Fallback to GetCurveParams2 (array-based)
+                            var cp = edge.GetCurveParams2() as object[];
+                            if (cp != null && cp.Length >= 8)
+                            {
+                                startParam = Convert.ToDouble(cp[6]);
+                                endParam = Convert.ToDouble(cp[7]);
+                                cpInfo = $"arr[6]={startParam:F6},[7]={endParam:F6}";
+                                diagLength = curve.GetLength3(startParam, endParam);
+                            }
                         }
                     }
-                    catch
+                    catch (Exception cpEx) { cpInfo = $"ex:{cpEx.Message}"; }
+                    ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: Identity={curveIdentity}, IsLine={isLine}, cp=[{cpInfo}], Len={diagLength:F4}m");
+
+                    if (!isLine)
                     {
-                        // Fallback to chord length
+                        nonLinearCount++;
+                        continue; // Not a linear edge
+                    }
+                    linearCount++;
+
+                    // Use the params already retrieved from diagnostic section above
+                    // VBA: vCurveParam = swEdge.GetCurveParams2
+                    //      currentedge = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
+                    // Note: GetLength3 is correct (trimmed curve), GetLength2 is obsolete (base curve)
+                    double edgeLength = diagLength; // Already calculated in diagnostic section
+                    if (edgeLength <= 0)
+                    {
+                        // Fallback to chord length if params didn't work
                         edgeLength = GetEdgeChordLength(edge);
+                        ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: Using chord length fallback: {edgeLength:F4}m");
                     }
 
                     if (edgeLength > bestLen)
@@ -571,7 +630,7 @@ namespace NM.SwAddin
                     }
                 }
 
-                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Best linear edge length = {bestLen:F6} m");
+                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Found {linearCount} linear, {nonLinearCount} non-linear. Best length = {bestLen:F6} m");
             }
             catch (Exception ex)
             {

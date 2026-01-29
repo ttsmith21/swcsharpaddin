@@ -476,7 +476,8 @@ namespace NM.SwAddin
                     if (swEdge == null) continue;
 
                     ICurve swCurve = swEdge.GetCurve() as ICurve;
-                    if (swCurve != null && swCurve.IsLine())
+                    // NOTE: ICurve.IsLine() only exists in SW 2024+, use Identity() for 2022 compatibility
+                    if (swCurve != null && swCurve.Identity() == 3001) // 3001 = LINE_TYPE
                     {
                         var curveParams = swEdge.GetCurveParams2() as double[];
                         // In C#, array indices for GetCurveParams2 are 0-based.

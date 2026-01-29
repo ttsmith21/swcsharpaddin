@@ -367,7 +367,8 @@ namespace NM.SwAddin.Geometry
             if (direction == null) return false;
 
             var curve = (ICurve)edge.GetCurve();
-            if (curve == null || !curve.IsLine()) return false;
+            // Use Identity() == 3001 (LINE_TYPE) for consistency with VBA
+            if (curve == null || curve.Identity() != 3001) return false;
 
             var lineParams = (double[])curve.LineParams;
             if (lineParams == null || lineParams.Length < 6) return false;
