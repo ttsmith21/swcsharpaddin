@@ -264,7 +264,7 @@ namespace NM.SwAddin.Pipeline
 
                 if (sheetMetalFailed && !isTube)
                 {
-                    // Check if we can measure thickness - if not, this is likely invalid geometry
+                    // Check if we can measure thickness - if not, this MIGHT be invalid geometry
                     double probeThickness = info.CustomProperties.Thickness;
                     if (probeThickness <= 0)
                     {
@@ -272,10 +272,24 @@ namespace NM.SwAddin.Pipeline
                         double sheetPercent = info.CustomProperties.SheetPercent;
                         if (sheetPercent < 0.10)
                         {
-                            ErrorHandler.DebugLog($"[SMDBG] Step 3: Part has no measurable thickness and low sheet% ({sheetPercent:P0}) - failing as invalid geometry");
-                            pd.Status = ProcessingStatus.Failed;
-                            pd.FailureReason = "Invalid geometry - no measurable thickness";
-                            return pd;
+                            // Before failing, check if part has real mass.
+                            // Solid parts (round bars, blocks) have no sheet thickness but are valid Generic parts.
+                            // Only truly invalid geometry (knife edges, degenerate faces) has essentially no mass.
+                            var massProps = doc.Extension?.CreateMassProperty() as IMassProperty;
+                            double massKg = massProps?.Mass ?? 0.0;
+                            const double MIN_MASS_KG = 0.005; // ~0.01 lb - anything below this is degenerate
+
+                            if (massKg < MIN_MASS_KG)
+                            {
+                                ErrorHandler.DebugLog($"[SMDBG] Step 3: Part has no measurable thickness, low sheet% ({sheetPercent:P0}), and negligible mass ({massKg:F4} kg) - failing as invalid geometry");
+                                pd.Status = ProcessingStatus.Failed;
+                                pd.FailureReason = "Invalid geometry - no measurable thickness";
+                                return pd;
+                            }
+                            else
+                            {
+                                ErrorHandler.DebugLog($"[SMDBG] Step 3: Part has real mass ({massKg:F4} kg) - treating as valid Generic part, not invalid geometry");
+                            }
                         }
                     }
                 }
