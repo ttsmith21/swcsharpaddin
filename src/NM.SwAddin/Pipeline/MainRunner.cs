@@ -162,6 +162,14 @@ namespace NM.SwAddin.Pipeline
 
                 var body = (IBody2)bodies[0];
 
+                // Material check - FAIL validation if no material assigned
+                if (string.IsNullOrWhiteSpace(pd.Material))
+                {
+                    pd.Status = ProcessingStatus.Failed;
+                    pd.FailureReason = "No material assigned";
+                    return pd;
+                }
+
                 // Build core wrappers
                 var info = new NM.Core.ModelInfo();
                 info.Initialize(pathOrTitle, cfg);
