@@ -71,10 +71,12 @@ namespace NM.Core.DataModel
         public double Length_m { get; set; }
 
         // Additional tube properties
-        public string TubeShape { get; set; } = "Round";  // Round, Square, Rectangular, etc.
+        public string TubeShape { get; set; } = "Round";  // Round, Square, Rectangle, Angle, Channel
+        public string CrossSection { get; set; } = "";    // Cross-section description, e.g., "2.5" or "2 x 3"
         public string NpsText { get; set; }               // NPS designation, e.g., "2\"", "4\""
         public string ScheduleCode { get; set; }          // Schedule code, e.g., "40", "80S", "XX"
         public int NumberOfHoles { get; set; }            // Count of holes in the tube
+        public double CutLength_m { get; set; }           // Total cut perimeter length in meters
     }
 
     public sealed class CostingData

@@ -179,8 +179,18 @@ namespace NM.SwAddin.Pipeline
                 {
                     try
                     {
-                        var tube = new SimpleTubeProcessor().TryGetGeometry(doc);
-                        if (tube != null && tube.OuterDiameter > 0 && tube.WallThickness > 0 && tube.Length > 0)
+                        ErrorHandler.DebugLog("[SMDBG] Step 2: Calling SimpleTubeProcessor.TryGetGeometry...");
+                        var tube = new SimpleTubeProcessor(swApp).TryGetGeometry(doc);
+                        if (tube != null)
+                        {
+                            ErrorHandler.DebugLog($"[SMDBG] Step 2: Tube result: Shape={tube.ShapeName}, Wall={tube.WallThickness:F3}, Length={tube.Length:F3}");
+                        }
+                        else
+                        {
+                            ErrorHandler.DebugLog("[SMDBG] Step 2: Tube detection returned null");
+                        }
+
+                        if (tube != null && tube.Shape != TubeShape.None && tube.WallThickness > 0 && tube.Length > 0)
                         {
                             const double IN_TO_M = 0.0254;
                             pd.Tube.IsTube = true;
@@ -189,7 +199,11 @@ namespace NM.SwAddin.Pipeline
                             pd.Tube.Wall_m = tube.WallThickness * IN_TO_M;
                             pd.Tube.ID_m = Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
                             pd.Tube.Length_m = tube.Length * IN_TO_M;
-                            pd.Tube.TubeShape = "Round"; // Currently only round tubes detected
+                            pd.Tube.TubeShape = tube.ShapeName; // Round, Square, Rectangle, Angle, Channel
+                            pd.Tube.CrossSection = tube.CrossSection;
+                            pd.Tube.CutLength_m = tube.CutLength * IN_TO_M;
+                            pd.Tube.NumberOfHoles = tube.NumberOfHoles;
+                            ErrorHandler.DebugLog($"[SMDBG] Step 2: TUBE DETECTED - Classification set to Tube ({tube.ShapeName})");
 
                             // Resolve pipe schedule (NPS and schedule code)
                             var pipeService = new PipeScheduleService();
@@ -201,7 +215,10 @@ namespace NM.SwAddin.Pipeline
                             }
                         }
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        ErrorHandler.DebugLog($"[SMDBG] Step 2: Tube detection EXCEPTION: {ex.Message}");
+                    }
                 }
 
                 // Step 3: If neither sheet metal nor tube, use generic processor

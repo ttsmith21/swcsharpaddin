@@ -157,9 +157,10 @@ namespace NM.SwAddin.Geometry
             }
             result.WallThicknessMeters = wallThickness;
 
-            // Get material length from outer cylindrical face
-            double[] startPt, endPt;
-            result.MaterialLengthMeters = outerFace.GetMaterialLength(out startPt, out endPt);
+            // Get material length from outer loop edges (circles at cylinder ends)
+            // This is more reliable than tessellation for cylindrical faces
+            var outerEdges = outerFace.GetOuterLoopEdges();
+            result.MaterialLengthMeters = CalculateCylinderLengthFromEdges(outerEdges, outerFace.Axis, out var startPt, out var endPt);
             result.StartPoint = startPt;
             result.EndPoint = endPt;
 
@@ -169,9 +170,79 @@ namespace NM.SwAddin.Geometry
 
             // Calculate cut length (edges at tube ends + hole edges)
             var cutEdges = new List<IEdge>();
-            cutEdges.AddRange(outerFace.GetOuterLoopEdges());
+            cutEdges.AddRange(outerEdges);
             cutEdges.AddRange(outerFace.GetHoleEdges());
             result.CutLengthMeters = CalculateTotalEdgeLength(cutEdges);
+        }
+
+        /// <summary>
+        /// Calculates cylinder length by finding the distance between edge loop centers along the axis.
+        /// </summary>
+        private double CalculateCylinderLengthFromEdges(List<IEdge> edges, double[] axis, out double[] startPoint, out double[] endPoint)
+        {
+            startPoint = new double[3];
+            endPoint = new double[3];
+
+            if (edges == null || edges.Count < 2 || axis == null)
+                return 0;
+
+            // Project edge midpoints onto the axis to find min/max positions
+            double minT = double.MaxValue;
+            double maxT = double.MinValue;
+            double[] minPt = null;
+            double[] maxPt = null;
+
+            // Use axis origin from the first edge curve's center
+            double[] axisOrigin = null;
+
+            foreach (var edge in edges)
+            {
+                var curve = (ICurve)edge.GetCurve();
+                if (curve == null) continue;
+
+                // Get curve midpoint
+                double startParam = 0, endParam = 0;
+                bool isClosed = false, isPeriodic = false;
+                if (!curve.GetEndParams(out startParam, out endParam, out isClosed, out isPeriodic))
+                    continue;
+
+                double midParam = (startParam + endParam) / 2.0;
+                int numDerivs = 0;
+                var evalResult = (double[])curve.Evaluate2(midParam, numDerivs);
+                if (evalResult == null || evalResult.Length < 3)
+                    continue;
+
+                double[] midPt = { evalResult[0], evalResult[1], evalResult[2] };
+
+                // Initialize axis origin with first point
+                if (axisOrigin == null)
+                    axisOrigin = midPt;
+
+                // Project onto axis: t = (midPt - axisOrigin) · axis
+                double t = (midPt[0] - axisOrigin[0]) * axis[0] +
+                           (midPt[1] - axisOrigin[1]) * axis[1] +
+                           (midPt[2] - axisOrigin[2]) * axis[2];
+
+                if (t < minT)
+                {
+                    minT = t;
+                    minPt = midPt;
+                }
+                if (t > maxT)
+                {
+                    maxT = t;
+                    maxPt = midPt;
+                }
+            }
+
+            if (minPt != null && maxPt != null && maxT > minT)
+            {
+                startPoint = minPt;
+                endPoint = maxPt;
+                return maxT - minT;
+            }
+
+            return 0;
         }
 
         private void ExtractNonRoundProfile(IModelDoc2 model, List<FaceWrapper> faces, TubeProfile result)
