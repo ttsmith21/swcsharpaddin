@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using NM.Core;
 using NM.Core.Tubes;
+using NM.SwAddin.Geometry;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
@@ -29,8 +30,8 @@ namespace NM.Core.Processing
             try
             {
                 var g = ExtractTubeGeometry(model);
-                bool ok = g != null && g.OuterDiameter > 0 && g.WallThickness > 0 && g.Length > 0;
-                ErrorHandler.DebugLog($"{LogPrefix} CanProcess ? {(ok ? "YES" : "NO")} (OD={g?.OuterDiameter:F3}in, Wall={g?.WallThickness:F3}in, L={g?.Length:F3}in)");
+                bool ok = g != null && g.Shape != TubeShape.None && g.WallThickness > 0 && g.Length > 0;
+                ErrorHandler.DebugLog($"{LogPrefix} CanProcess ? {(ok ? "YES" : "NO")} (Shape={g?.ShapeName ?? "None"}, CrossSection={g?.CrossSection ?? "N/A"}, Wall={g?.WallThickness:F3}in, L={g?.Length:F3}in)");
                 return ok;
             }
             catch (Exception ex)
@@ -72,17 +73,23 @@ namespace NM.Core.Processing
                     return false;
                 }
 
-                ErrorHandler.DebugLog($"{LogPrefix} OD={geom.OuterDiameter:F3}in, Wall={geom.WallThickness:F3}in, L={geom.Length:F3}in, Axis=({geom.Axis[0]:F3},{geom.Axis[1]:F3},{geom.Axis[2]:F3})");
+                ErrorHandler.DebugLog($"{LogPrefix} Shape={geom.ShapeName}, CrossSection={geom.CrossSection}, Wall={geom.WallThickness:F3}in, L={geom.Length:F3}in");
 
                 // Write properties to ModelInfo if provided
                 if (info?.CustomProperties != null)
                 {
                     var inv = System.Globalization.CultureInfo.InvariantCulture;
 
+                    // Shape and cross-section
+                    info.CustomProperties.SetPropertyValue("TubeShape", geom.ShapeName, CustomPropertyType.Text);
+                    info.CustomProperties.SetPropertyValue("TubeCrossSection", geom.CrossSection, CustomPropertyType.Text);
+
                     // Basic geometry properties
                     info.CustomProperties.SetPropertyValue("TubeOD", geom.OuterDiameter.ToString("0.###", inv), CustomPropertyType.Number);
                     info.CustomProperties.SetPropertyValue("TubeWall", geom.WallThickness.ToString("0.###", inv), CustomPropertyType.Number);
                     info.CustomProperties.SetPropertyValue("TubeLength", geom.Length.ToString("0.###", inv), CustomPropertyType.Number);
+                    info.CustomProperties.SetPropertyValue("TubeCutLength", geom.CutLength.ToString("0.###", inv), CustomPropertyType.Number);
+                    info.CustomProperties.SetPropertyValue("TubeHoles", geom.NumberOfHoles.ToString(), CustomPropertyType.Number);
                     info.CustomProperties.IsTube = true;
 
                     // Resolve pipe schedule (NPS and schedule code)
@@ -130,143 +137,42 @@ namespace NM.Core.Processing
             try
             {
                 if (model == null) return null;
-                var part = model as IPartDoc;
-                if (part == null) return null;
 
-                var bodies = part.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
-                if (bodies == null || bodies.Length == 0) return null;
-                var body = bodies[0] as IBody2;
-                if (body == null) return null;
-
-                var faces = body.GetFaces() as object[];
-                if (faces == null || faces.Length == 0) return null;
-
-                // Collect cylinder data with axis origin for concentricity check
-                double maxR_m = 0.0, minR_m = double.MaxValue;
-                double[] axis = null; // normalized
-                double[] axisOrigin = null;
-                int cylCount = 0;
-
-                // Tolerance for concentricity check: 1mm (0.001m) - cylinders must share same axis line
-                const double CONCENTRICITY_TOLERANCE_M = 0.001;
-
-                foreach (var f in faces)
+                // Use TubeGeometryExtractor for full shape detection (Round, Square, Rectangle, Angle, Channel)
+                if (_swApp != null)
                 {
-                    var face = f as IFace2; if (face == null) continue;
-                    var surf = face.IGetSurface(); if (surf == null) continue;
-                    if (surf.IsCylinder())
+                    var extractor = new TubeGeometryExtractor(_swApp);
+                    var profile = extractor.Extract(model);
+
+                    if (profile.Success)
                     {
-                        var p = surf.CylinderParams as double[];
-                        if (p == null || p.Length < 7) continue;
-                        var a = new[] { p[3], p[4], p[5] };
-                        var len = Math.Sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
-                        if (len < 1e-9) continue;
-                        var n = new[] { a[0] / len, a[1] / len, a[2] / len };
-                        var r = Math.Abs(p[6]);
-                        var origin = new[] { p[0], p[1], p[2] };
+                        ErrorHandler.DebugLog($"{LogPrefix} TubeGeometryExtractor: Shape={profile.ShapeName}, CrossSection={profile.CrossSection}");
 
-                        // Initialize axis with first cylinder
-                        if (axis == null)
+                        // Map TubeProfile to TubeGeometry
+                        var geom = new TubeGeometry
                         {
-                            axis = n;
-                            axisOrigin = origin;
-                        }
-                        else
-                        {
-                            // Check direction alignment (must be parallel)
-                            var dp = Math.Abs(axis[0] * n[0] + axis[1] * n[1] + axis[2] * n[2]);
-                            if (dp < 0.999) continue; // Not parallel, skip this cylinder
+                            Shape = profile.Shape,
+                            CrossSection = profile.CrossSection,
+                            WallThickness = profile.WallThicknessInches,
+                            Length = profile.MaterialLengthInches,
+                            CutLength = profile.CutLengthInches,
+                            NumberOfHoles = profile.NumberOfHoles,
+                            OuterDiameter = profile.OuterDiameterInches,
+                            InnerDiameter = profile.InnerDiameterInches,
+                            Axis = ComputeAxisFromPoints(profile.StartPoint, profile.EndPoint)
+                        };
 
-                            // CONCENTRICITY CHECK: Verify this cylinder's origin lies on the reference axis line
-                            // Distance from point to line = ||(origin - axisOrigin) - ((origin - axisOrigin) · axis) * axis||
-                            var toOrigin = Sub(origin, axisOrigin);
-                            var projection = Dot(toOrigin, axis);
-                            var projectedPoint = new[] { axisOrigin[0] + projection * axis[0], axisOrigin[1] + projection * axis[1], axisOrigin[2] + projection * axis[2] };
-                            var distanceVec = Sub(origin, projectedPoint);
-                            var distanceToAxis = Math.Sqrt(Dot(distanceVec, distanceVec));
-
-                            if (distanceToAxis > CONCENTRICITY_TOLERANCE_M)
-                            {
-                                ErrorHandler.DebugLog($"{LogPrefix} Skipping non-concentric cylinder: distance={distanceToAxis * 1000:F2}mm from axis");
-                                continue; // Not concentric, skip this cylinder
-                            }
-                        }
-
-                        if (r > maxR_m) maxR_m = r;
-                        if (r < minR_m) minR_m = r;
-                        cylCount++;
+                        return geom;
+                    }
+                    else
+                    {
+                        ErrorHandler.DebugLog($"{LogPrefix} TubeGeometryExtractor failed: {profile.Message}");
+                        // Fall through to legacy extraction for round tubes
                     }
                 }
 
-                if (cylCount == 0 || axis == null) return null;
-
-                // Estimate length: project all vertices onto axis and compute span
-                double minT = double.MaxValue, maxT = double.MinValue;
-                var vertsObj = body.GetVertices() as object[];
-                if (vertsObj == null || vertsObj.Length == 0)
-                {
-                    // Fallback: use face vertices
-                    foreach (var f in faces)
-                    {
-                        var face = f as IFace2; if (face == null) continue;
-                        var loops = face.GetLoops() as object[]; if (loops == null) continue;
-                        foreach (var l in loops)
-                        {
-                            var loop = l as ILoop2; if (loop == null) continue;
-                            var edges = loop.GetEdges() as object[]; if (edges == null) continue;
-                            foreach (var e in edges)
-                            {
-                                var edge = e as IEdge; if (edge == null) continue;
-                                // Get start and end vertices
-                                var sv = edge.IGetStartVertex();
-                                var ev = edge.IGetEndVertex();
-                                foreach (var vv in new[] { sv, ev })
-                                {
-                                    if (vv == null) continue;
-                                    var pt = vv.GetPoint() as double[]; if (pt == null || pt.Length < 3) continue;
-                                    var t = Dot(Sub(pt, axisOrigin), axis);
-                                    if (t < minT) minT = t;
-                                    if (t > maxT) maxT = t;
-                                }
-                            }
-                        }
-                    }
-                }
-                else
-                {
-                    foreach (var v in vertsObj)
-                    {
-                        var vv = v as IVertex; if (vv == null) continue;
-                        var pt = vv.GetPoint() as double[]; if (pt == null || pt.Length < 3) continue;
-                        var t = Dot(Sub(pt, axisOrigin), axis);
-                        if (t < minT) minT = t;
-                        if (t > maxT) maxT = t;
-                    }
-                }
-
-                double length_m = (maxT > minT && maxT < double.MaxValue && minT > double.MinValue) ? (maxT - minT) : 0.0;
-
-                // Require two cylinders for hollow tube; otherwise it's a solid rod
-                if (cylCount < 2) return null;
-
-                var od_m = 2 * maxR_m;
-                var id_m = 2 * minR_m;
-                var wall_m = (maxR_m - minR_m);
-
-                // Minimum wall thickness: 0.015" (0.381mm = 0.000381m) - thin-wall tubing minimum
-                const double MIN_WALL_THICKNESS_M = 0.000381;
-                if (od_m <= 0 || wall_m <= MIN_WALL_THICKNESS_M || length_m <= 0) return null;
-
-                // Convert to inches for TubeGeometry DTO
-                const double M_TO_IN = 39.37007874015748;
-                var geom = new TubeGeometry
-                {
-                    OuterDiameter = od_m * M_TO_IN,
-                    WallThickness = wall_m * M_TO_IN,
-                    Length = length_m * M_TO_IN,
-                    Axis = axis
-                };
-                return geom;
+                // Legacy fallback: concentric cylinder detection (round tubes only)
+                return ExtractRoundTubeGeometryLegacy(model);
             }
             catch (Exception ex)
             {
@@ -277,6 +183,170 @@ namespace NM.Core.Processing
             {
                 ErrorHandler.PopCallStack();
             }
+        }
+
+        /// <summary>
+        /// Computes normalized axis direction from start and end points.
+        /// </summary>
+        private static double[] ComputeAxisFromPoints(double[] startPt, double[] endPt)
+        {
+            if (startPt == null || endPt == null || startPt.Length < 3 || endPt.Length < 3)
+                return new[] { 0.0, 0.0, 1.0 }; // Default Z-axis
+
+            var dx = endPt[0] - startPt[0];
+            var dy = endPt[1] - startPt[1];
+            var dz = endPt[2] - startPt[2];
+            var len = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+
+            if (len < 1e-9)
+                return new[] { 0.0, 0.0, 1.0 }; // Default Z-axis
+
+            return new[] { dx / len, dy / len, dz / len };
+        }
+
+        /// <summary>
+        /// Legacy round tube extraction using concentric cylinder detection.
+        /// Used as fallback when TubeGeometryExtractor is unavailable or fails.
+        /// </summary>
+        private TubeGeometry ExtractRoundTubeGeometryLegacy(IModelDoc2 model)
+        {
+            var part = model as IPartDoc;
+            if (part == null) return null;
+
+            var bodies = part.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
+            if (bodies == null || bodies.Length == 0) return null;
+            var body = bodies[0] as IBody2;
+            if (body == null) return null;
+
+            var faces = body.GetFaces() as object[];
+            if (faces == null || faces.Length == 0) return null;
+
+            // Collect cylinder data with axis origin for concentricity check
+            double maxR_m = 0.0, minR_m = double.MaxValue;
+            double[] axis = null; // normalized
+            double[] axisOrigin = null;
+            int cylCount = 0;
+
+            // Tolerance for concentricity check: 1mm (0.001m) - cylinders must share same axis line
+            const double CONCENTRICITY_TOLERANCE_M = 0.001;
+
+            foreach (var f in faces)
+            {
+                var face = f as IFace2; if (face == null) continue;
+                var surf = face.IGetSurface(); if (surf == null) continue;
+                if (surf.IsCylinder())
+                {
+                    var p = surf.CylinderParams as double[];
+                    if (p == null || p.Length < 7) continue;
+                    var a = new[] { p[3], p[4], p[5] };
+                    var len = Math.Sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
+                    if (len < 1e-9) continue;
+                    var n = new[] { a[0] / len, a[1] / len, a[2] / len };
+                    var r = Math.Abs(p[6]);
+                    var origin = new[] { p[0], p[1], p[2] };
+
+                    // Initialize axis with first cylinder
+                    if (axis == null)
+                    {
+                        axis = n;
+                        axisOrigin = origin;
+                    }
+                    else
+                    {
+                        // Check direction alignment (must be parallel)
+                        var dp = Math.Abs(axis[0] * n[0] + axis[1] * n[1] + axis[2] * n[2]);
+                        if (dp < 0.999) continue; // Not parallel, skip this cylinder
+
+                        // CONCENTRICITY CHECK: Verify this cylinder's origin lies on the reference axis line
+                        var toOrigin = Sub(origin, axisOrigin);
+                        var projection = Dot(toOrigin, axis);
+                        var projectedPoint = new[] { axisOrigin[0] + projection * axis[0], axisOrigin[1] + projection * axis[1], axisOrigin[2] + projection * axis[2] };
+                        var distanceVec = Sub(origin, projectedPoint);
+                        var distanceToAxis = Math.Sqrt(Dot(distanceVec, distanceVec));
+
+                        if (distanceToAxis > CONCENTRICITY_TOLERANCE_M)
+                        {
+                            ErrorHandler.DebugLog($"{LogPrefix} Legacy: Skipping non-concentric cylinder: distance={distanceToAxis * 1000:F2}mm from axis");
+                            continue;
+                        }
+                    }
+
+                    if (r > maxR_m) maxR_m = r;
+                    if (r < minR_m) minR_m = r;
+                    cylCount++;
+                }
+            }
+
+            if (cylCount == 0 || axis == null) return null;
+
+            // Estimate length: project all vertices onto axis and compute span
+            double minT = double.MaxValue, maxT = double.MinValue;
+            var vertsObj = body.GetVertices() as object[];
+            if (vertsObj == null || vertsObj.Length == 0)
+            {
+                // Fallback: use face vertices
+                foreach (var f in faces)
+                {
+                    var face = f as IFace2; if (face == null) continue;
+                    var loops = face.GetLoops() as object[]; if (loops == null) continue;
+                    foreach (var l in loops)
+                    {
+                        var loop = l as ILoop2; if (loop == null) continue;
+                        var edges = loop.GetEdges() as object[]; if (edges == null) continue;
+                        foreach (var e in edges)
+                        {
+                            var edge = e as IEdge; if (edge == null) continue;
+                            var sv = edge.IGetStartVertex();
+                            var ev = edge.IGetEndVertex();
+                            foreach (var vv in new[] { sv, ev })
+                            {
+                                if (vv == null) continue;
+                                var pt = vv.GetPoint() as double[]; if (pt == null || pt.Length < 3) continue;
+                                var t = Dot(Sub(pt, axisOrigin), axis);
+                                if (t < minT) minT = t;
+                                if (t > maxT) maxT = t;
+                            }
+                        }
+                    }
+                }
+            }
+            else
+            {
+                foreach (var v in vertsObj)
+                {
+                    var vv = v as IVertex; if (vv == null) continue;
+                    var pt = vv.GetPoint() as double[]; if (pt == null || pt.Length < 3) continue;
+                    var t = Dot(Sub(pt, axisOrigin), axis);
+                    if (t < minT) minT = t;
+                    if (t > maxT) maxT = t;
+                }
+            }
+
+            double length_m = (maxT > minT && maxT < double.MaxValue && minT > double.MinValue) ? (maxT - minT) : 0.0;
+
+            // Require two cylinders for hollow tube; otherwise it's a solid rod
+            if (cylCount < 2) return null;
+
+            var od_m = 2 * maxR_m;
+            var wall_m = (maxR_m - minR_m);
+
+            // Minimum wall thickness: 0.015" (0.381mm = 0.000381m) - thin-wall tubing minimum
+            const double MIN_WALL_THICKNESS_M = 0.000381;
+            if (od_m <= 0 || wall_m <= MIN_WALL_THICKNESS_M || length_m <= 0) return null;
+
+            // Convert to inches for TubeGeometry DTO
+            const double M_TO_IN = 39.37007874015748;
+            var geom = new TubeGeometry
+            {
+                Shape = TubeShape.Round,
+                OuterDiameter = od_m * M_TO_IN,
+                InnerDiameter = (2 * minR_m) * M_TO_IN,
+                WallThickness = wall_m * M_TO_IN,
+                Length = length_m * M_TO_IN,
+                Axis = axis,
+                CrossSection = $"{od_m * M_TO_IN:G6}"
+            };
+            return geom;
         }
 
         private static double[] Sub(double[] a, double[] b) => new[] { a[0] - b[0], a[1] - b[1], a[2] - b[2] };
@@ -290,9 +360,39 @@ namespace NM.Core.Processing
     /// </summary>
     public class TubeGeometry
     {
-        public double OuterDiameter { get; set; }  // inches
+        public double OuterDiameter { get; set; }   // inches (for round tubes)
         public double WallThickness { get; set; }   // inches
-        public double Length { get; set; }          // inches
+        public double Length { get; set; }          // inches (material length)
         public double[] Axis { get; set; }          // normalized direction vector [x, y, z]
+
+        /// <summary>
+        /// Detected shape (Round, Square, Rectangle, Angle, Channel).
+        /// </summary>
+        public TubeShape Shape { get; set; } = TubeShape.None;
+
+        /// <summary>
+        /// Cross-section description (e.g., "2.5" for round OD, "2 x 3" for rectangular).
+        /// </summary>
+        public string CrossSection { get; set; } = "";
+
+        /// <summary>
+        /// Total cut perimeter length in inches.
+        /// </summary>
+        public double CutLength { get; set; }
+
+        /// <summary>
+        /// Number of holes detected.
+        /// </summary>
+        public int NumberOfHoles { get; set; }
+
+        /// <summary>
+        /// Inner diameter for round tubes, in inches.
+        /// </summary>
+        public double InnerDiameter { get; set; }
+
+        /// <summary>
+        /// Shape name as string.
+        /// </summary>
+        public string ShapeName => Shape.ToString();
     }
 }
