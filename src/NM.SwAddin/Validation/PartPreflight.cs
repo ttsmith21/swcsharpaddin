@@ -32,11 +32,10 @@ namespace NM.SwAddin.Validation
                 if (bodies == null || bodies.Length == 0)
                     return new PreflightResult { IsProblem = true, Reason = "No solid bodies found" };
 
-                // Multi-body check - warn but don't fail
+                // Multi-body check - FAIL validation for multi-body parts
                 if (bodies.Length > 1)
                 {
-                    // For now, allow multi-body parts but log a note
-                    // return new PreflightResult { IsProblem = true, Reason = $"Multi-body part ({bodies.Length} bodies)" };
+                    return new PreflightResult { IsProblem = true, Reason = $"Multi-body part ({bodies.Length} bodies)" };
                 }
 
                 return new PreflightResult { IsProblem = false, Reason = null };

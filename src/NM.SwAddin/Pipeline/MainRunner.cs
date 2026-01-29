@@ -127,14 +127,40 @@ namespace NM.SwAddin.Pipeline
                 pd.Configuration = cfg;
                 pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
 
-                // Basic geometry check
-                var body = SolidWorksApiWrapper.GetMainBody(doc);
-                if (body == null)
+                // Basic geometry check - get all solid bodies
+                var partDoc = doc as IPartDoc;
+                if (partDoc == null)
+                {
+                    pd.Status = ProcessingStatus.Failed;
+                    pd.FailureReason = "Could not cast to IPartDoc";
+                    return pd;
+                }
+
+                var bodiesObj = partDoc.GetBodies2((int)swBodyType_e.swSolidBody, true);
+                if (bodiesObj == null)
                 {
                     pd.Status = ProcessingStatus.Failed;
                     pd.FailureReason = "No solid body detected";
                     return pd;
                 }
+
+                var bodies = (object[])bodiesObj;
+                if (bodies.Length == 0)
+                {
+                    pd.Status = ProcessingStatus.Failed;
+                    pd.FailureReason = "No solid body detected";
+                    return pd;
+                }
+
+                // Multi-body check - FAIL validation for multi-body parts
+                if (bodies.Length > 1)
+                {
+                    pd.Status = ProcessingStatus.Failed;
+                    pd.FailureReason = $"Multi-body part ({bodies.Length} bodies)";
+                    return pd;
+                }
+
+                var body = (IBody2)bodies[0];
 
                 // Build core wrappers
                 var info = new NM.Core.ModelInfo();
