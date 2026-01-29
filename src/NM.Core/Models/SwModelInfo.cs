@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using NM.Core; // for CustomPropertyData
+using NM.Core.DataModel; // for PartData
 
 namespace NM.Core.Models
 {
@@ -40,6 +41,9 @@ namespace NM.Core.Models
 
         /// <summary>Quantity from BOM (for assembly context). Default 1 for single parts.</summary>
         public int Quantity { get; set; } = 1;
+
+        /// <summary>Processing result with cost data (populated after processing).</summary>
+        public PartData ProcessingResult { get; set; }
 
         // Unified dirty flag: model edits OR pending custom property changes.
         private bool _modelDirty;

@@ -87,6 +87,21 @@ namespace NM.SwAddin.Pipeline
         public int TotalBomQuantity { get; set; }
 
         /// <summary>
+        /// Total material cost for assembly (sum of extended material costs).
+        /// </summary>
+        public double TotalMaterialCost { get; set; }
+
+        /// <summary>
+        /// Total processing cost for assembly (sum of extended processing costs).
+        /// </summary>
+        public double TotalProcessingCost { get; set; }
+
+        /// <summary>
+        /// Grand total cost for assembly (sum of extended total costs).
+        /// </summary>
+        public double GrandTotalCost { get; set; }
+
+        /// <summary>
         /// Timing for validation pass.
         /// </summary>
         public TimeSpan ValidationElapsed { get; set; }
@@ -154,6 +169,14 @@ namespace NM.SwAddin.Pipeline
             sb.AppendLine($"Validation Problems: {ProblemModels.Count}");
             sb.AppendLine($"Processed OK: {ProcessedModels.Count}");
             sb.AppendLine($"Processing Failed: {FailedModels.Count}");
+            if (GrandTotalCost > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine("Cost Summary:");
+                sb.AppendLine($"  Material: ${TotalMaterialCost:N2}");
+                sb.AppendLine($"  Processing: ${TotalProcessingCost:N2}");
+                sb.AppendLine($"  TOTAL: ${GrandTotalCost:N2}");
+            }
             sb.AppendLine();
             sb.AppendLine($"Total Time: {TotalElapsed.TotalSeconds:F1}s");
             return sb.ToString();

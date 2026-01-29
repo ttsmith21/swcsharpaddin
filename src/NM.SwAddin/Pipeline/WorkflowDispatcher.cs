@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using NM.Core;
+using NM.Core.DataModel;
 using NM.Core.Models;
 using NM.Core.ProblemParts;
 using NM.SwAddin.AssemblyProcessing;
@@ -133,6 +134,7 @@ namespace NM.SwAddin.Pipeline
                 if (context.GoodModels.Count > 0)
                 {
                     ProcessGoodModelsPass2(context, options);
+                    AggregateCosts(context);  // Aggregate costs after processing
                 }
 
                 context.ProcessingComplete = true;
@@ -181,16 +183,18 @@ namespace NM.SwAddin.Pipeline
                     try
                     {
                         modelInfo.StartProcessing();
-                        var result = MainRunner.RunSinglePart(_swApp, modelInfo.ModelDoc as IModelDoc2, options);
+                        var partData = MainRunner.RunSinglePartData(_swApp, modelInfo.ModelDoc as IModelDoc2, options);
+                        modelInfo.ProcessingResult = partData;  // Store for cost aggregation
 
-                        if (result.Success)
+                        var success = (partData?.Status == ProcessingStatus.Success);
+                        if (success)
                         {
                             modelInfo.CompleteProcessing(true);
                             context.ProcessedModels.Add(modelInfo);
                         }
                         else
                         {
-                            modelInfo.CompleteProcessing(false, result.Message);
+                            modelInfo.CompleteProcessing(false, partData?.FailureReason ?? "Processing failed");
                             context.FailedModels.Add(modelInfo);
                         }
                     }
@@ -205,6 +209,32 @@ namespace NM.SwAddin.Pipeline
                 context.ProcessingElapsed = sw.Elapsed;
                 progressForm.Close();
             }
+        }
+
+        private void AggregateCosts(WorkflowContext context)
+        {
+            double totalMaterial = 0;
+            double totalProcessing = 0;
+            double grandTotal = 0;
+
+            foreach (var mi in context.ProcessedModels)
+            {
+                var cost = mi.ProcessingResult?.Cost;
+                if (cost == null) continue;
+
+                int qty = mi.Quantity;
+                totalMaterial += cost.TotalMaterialCost * qty;
+                totalProcessing += cost.TotalProcessingCost * qty;
+                grandTotal += cost.TotalCost * qty;
+
+                ErrorHandler.DebugLog($"[COST] {mi.FileName} x{qty}: ${cost.TotalCost:N2} ea = ${cost.TotalCost * qty:N2} ext");
+            }
+
+            context.TotalMaterialCost = totalMaterial;
+            context.TotalProcessingCost = totalProcessing;
+            context.GrandTotalCost = grandTotal;
+
+            ErrorHandler.DebugLog($"[COST] Assembly Total: Material=${totalMaterial:N2}, Processing=${totalProcessing:N2}, TOTAL=${grandTotal:N2}");
         }
 
         private void ClearProblemManager()
