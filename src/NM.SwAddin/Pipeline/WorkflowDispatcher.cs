@@ -304,10 +304,32 @@ namespace NM.SwAddin.Pipeline
             var assyDoc = doc as IAssemblyDoc;
             if (assyDoc == null) return;
 
+            // Step 1: Get BOM quantities FIRST (the authoritative source)
+            var quantifier = new AssemblyComponentQuantifier();
+            var quantities = quantifier.CollectQuantitiesHybrid(assyDoc, "");
+            ErrorHandler.DebugLog($"[ASMQTY] BOM returned {quantities.Count} unique entries");
+
+            // Step 2: Get validated unique components
             var collector = new ComponentCollector();
             var result = collector.CollectUniqueComponents(assyDoc);
 
-            // Add valid components to AllModels
+            // Step 3: Merge quantities into SwModelInfo
+            foreach (var mi in result.ValidComponents)
+            {
+                string key = AssemblyComponentQuantifier.BuildKey(mi.FilePath, mi.Configuration);
+                if (quantities.TryGetValue(key, out var q))
+                {
+                    mi.Quantity = q.Quantity;
+                    ErrorHandler.DebugLog($"[ASMQTY] {mi.FileName} x{mi.Quantity}");
+                }
+                else
+                {
+                    mi.Quantity = 1; // Fallback if not in BOM
+                    ErrorHandler.DebugLog($"[ASMQTY] {mi.FileName} not in BOM, defaulting to qty=1");
+                }
+            }
+
+            // Add valid components to AllModels (now with quantities)
             context.AllModels.AddRange(result.ValidComponents);
 
             // Problem components go directly to ProblemModels
@@ -316,6 +338,14 @@ namespace NM.SwAddin.Pipeline
                 problem.MarkValidated(false, problem.ProblemDescription);
                 context.ProblemModels.Add(problem);
             }
+
+            // Store total BOM quantity for summary
+            context.TotalBomQuantity = 0;
+            foreach (var q in quantities.Values)
+            {
+                context.TotalBomQuantity += q.Quantity;
+            }
+            ErrorHandler.DebugLog($"[ASMQTY] Total BOM quantity: {context.TotalBomQuantity}");
         }
 
         private void CollectDrawingReferences(WorkflowContext context)

@@ -82,6 +82,11 @@ namespace NM.SwAddin.Pipeline
         public bool UserCanceled { get; set; }
 
         /// <summary>
+        /// Total BOM quantity (sum of all component quantities for assemblies).
+        /// </summary>
+        public int TotalBomQuantity { get; set; }
+
+        /// <summary>
         /// Timing for validation pass.
         /// </summary>
         public TimeSpan ValidationElapsed { get; set; }
@@ -143,6 +148,8 @@ namespace NM.SwAddin.Pipeline
                 sb.AppendLine($"Path: {RootPath}");
             sb.AppendLine();
             sb.AppendLine($"Total Discovered: {AllModels.Count}");
+            if (TotalBomQuantity > 0)
+                sb.AppendLine($"Total BOM Quantity: {TotalBomQuantity}");
             sb.AppendLine($"Validated OK: {GoodModels.Count}");
             sb.AppendLine($"Validation Problems: {ProblemModels.Count}");
             sb.AppendLine($"Processed OK: {ProcessedModels.Count}");

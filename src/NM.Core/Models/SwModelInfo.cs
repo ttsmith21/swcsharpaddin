@@ -38,6 +38,9 @@ namespace NM.Core.Models
         /// <summary>Component name when this model is part of an assembly.</summary>
         public string ComponentName { get; set; }
 
+        /// <summary>Quantity from BOM (for assembly context). Default 1 for single parts.</summary>
+        public int Quantity { get; set; } = 1;
+
         // Unified dirty flag: model edits OR pending custom property changes.
         private bool _modelDirty;
         /// <summary>
