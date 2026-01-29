@@ -255,7 +255,32 @@ namespace NM.SwAddin.Pipeline
                     }
                 }
 
-                // Step 3: If neither sheet metal nor tube, use generic processor
+                // Step 3: If neither sheet metal nor tube, check for invalid geometry
+                // Parts that attempted sheet metal but failed with no thickness are likely
+                // invalid geometry (knife edges, degenerate faces) and should fail validation.
+                bool attemptedSheetMetal = (sheetProcessor != null);
+                bool sheetMetalFailed = attemptedSheetMetal && !isSheetMetal;
+                bool isTube = (pd.Classification == PartType.Tube);
+
+                if (sheetMetalFailed && !isTube)
+                {
+                    // Check if we can measure thickness - if not, this is likely invalid geometry
+                    double probeThickness = info.CustomProperties.Thickness;
+                    if (probeThickness <= 0)
+                    {
+                        // Also check if part has very low sheet percentage (< 10%)
+                        double sheetPercent = info.CustomProperties.SheetPercent;
+                        if (sheetPercent < 0.10)
+                        {
+                            ErrorHandler.DebugLog($"[SMDBG] Step 3: Part has no measurable thickness and low sheet% ({sheetPercent:P0}) - failing as invalid geometry");
+                            pd.Status = ProcessingStatus.Failed;
+                            pd.FailureReason = "Invalid geometry - no measurable thickness";
+                            return pd;
+                        }
+                    }
+                }
+
+                // Proceed with appropriate processor
                 IPartProcessor processor;
                 ProcessingResult pres;
                 if (isSheetMetal)
@@ -264,7 +289,7 @@ namespace NM.SwAddin.Pipeline
                     processor = sheetProcessor;
                     pres = ProcessingResult.Ok("SheetMetal");
                 }
-                else if (pd.Classification == PartType.Tube)
+                else if (isTube)
                 {
                     processor = factory.Get(ProcessorType.Tube);
                     pres = processor.Process(doc, info, options ?? new ProcessingOptions());
