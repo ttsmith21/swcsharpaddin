@@ -175,7 +175,43 @@
     },
     "E6_HugePart.sldprt": {
       "shouldPass": true,
-      "_note": "100m part - test units handling"
+      "_note": "100m part - test units handling",
+      "_status": "PLACEHOLDER - file not yet created"
+    },
+
+    "_comment_F": "Class F: Assemblies - NOT YET IMPLEMENTED",
+
+    "F1_SimpleAssy.sldasm": {
+      "shouldPass": true,
+      "_note": "Simple assembly with 3 unique parts - basic traversal",
+      "_status": "PLACEHOLDER - file not yet created"
+    },
+    "F2_MultiLevelAssy.sldasm": {
+      "shouldPass": true,
+      "_note": "Assembly containing sub-assemblies - recursion depth test",
+      "_status": "PLACEHOLDER - file not yet created"
+    },
+
+    "_comment_G": "Class G: Configurations - NOT YET IMPLEMENTED",
+
+    "G1_MultiConfig.sldprt": {
+      "shouldPass": true,
+      "_note": "Part with Long and Short configs - only process active",
+      "_status": "PLACEHOLDER - file not yet created"
+    },
+    "G2_GaugeConfigs.sldprt": {
+      "shouldPass": true,
+      "expectedClassification": "SheetMetal",
+      "_note": "Config A = 10ga, Config B = 14ga - material/gauge update",
+      "_status": "PLACEHOLDER - file not yet created"
+    },
+
+    "_comment_H": "Class H: File Formats - Import Pipeline",
+
+    "H1_StepImport.step": {
+      "shouldPass": true,
+      "_note": "Standard STEP exchange format - Load -> Heal -> Detect",
+      "_status": "PLACEHOLDER - file not yet created"
     }
   }
 }

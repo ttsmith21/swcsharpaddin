@@ -38,6 +38,13 @@ namespace NM.SwAddin.Validation
                     return new PreflightResult { IsProblem = true, Reason = $"Multi-body part ({bodies.Length} bodies)" };
                 }
 
+                // Material check - FAIL validation if no material assigned
+                var material = SolidWorksApiWrapper.GetMaterialName(model);
+                if (string.IsNullOrWhiteSpace(material))
+                {
+                    return new PreflightResult { IsProblem = true, Reason = "No material assigned" };
+                }
+
                 return new PreflightResult { IsProblem = false, Reason = null };
             }
             catch (Exception ex)
