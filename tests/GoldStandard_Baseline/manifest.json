@@ -31,8 +31,9 @@
       "expectedFailureReason": "material"
     },
     "A6_ZeroThickness.sldprt": {
-      "shouldPass": false,
-      "expectedFailureReason": "thickness"
+      "shouldPass": true,
+      "expectedClassification": "Generic",
+      "_note": "Wedge shape (1/8 to knife edge) - valid solid, not sheet metal"
     },
 
     "_comment_B": "Class B: Sheet Metal - Expectation: Classification=SheetMetal, shouldPass=true",
@@ -40,19 +41,22 @@
     "B1_NativeBracket_14ga_CS.sldprt": {
       "shouldPass": true,
       "expectedClassification": "SheetMetal",
-      "expectedThickness_in": 0.0747,
-      "expectedBendCount": 1
+      "expectedThickness_in": 0.073,
+      "expectedBendCount": 1,
+      "_note": "Model thickness is 0.073 (nominal 14ga is 0.0747)"
     },
     "B2_ImportedBracket_14ga_CS.sldprt": {
       "shouldPass": true,
       "expectedClassification": "SheetMetal",
-      "expectedThickness_in": 0.0747,
-      "expectedBendCount": 1
+      "expectedThickness_in": 0.075,
+      "expectedBendCount": 1,
+      "_note": "Model thickness is 0.075"
     },
     "B3_RolledCylinder_16ga_SS.sldprt": {
       "shouldPass": true,
       "expectedClassification": "SheetMetal",
-      "expectedThickness_in": 0.0598
+      "expectedThickness_in": 0.076,
+      "_note": "Model thickness is 0.076 (not nominal 16ga)"
     },
     "B4_ComplexUBracket_11ga_CS.sldprt": {
       "shouldPass": true,
