@@ -191,11 +191,16 @@ namespace NM.Core.Processing
                     else
                     {
                         ErrorHandler.DebugLog($"{LogPrefix} TubeGeometryExtractor failed: {profile.Message}");
-                        // Fall through to legacy extraction for round tubes
+
+                        // If TubeGeometryExtractor explicitly rejected the part (face geometry validation,
+                        // wall ratio check, etc.), do NOT fall through to legacy - the part is NOT a tube.
+                        // Only fall back to legacy if the extractor was unavailable.
+                        return null;
                     }
                 }
 
                 // Legacy fallback: concentric cylinder detection (round tubes only)
+                // This only runs if _swApp == null (TubeGeometryExtractor wasn't available)
                 return ExtractRoundTubeGeometryLegacy(model);
             }
             catch (Exception ex)
