@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using NM.SwAddin;
+using NM.SwAddin.UI;
 
 
 namespace swcsharpaddin
@@ -486,14 +487,29 @@ namespace swcsharpaddin
 
         /// <summary>
         /// Runs the unified two-pass workflow: validate all → show problems → process good.
+        /// Shows the settings form first to let user choose material, bend options, and output settings.
         /// </summary>
         public void RunPipeline()
         {
             NM.Core.ErrorHandler.PushCallStack("RunPipeline");
             try
             {
+                // Show settings form first (like the VBA UIX)
+                NM.Core.ProcessingOptions options;
+                using (var settingsForm = new MainSelectionForm())
+                {
+                    if (settingsForm.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                    {
+                        NM.Core.ErrorHandler.DebugLog("[RunPipeline] User canceled settings dialog");
+                        return;
+                    }
+                    options = settingsForm.Options;
+                    NM.Core.ErrorHandler.DebugLog($"[RunPipeline] Options: Material={options.Material}, BendTable={options.BendTable}, KFactor={options.KFactor}");
+                }
+
+                // Run workflow with user-selected options
                 var dispatcher = new NM.SwAddin.Pipeline.WorkflowDispatcher(iSwApp);
-                dispatcher.Run();
+                dispatcher.Run(options);
             }
             catch (System.Exception ex)
             {
@@ -797,6 +813,9 @@ namespace NM.Core
             /// <summary>Path to the ExtractData add-in DLL for external start.</summary>
             public const string ExtractDataAddInPath = @"C:\Program Files\SolidWorks Corp\SolidWorks\Toolbox\data collector\ExtractData.dll";
 
+            /// <summary>Default error log file path.</summary>
+            public const string ErrorLogPath = @"C:\SolidWorksMacroLogs\ErrorLog.txt";
+
             // TODO(vNext): Validate the paths at startup and provide user-friendly guidance if missing.
         }
 
@@ -912,6 +931,19 @@ namespace NM.Core
             public const int DefaultQuantity = 1;
             /// <summary>Typical steel K-factor when not using a bend table.</summary>
             public const double DefaultKFactor = 0.44;
+
+            /// <summary>Default logging enabled state.</summary>
+            public const bool LogEnabledDefault = true;
+            /// <summary>Default show warnings state.</summary>
+            public const bool ShowWarningsDefault = false;
+            /// <summary>Default production mode state.</summary>
+            public const bool ProductionModeDefault = false;
+            /// <summary>Default debug mode state.</summary>
+            public const bool EnableDebugModeDefault = false;
+            /// <summary>Default performance monitoring state.</summary>
+            public const bool EnablePerformanceMonitoringDefault = true;
+            /// <summary>Default SolidWorks visibility during processing.</summary>
+            public const bool SolidWorksVisibleDefault = false;
 
             // TODO(vNext): Externalize defaults to a JSON config with environment overrides.
         }

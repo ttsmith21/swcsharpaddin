@@ -64,6 +64,24 @@ namespace NM.Core
         public DifficultyLevel Difficulty { get; set; }
         /// <summary>Nest efficiency for material utilization (0.0-1.0, default 0.85 = 85%).</summary>
         public double NestEfficiency { get; set; }
+        /// <summary>Complexity level (0-4: Low to High).</summary>
+        public int Complexity { get; set; }
+        /// <summary>Optimization potential (0-4: None to High).</summary>
+        public int OptimizationPotential { get; set; }
+        /// <summary>Whether the part involves pipe welding.</summary>
+        public bool PipeWelding { get; set; }
+
+        // Logging/Debug options
+        /// <summary>Enable logging to file.</summary>
+        public bool EnableLogging { get; set; }
+        /// <summary>Show warning messages as pop-ups.</summary>
+        public bool ShowWarnings { get; set; }
+        /// <summary>Path to error log file.</summary>
+        public string LogFilePath { get; set; }
+        /// <summary>Debugging level (Production, Normal, Debug).</summary>
+        public DebuggingLevel DebugLevel { get; set; }
+        /// <summary>Enable performance timing and logging.</summary>
+        public bool EnablePerformanceMonitoring { get; set; }
 
         // Export options
         /// <summary>Generate ERP Import.prn file at end of workflow.</summary>
@@ -110,6 +128,17 @@ namespace NM.Core
             Quantity = Configuration.Defaults.DefaultQuantity;   // DEFAULT_QUANTITY
             Difficulty = DifficultyLevel.Normal;
             NestEfficiency = 0.85; // 85% material utilization
+            Complexity = 2; // Mid-range default
+            OptimizationPotential = 0; // None by default
+            PipeWelding = false;
+
+            // Logging/Debug
+            EnableLogging = Configuration.Defaults.LogEnabledDefault;
+            ShowWarnings = Configuration.Defaults.ShowWarningsDefault;
+            LogFilePath = Configuration.FilePaths.ErrorLogPath;
+            DebugLevel = Configuration.Defaults.ProductionModeDefault ? DebuggingLevel.Production :
+                         Configuration.Defaults.EnableDebugModeDefault ? DebuggingLevel.Debug : DebuggingLevel.Normal;
+            EnablePerformanceMonitoring = Configuration.Defaults.EnablePerformanceMonitoringDefault;
 
             // Export
             GenerateErpExport = false;
@@ -140,5 +169,13 @@ namespace NM.Core
         Tight = 0,
         Normal = 1,
         Loose = 2
+    }
+
+    /// <summary>Debugging/operation mode level.</summary>
+    public enum DebuggingLevel
+    {
+        Production = 0,
+        Normal = 1,
+        Debug = 2
     }
 }
