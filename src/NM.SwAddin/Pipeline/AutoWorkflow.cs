@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using NM.Core;
+using NM.Core.DataModel;
 using NM.Core.ProblemParts;
 using NM.SwAddin.AssemblyProcessing;
 using NM.SwAddin.Processing;
@@ -74,6 +75,10 @@ namespace NM.SwAddin.Pipeline
                 var pre = new AssemblyPreprocessor();
                 pre.EnsureComponentsResolved(asm);
 
+                // Get BOM quantities
+                var quantifier = new AssemblyComponentQuantifier();
+                var quantities = quantifier.CollectQuantitiesHybrid(asm, "");
+
                 var prep = pre.PreprocessAssembly(asmModel);
                 var sb = new StringBuilder();
                 sb.AppendLine(prep.Summary);
@@ -88,10 +93,17 @@ namespace NM.SwAddin.Pipeline
                 }
 
                 int ok = 0, fail = 0;
+                double totalMaterial = 0, totalProcessing = 0, grandTotal = 0;
+                int totalBomQty = 0;
                 var fileOps = new SolidWorksFileOperations(swApp);
 
                 foreach (var mi in prep.ComponentsToProcess)
                 {
+                    // Get quantity from BOM
+                    string key = AssemblyComponentQuantifier.BuildKey(mi.FilePath, mi.Configuration);
+                    int qty = quantities.TryGetValue(key, out var q) ? q.Quantity : 1;
+                    totalBomQty += qty;
+
                     IModelDoc2 compDoc = null;
                     try
                     {
@@ -104,8 +116,24 @@ namespace NM.SwAddin.Pipeline
                             continue;
                         }
 
-                        var partRes = MainRunner.RunSinglePart(swApp, compDoc, options: null);
-                        if (partRes.Success) ok++; else fail++;
+                        var partData = MainRunner.RunSinglePartData(swApp, compDoc, options: null);
+                        if (partData?.Status == ProcessingStatus.Success)
+                        {
+                            ok++;
+                            var cost = partData.Cost;
+                            if (cost != null)
+                            {
+                                totalMaterial += cost.TotalMaterialCost * qty;
+                                totalProcessing += cost.TotalProcessingCost * qty;
+                                grandTotal += cost.TotalCost * qty;
+                            }
+                        }
+                        else
+                        {
+                            fail++;
+                            ProblemPartManager.Instance.AddProblemPart(
+                                new NM.Core.ModelInfo(), partData?.FailureReason ?? "Processing failed", ProblemPartManager.ProblemCategory.Fatal);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -122,6 +150,16 @@ namespace NM.SwAddin.Pipeline
                 sb.AppendLine();
                 sb.AppendLine($"Processed OK: {ok}");
                 sb.AppendLine($"Failed: {fail}");
+                sb.AppendLine($"Total BOM Quantity: {totalBomQty}");
+                if (grandTotal > 0)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine("Cost Summary:");
+                    sb.AppendLine($"  Material: ${totalMaterial:N2}");
+                    sb.AppendLine($"  Processing: ${totalProcessing:N2}");
+                    sb.AppendLine($"  TOTAL: ${grandTotal:N2}");
+                }
+
                 swApp.SendMsgToUser2(sb.ToString(),
                     (fail == 0) ? (int)swMessageBoxIcon_e.swMbInformation : (int)swMessageBoxIcon_e.swMbWarning,
                     (int)swMessageBoxBtn_e.swMbOk);
