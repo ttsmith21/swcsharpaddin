@@ -21,15 +21,36 @@ This skill runs the headless QA test suite to validate code changes against the 
 Run these commands in sequence:
 
 ```powershell
+# Step 0: Check if SolidWorks is running (DLL will be locked)
+$swRunning = Get-Process -Name SLDWORKS -ErrorAction SilentlyContinue
+if ($swRunning) {
+    Write-Error "SolidWorks is running! Close it first or the DLL will be locked."
+    # Do NOT proceed - build will fail or use stale DLL
+}
+
 # Step 1: Build main project
 powershell -ExecutionPolicy Bypass -File "C:\Users\tsmith\source\repos\swcsharpaddin\scripts\build-and-test.ps1" -SkipClean
 
-# Step 2: Build BatchRunner (if build succeeded)
+# Step 2: Verify DLL was updated (not locked/stale)
+$dll = Get-Item "C:\Users\tsmith\source\repos\swcsharpaddin\bin\Debug\swcsharpaddin.dll"
+$age = (Get-Date) - $dll.LastWriteTime
+if ($age.TotalMinutes -gt 2) {
+    Write-Warning "DLL is $($age.TotalMinutes.ToString('F0')) minutes old - may be stale/locked!"
+}
+
+# Step 3: Build BatchRunner (if build succeeded)
 & "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" "C:\Users\tsmith\source\repos\swcsharpaddin\src\NM.BatchRunner\NM.BatchRunner.csproj" /p:Configuration=Debug /v:minimal
 
-# Step 3: Run QA tests
+# Step 4: Run QA tests
 & "C:\Users\tsmith\source\repos\swcsharpaddin\src\NM.BatchRunner\bin\Debug\NM.BatchRunner.exe" --qa
 ```
+
+## Pre-flight Checks
+
+Before running QA, verify:
+1. **SolidWorks is NOT running** - DLL is locked while SW is open
+2. **Build succeeds** - Check for "BUILD: SUCCESS" output
+3. **DLL timestamp is fresh** - Should be within last 2 minutes
 
 ## Interpreting Results
 

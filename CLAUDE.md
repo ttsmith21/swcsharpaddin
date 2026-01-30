@@ -71,13 +71,21 @@ When fixing build errors without user intervention:
 Run the `/qa` skill or execute these commands to validate changes against the gold standard test suite:
 
 ```powershell
+# FIRST: Verify SolidWorks is NOT running (DLL is locked while SW is open)
+Get-Process -Name SLDWORKS -ErrorAction SilentlyContinue | Stop-Process -ErrorAction SilentlyContinue
+
 # Build and run QA tests (launches SolidWorks, processes 16 test parts, closes SW)
 .\scripts\build-and-test.ps1 -SkipClean
 & "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\amd64\MSBuild.exe" src\NM.BatchRunner\NM.BatchRunner.csproj /p:Configuration=Debug /v:minimal
 .\src\NM.BatchRunner\bin\Debug\NM.BatchRunner.exe --qa
+
+# Verify DLL was updated (check timestamp)
+Get-Item bin\Debug\swcsharpaddin.dll | Select-Object Name, LastWriteTime
 ```
 
 **Exit codes:** 0 = all passed, 1 = failures
+
+**Important:** If the DLL timestamp is old, SolidWorks may have been running and locked the file. Close SW and rebuild.
 
 **Test inputs:** `tests/GoldStandard_Inputs/`
 - `A*` series: Validation edge cases (empty, multi-body, no material)
