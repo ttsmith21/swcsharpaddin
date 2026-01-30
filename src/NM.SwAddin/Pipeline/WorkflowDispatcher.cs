@@ -503,7 +503,19 @@ namespace NM.SwAddin.Pipeline
 
         private ProblemAction ShowProblemPartsDialog(WorkflowContext context)
         {
-            using (var form = new ProblemPartsForm())
+            // Register problem models with ProblemPartManager so the form can display them
+            foreach (var problem in context.ProblemModels)
+            {
+                var category = GuessProblemCategory(problem.ProblemDescription);
+                ProblemPartManager.Instance.AddProblemPart(
+                    problem.FilePath,
+                    problem.Configuration ?? string.Empty,
+                    problem.ComponentName ?? string.Empty,
+                    problem.ProblemDescription ?? "Unknown",
+                    category);
+            }
+
+            using (var form = new ProblemPartsForm(ProblemPartManager.Instance, _swApp))
             {
                 form.ShowGoodCount(context.GoodModels.Count);
                 var result = form.ShowDialog();
@@ -513,6 +525,27 @@ namespace NM.SwAddin.Pipeline
 
                 return form.SelectedAction;
             }
+        }
+
+        private static ProblemPartManager.ProblemCategory GuessProblemCategory(string reason)
+        {
+            if (string.IsNullOrEmpty(reason)) return ProblemPartManager.ProblemCategory.ProcessingError;
+
+            var r = reason.ToLowerInvariant();
+            if (r.Contains("suppressed")) return ProblemPartManager.ProblemCategory.Suppressed;
+            if (r.Contains("lightweight")) return ProblemPartManager.ProblemCategory.Lightweight;
+            if (r.Contains("sub-assembly")) return ProblemPartManager.ProblemCategory.GeometryValidation;
+            if (r.Contains("virtual")) return ProblemPartManager.ProblemCategory.GeometryValidation;
+            if (r.Contains("toolbox")) return ProblemPartManager.ProblemCategory.GeometryValidation;
+            if (r.Contains("imported") || r.Contains("step") || r.Contains("iges")) return ProblemPartManager.ProblemCategory.Imported;
+            if (r.Contains("file not found") || r.Contains("not found")) return ProblemPartManager.ProblemCategory.FileAccess;
+            if (r.Contains("material")) return ProblemPartManager.ProblemCategory.MaterialMissing;
+            if (r.Contains("multi-body") || r.Contains("multibody")) return ProblemPartManager.ProblemCategory.GeometryValidation;
+            if (r.Contains("no solid") || r.Contains("no body")) return ProblemPartManager.ProblemCategory.GeometryValidation;
+            if (r.Contains("sheet metal") || r.Contains("conversion")) return ProblemPartManager.ProblemCategory.SheetMetalConversion;
+            if (r.Contains("thickness")) return ProblemPartManager.ProblemCategory.ThicknessExtraction;
+
+            return ProblemPartManager.ProblemCategory.ProcessingError;
         }
 
         private void ShowFinalSummary(WorkflowContext context)
