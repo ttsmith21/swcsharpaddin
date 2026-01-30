@@ -476,5 +476,223 @@ namespace NM.SwAddin.Drawing
             }
             catch { }
         }
+
+        #region Flat Pattern DXF Export for Nesting
+
+        /// <summary>
+        /// Options for flat pattern DXF export.
+        /// </summary>
+        public sealed class FlatPatternDxfOptions
+        {
+            /// <summary>
+            /// Output folder. If null, uses same folder as part.
+            /// </summary>
+            public string OutputFolder { get; set; }
+
+            /// <summary>
+            /// Whether to include bend lines in the DXF.
+            /// Default false - nesting software typically only needs cut geometry.
+            /// </summary>
+            public bool IncludeBendLines { get; set; } = false;
+
+            /// <summary>
+            /// Whether to include sketches in the DXF.
+            /// </summary>
+            public bool IncludeSketches { get; set; } = false;
+
+            /// <summary>
+            /// Whether to include library features (forming tools).
+            /// </summary>
+            public bool IncludeLibraryFeatures { get; set; } = false;
+
+            /// <summary>
+            /// Whether to include forming tool extents.
+            /// </summary>
+            public bool IncludeFormingToolExtents { get; set; } = false;
+
+            /// <summary>
+            /// DXF version (12-14 for maximum compatibility with nesting software).
+            /// </summary>
+            public int DxfVersion { get; set; } = 13; // R13 - widely compatible
+        }
+
+        /// <summary>
+        /// Result of flat pattern DXF export.
+        /// </summary>
+        public sealed class FlatPatternDxfResult
+        {
+            public bool Success { get; set; }
+            public string DxfPath { get; set; }
+            public string Message { get; set; }
+        }
+
+        /// <summary>
+        /// Exports the flat pattern of a sheet metal part directly to DXF for nesting software.
+        /// Uses IPartDoc.ExportFlatPatternView() which creates 2D geometry suitable for CNC nesting.
+        /// </summary>
+        /// <param name="model">The sheet metal part model.</param>
+        /// <param name="options">Export options (optional).</param>
+        /// <returns>Result with path to the exported DXF.</returns>
+        public FlatPatternDxfResult ExportFlatPatternDxf(IModelDoc2 model, FlatPatternDxfOptions options = null)
+        {
+            const string proc = nameof(ExportFlatPatternDxf);
+            ErrorHandler.PushCallStack(proc);
+            options = options ?? new FlatPatternDxfOptions();
+            var result = new FlatPatternDxfResult();
+
+            try
+            {
+                if (model == null)
+                {
+                    result.Message = "Model is null";
+                    return result;
+                }
+
+                var partDoc = model as IPartDoc;
+                if (partDoc == null)
+                {
+                    result.Message = "Document must be a part";
+                    return result;
+                }
+
+                // Verify this is a sheet metal part with flat pattern
+                if (!HasFlatPatternFeature(model))
+                {
+                    result.Message = "Part does not have a flat pattern feature (not sheet metal)";
+                    return result;
+                }
+
+                // Get output path
+                string modelPath = model.GetPathName();
+                string modelTitle = model.GetTitle() ?? "Untitled";
+                string docName = Path.GetFileNameWithoutExtension(
+                    !string.IsNullOrEmpty(modelPath) ? modelPath : modelTitle);
+
+                string folderPath = !string.IsNullOrEmpty(modelPath)
+                    ? Path.GetDirectoryName(modelPath)
+                    : System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+
+                if (!string.IsNullOrEmpty(options.OutputFolder))
+                    folderPath = options.OutputFolder;
+
+                string dxfPath = Path.Combine(folderPath, docName + "_FLAT.dxf");
+
+                // Build export options bitmask
+                // swExportFlatPatternViewOptions_e flags:
+                // swExportFlatPatternOption_RemoveBends = 1 (remove bend lines)
+                // swExportFlatPatternOption_ExportFlatPatternGeometry = 2 (geometry only, no annotations)
+                // swExportFlatPatternOption_IncludeHiddenEdges = 4
+                // swExportFlatPatternOption_ExportBendLines = 8
+                // swExportFlatPatternOption_ExportSketches = 16
+                // swExportFlatPatternOption_ExportLibraryFeatures = 32
+                // swExportFlatPatternOption_ExportFormingToolExtents = 64
+                // swExportFlatPatternOption_ExportBendNotes = 128
+
+                int exportOptions = 2; // Always include flat pattern geometry
+
+                if (options.IncludeBendLines)
+                    exportOptions |= 8;
+                else
+                    exportOptions |= 1; // Remove bends if not including them
+
+                if (options.IncludeSketches)
+                    exportOptions |= 16;
+
+                if (options.IncludeLibraryFeatures)
+                    exportOptions |= 32;
+
+                if (options.IncludeFormingToolExtents)
+                    exportOptions |= 64;
+
+                ErrorHandler.DebugLog($"{proc}: Exporting flat pattern to {dxfPath} with options={exportOptions}");
+
+                // Ensure flat pattern is unsuppressed
+                UnsuppressFlatPattern(model);
+
+                // Export the flat pattern view
+                bool success = partDoc.ExportFlatPatternView(dxfPath, exportOptions);
+
+                if (success && File.Exists(dxfPath))
+                {
+                    result.Success = true;
+                    result.DxfPath = dxfPath;
+                    result.Message = "Flat pattern DXF exported successfully";
+                    ErrorHandler.DebugLog($"{proc}: Success - {dxfPath}");
+                }
+                else
+                {
+                    result.Message = "ExportFlatPatternView returned false or file not created";
+                    ErrorHandler.DebugLog($"{proc}: Export failed");
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError(proc, ex.Message, ex);
+                result.Message = "Exception: " + ex.Message;
+                return result;
+            }
+            finally
+            {
+                ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Checks if the model has a flat pattern feature (is sheet metal).
+        /// </summary>
+        private bool HasFlatPatternFeature(IModelDoc2 model)
+        {
+            try
+            {
+                var feat = model.FirstFeature() as IFeature;
+                while (feat != null)
+                {
+                    string typeName = feat.GetTypeName2() ?? "";
+                    if (typeName.Equals("FlatPattern", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                    feat = feat.GetNextFeature() as IFeature;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        /// <summary>
+        /// Unsuppresses the flat pattern feature if suppressed.
+        /// Required before ExportFlatPatternView.
+        /// </summary>
+        private void UnsuppressFlatPattern(IModelDoc2 model)
+        {
+            try
+            {
+                var feat = model.FirstFeature() as IFeature;
+                while (feat != null)
+                {
+                    string typeName = feat.GetTypeName2() ?? "";
+                    if (typeName.Equals("FlatPattern", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Always try to unsuppress - SetSuppression2 is idempotent
+                        // If already unsuppressed, this is a no-op
+                        feat.SetSuppression2(
+                            (int)swFeatureSuppressionAction_e.swUnSuppressFeature,
+                            (int)swInConfigurationOpts_e.swThisConfiguration,
+                            null);
+                        model.EditRebuild3();
+                        break;
+                    }
+                    feat = feat.GetNextFeature() as IFeature;
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"UnsuppressFlatPattern: {ex.Message}");
+            }
+        }
+
+        #endregion
     }
 }

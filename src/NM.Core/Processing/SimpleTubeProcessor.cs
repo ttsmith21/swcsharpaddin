@@ -114,6 +114,30 @@ namespace NM.Core.Processing
                         info.CustomProperties.OptiMaterial = optiMaterial;
                         ErrorHandler.DebugLog($"{LogPrefix} OptiMaterial={optiMaterial}");
                     }
+
+                    // Write F300_Length for material handling
+                    info.CustomProperties.SetPropertyValue("F300_Length", geom.Length.ToString("0.###", inv), CustomPropertyType.Number);
+
+                    // OP20 Routing: Work center assignment based on OD thresholds
+                    // VBA logic: Route tubes to appropriate laser based on size capability
+                    var (op20WorkCenter, op20SetupHours) = GetTubeWorkCenterRouting(geom.OuterDiameter, geom.Shape);
+                    info.CustomProperties.SetPropertyValue("OP20", op20WorkCenter, CustomPropertyType.Text);
+                    info.CustomProperties.SetPropertyValue("OP20_S", op20SetupHours.ToString("0.##", inv), CustomPropertyType.Number);
+                    ErrorHandler.DebugLog($"{LogPrefix} OP20={op20WorkCenter}, OP20_S={op20SetupHours}");
+
+                    // Set tube material prefix based on shape
+                    // P. = pipe (round), T. = tube (square/rect), A. = angle/channel/beam
+                    string prefix = GetTubeMaterialPrefix(geom.Shape, geom.OuterDiameter, geom.WallThickness);
+                    info.CustomProperties.SetPropertyValue("TubePrefix", prefix, CustomPropertyType.Text);
+
+                    // Generate description: "{Material} {Shape}"
+                    string materialAbbrev = GetMaterialAbbreviation(info.CustomProperties.MaterialCategory);
+                    string shapeDesc = GetShapeDescription(geom.Shape);
+                    string description = $"{materialAbbrev} {shapeDesc}".Trim();
+                    if (!string.IsNullOrEmpty(description))
+                    {
+                        info.CustomProperties.SetPropertyValue("TubeDescription", description, CustomPropertyType.Text);
+                    }
                 }
 
                 return true;
@@ -351,6 +375,113 @@ namespace NM.Core.Processing
 
         private static double[] Sub(double[] a, double[] b) => new[] { a[0] - b[0], a[1] - b[1], a[2] - b[2] };
         private static double Dot(double[] a, double[] b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+        #endregion
+
+        #region Work Center Routing
+        /// <summary>
+        /// Determines the OP20 work center and setup hours based on tube OD.
+        /// VBA logic from SP.bas:2520-2560:
+        /// - OD ≤ 6" → F110 TUBE LASER (setup 0.15)
+        /// - OD 6-10" → F110 (setup 0.5)
+        /// - OD 10-10.75" → F110 (setup 1.0)
+        /// - OD > 10.75" → N145 5-AXIS LASER (setup 0.25)
+        /// </summary>
+        private static (string WorkCenter, double SetupHours) GetTubeWorkCenterRouting(double outerDiameterIn, TubeShape shape)
+        {
+            // For non-round shapes, use a simpler routing (F110 for all structural)
+            if (shape != TubeShape.Round)
+            {
+                // Structural shapes (square, rect, angle, channel) go to F110
+                // Setup based on size - use perimeter as proxy
+                return ("F110 - TUBE LASER", 0.15);
+            }
+
+            // Round pipe/tube routing based on OD thresholds
+            if (outerDiameterIn <= 6.0)
+            {
+                return ("F110 - TUBE LASER", 0.15);
+            }
+            else if (outerDiameterIn <= 10.0)
+            {
+                return ("F110 - TUBE LASER", 0.5);
+            }
+            else if (outerDiameterIn <= 10.75)
+            {
+                return ("F110 - TUBE LASER", 1.0);
+            }
+            else
+            {
+                // Large pipes go to 5-axis laser
+                return ("N145 - 5-AXIS LASER", 0.25);
+            }
+        }
+
+        /// <summary>
+        /// Determines tube material prefix based on shape.
+        /// VBA logic:
+        /// - P. = pipe (round, hollow, wall &lt; 30% of OD)
+        /// - T. = tube (square/rectangular)
+        /// - A. = angle/channel/beam
+        /// </summary>
+        private static string GetTubeMaterialPrefix(TubeShape shape, double outerDiameterIn, double wallThicknessIn)
+        {
+            switch (shape)
+            {
+                case TubeShape.Round:
+                    // Distinguish pipe from thick-wall tube
+                    // Pipe: wall < 30% of OD (typical for pipe schedules)
+                    double wallRatio = (outerDiameterIn > 0) ? wallThicknessIn / outerDiameterIn : 0;
+                    return (wallRatio < 0.30) ? "P." : "T.";
+
+                case TubeShape.Square:
+                case TubeShape.Rectangle:
+                    return "T.";
+
+                case TubeShape.Angle:
+                case TubeShape.Channel:
+                    return "A.";
+
+                default:
+                    return "";
+            }
+        }
+
+        /// <summary>
+        /// Gets material abbreviation for description.
+        /// </summary>
+        private static string GetMaterialAbbreviation(string materialCategory)
+        {
+            if (string.IsNullOrWhiteSpace(materialCategory))
+                return "";
+
+            var cat = materialCategory.ToUpperInvariant();
+            if (cat.Contains("STAINLESS") || cat.Contains("304") || cat.Contains("316"))
+                return "SS";
+            if (cat.Contains("ALUMINUM") || cat.Contains("AL"))
+                return "AL";
+            if (cat.Contains("CARBON") || cat.Contains("STEEL") || cat.Contains("1018") || cat.Contains("A36"))
+                return "CS";
+            if (cat.Contains("GALV"))
+                return "GALV";
+
+            return "CS"; // Default to carbon steel
+        }
+
+        /// <summary>
+        /// Gets shape description for tube type.
+        /// </summary>
+        private static string GetShapeDescription(TubeShape shape)
+        {
+            switch (shape)
+            {
+                case TubeShape.Round: return "PIPE";
+                case TubeShape.Square: return "SQ TUBE";
+                case TubeShape.Rectangle: return "RECT TUBE";
+                case TubeShape.Angle: return "ANGLE";
+                case TubeShape.Channel: return "CHANNEL";
+                default: return "TUBE";
+            }
+        }
         #endregion
     }
 

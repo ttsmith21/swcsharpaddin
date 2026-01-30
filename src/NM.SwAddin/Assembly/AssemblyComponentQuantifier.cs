@@ -20,6 +20,24 @@ namespace NM.SwAddin.AssemblyProcessing
             public string FilePath { get; set; }
             public string Configuration { get; set; }
             public int Quantity { get; set; }
+            /// <summary>
+            /// Immediate parent assembly path (for multi-level BOM support).
+            /// </summary>
+            public string ParentAssemblyPath { get; set; }
+            public string Key => BuildKey(FilePath, Configuration);
+        }
+
+        /// <summary>
+        /// Represents a node in the assembly hierarchy for multi-level BOM export.
+        /// </summary>
+        public sealed class BomNode
+        {
+            public string FilePath { get; set; }
+            public string Configuration { get; set; }
+            public string PartNumber { get; set; }
+            public int Quantity { get; set; }
+            public bool IsAssembly { get; set; }
+            public List<BomNode> Children { get; } = new List<BomNode>();
             public string Key => BuildKey(FilePath, Configuration);
         }
 
@@ -70,7 +88,7 @@ namespace NM.SwAddin.AssemblyProcessing
 
         /// <summary>
         /// Recursively counts unique part/config occurrences in the assembly tree.
-        /// Includes all levels; skips suppressed components.
+        /// Includes all levels; skips suppressed components. Tracks immediate parent assembly.
         /// </summary>
         public Dictionary<string, ComponentQuantity> CollectViaRecursion(IAssemblyDoc asm)
         {
@@ -80,11 +98,96 @@ namespace NM.SwAddin.AssemblyProcessing
             var root = cfg?.GetRootComponent3(true);
             if (root == null) return result;
 
-            Traverse(root, result);
+            // Get root assembly path as the initial parent
+            string rootPath = Safe(() => model.GetPathName()) ?? string.Empty;
+            Traverse(root, result, rootPath);
             return result;
         }
 
-        private void Traverse(IComponent2 comp, Dictionary<string, ComponentQuantity> counts)
+        /// <summary>
+        /// Collects the full assembly hierarchy as a tree of BomNodes.
+        /// For multi-level assembly support with deep hierarchies.
+        /// </summary>
+        public BomNode CollectHierarchy(IAssemblyDoc asm)
+        {
+            var model = (IModelDoc2)asm;
+            if (model == null) return null;
+
+            var cfg = model.ConfigurationManager?.ActiveConfiguration;
+            var root = cfg?.GetRootComponent3(true);
+            if (root == null) return null;
+
+            var rootNode = new BomNode
+            {
+                FilePath = Safe(() => model.GetPathName()) ?? "",
+                Configuration = Safe(() => cfg.Name) ?? "",
+                PartNumber = System.IO.Path.GetFileNameWithoutExtension(model.GetPathName() ?? ""),
+                IsAssembly = true,
+                Quantity = 1
+            };
+
+            // Collect children
+            var kids = root.GetChildren();
+            if (kids is Array arr)
+            {
+                CollectChildrenHierarchy(arr, rootNode);
+            }
+
+            return rootNode;
+        }
+
+        private void CollectChildrenHierarchy(Array children, BomNode parent)
+        {
+            // Group by path+config to aggregate quantities
+            var grouped = new Dictionary<string, BomNode>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var o in children)
+            {
+                var comp = o as IComponent2;
+                if (comp == null) continue;
+
+                try
+                {
+                    int sup = comp.GetSuppression2();
+                    if (sup == (int)swComponentSuppressionState_e.swComponentSuppressed)
+                        continue;
+
+                    string path = Safe(() => comp.GetPathName()) ?? string.Empty;
+                    string cfg = Safe(() => comp.ReferencedConfiguration) ?? string.Empty;
+                    string key = BuildKey(path, cfg);
+                    var childDoc = comp.GetModelDoc2() as IModelDoc2;
+                    bool isAsm = childDoc != null && childDoc.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY;
+
+                    if (!grouped.TryGetValue(key, out var node))
+                    {
+                        node = new BomNode
+                        {
+                            FilePath = path,
+                            Configuration = cfg,
+                            PartNumber = System.IO.Path.GetFileNameWithoutExtension(path),
+                            IsAssembly = isAsm,
+                            Quantity = 0
+                        };
+                        grouped[key] = node;
+                        parent.Children.Add(node);
+                    }
+                    node.Quantity++;
+
+                    // Recurse into sub-assemblies
+                    if (isAsm)
+                    {
+                        var subKids = comp.GetChildren();
+                        if (subKids is Array subArr && subArr.Length > 0)
+                        {
+                            CollectChildrenHierarchy(subArr, node);
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+
+        private void Traverse(IComponent2 comp, Dictionary<string, ComponentQuantity> counts, string parentAssemblyPath)
         {
             if (comp == null) return;
             try
@@ -94,21 +197,28 @@ namespace NM.SwAddin.AssemblyProcessing
                     return;
 
                 var childDoc = comp.GetModelDoc2() as IModelDoc2;
+                string compPath = Safe(() => comp.GetPathName()) ?? string.Empty;
+
                 // Count parts only
                 if (childDoc != null && childDoc.GetType() == (int)swDocumentTypes_e.swDocPART)
                 {
-                    string path = Safe(() => comp.GetPathName()) ?? string.Empty;
                     string cfg = Safe(() => comp.ReferencedConfiguration) ?? string.Empty;
-                    string key = BuildKey(path, cfg);
+                    string key = BuildKey(compPath, cfg);
                     if (!counts.TryGetValue(key, out var q))
                     {
-                        q = new ComponentQuantity { FilePath = path, Configuration = cfg, Quantity = 0 };
+                        q = new ComponentQuantity
+                        {
+                            FilePath = compPath,
+                            Configuration = cfg,
+                            Quantity = 0,
+                            ParentAssemblyPath = parentAssemblyPath
+                        };
                         counts[key] = q;
                     }
                     q.Quantity++;
                 }
 
-                // Recurse into sub-assemblies
+                // Recurse into sub-assemblies (using sub-assembly path as new parent)
                 if (childDoc != null && childDoc.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY)
                 {
                     var kids = comp.GetChildren();
@@ -116,7 +226,8 @@ namespace NM.SwAddin.AssemblyProcessing
                     {
                         foreach (var o in arr)
                         {
-                            Traverse(o as IComponent2, counts);
+                            // Sub-assembly becomes the parent for its children
+                            Traverse(o as IComponent2, counts, compPath);
                         }
                     }
                 }

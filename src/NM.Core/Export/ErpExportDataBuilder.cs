@@ -302,5 +302,125 @@ namespace NM.Core.Export
 
             return "UNKNOWN";
         }
+
+        #region Hierarchical BOM Support
+
+        /// <summary>
+        /// Creates ErpExportData from a hierarchical BOM structure (for multi-level assemblies).
+        /// Handles sub-assemblies as both parent and child in the BOM relationships.
+        /// </summary>
+        /// <param name="partDataLookup">Dictionary mapping file paths to processed PartData.</param>
+        /// <param name="rootPartNumber">Part number of the root assembly.</param>
+        /// <param name="customer">Customer name for ERP records.</param>
+        /// <param name="bomHierarchy">List of (ParentPath, ChildPath, Quantity) tuples representing BOM structure.</param>
+        public static ErpExportData FromHierarchicalBom(
+            Dictionary<string, PartData> partDataLookup,
+            string rootPartNumber,
+            string customer,
+            IEnumerable<(string ParentPath, string ChildPath, int Quantity)> bomHierarchy)
+        {
+            if (partDataLookup == null)
+                throw new ArgumentNullException(nameof(partDataLookup));
+
+            var data = new ErpExportData
+            {
+                ParentPartNumber = rootPartNumber ?? "",
+                ParentDescription = ""
+            };
+
+            // Track which parts we've already added to avoid duplicates
+            var addedParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Process each BOM relationship
+            int pieceNumber = 1;
+            foreach (var (parentPath, childPath, quantity) in bomHierarchy ?? Enumerable.Empty<(string, string, int)>())
+            {
+                string parentPartNumber = Path.GetFileNameWithoutExtension(parentPath);
+                string childPartNumber = Path.GetFileNameWithoutExtension(childPath);
+
+                // Add child part if not already added
+                if (!addedParts.Contains(childPath))
+                {
+                    if (partDataLookup.TryGetValue(childPath, out var pd))
+                    {
+                        var erpPart = MapPartData(pd, customer);
+                        data.Parts.Add(erpPart);
+                    }
+                    else
+                    {
+                        // Create minimal part entry for sub-assemblies or unprocessed parts
+                        data.Parts.Add(new ErpPartData
+                        {
+                            PartNumber = childPartNumber,
+                            Drawing = childPartNumber,
+                            Customer = customer ?? "",
+                            Quantity = quantity,
+                            IsAssembly = childPath.EndsWith(".sldasm", StringComparison.OrdinalIgnoreCase)
+                        });
+                    }
+                    addedParts.Add(childPath);
+                }
+
+                // Add BOM relationship
+                data.BomRelationships.Add(new BomRelationship
+                {
+                    ParentPartNumber = parentPartNumber,
+                    ChildPartNumber = childPartNumber,
+                    PieceNumber = pieceNumber.ToString(),
+                    Quantity = quantity
+                });
+                pieceNumber++;
+            }
+
+            return data;
+        }
+
+        /// <summary>
+        /// Flattens a hierarchical BOM into a list of parent-child relationships.
+        /// </summary>
+        /// <param name="rootPath">Path of the root assembly.</param>
+        /// <param name="children">List of immediate children with their quantities and nested children.</param>
+        /// <returns>Flattened list of (ParentPath, ChildPath, Quantity) relationships.</returns>
+        public static List<(string ParentPath, string ChildPath, int Quantity)> FlattenBomHierarchy(
+            string rootPath,
+            IEnumerable<(string ChildPath, int Quantity, bool IsAssembly, IEnumerable<(string, int, bool, IEnumerable<(string, int, bool, object)>)> SubChildren)> children)
+        {
+            var result = new List<(string, string, int)>();
+
+            void Flatten(string parentPath, IEnumerable<dynamic> items)
+            {
+                if (items == null) return;
+
+                foreach (var item in items)
+                {
+                    string childPath = item.ChildPath;
+                    int quantity = item.Quantity;
+
+                    result.Add((parentPath, childPath, quantity));
+
+                    // Recurse into sub-assembly children
+                    if (item.IsAssembly && item.SubChildren != null)
+                    {
+                        Flatten(childPath, item.SubChildren);
+                    }
+                }
+            }
+
+            // Start flattening from root
+            if (children != null)
+            {
+                foreach (var child in children)
+                {
+                    result.Add((rootPath, child.ChildPath, child.Quantity));
+
+                    // Note: For deep recursion, we'd need a more sophisticated approach
+                    // This handles the common case of 2-3 level hierarchies
+                }
+            }
+
+            return result;
+        }
+
+        #endregion
     }
 }

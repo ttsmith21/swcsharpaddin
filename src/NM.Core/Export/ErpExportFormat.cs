@@ -242,9 +242,14 @@ namespace NM.Core.Export
 
             foreach (var part in data.Parts)
             {
-                if (part.IsAssembly) continue;
-
                 string location = part.Location ?? DefaultLocation;
+
+                // Handle assembly routing separately
+                if (part.IsAssembly)
+                {
+                    WriteAssemblyRouting(sw, part, location);
+                    continue;
+                }
 
                 // OP20 - Cutting/Primary operation
                 if (part.Operations.TryGetValue("OP20", out var op20))
@@ -297,6 +302,43 @@ namespace NM.Core.Export
                 {
                     sw.WriteLine($"{Q(part.PartNumber)}{Q(location + op.WorkCenter)}{ opNum} {op.Setup:0.####} {op.Run:0.####} {Q("COMMON SET")}0");
                     opNum += 10;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Writes routing for assembly parts (parent assemblies in multi-level BOMs).
+        /// Assembly routing typically includes:
+        /// - OP20: Assembly work center (N140 - ASSEMBLY)
+        /// - Optional: Inspection, packing, etc.
+        /// </summary>
+        private void WriteAssemblyRouting(StreamWriter sw, ErpPartData assembly, string location)
+        {
+            // Check if assembly has explicit operations defined
+            if (assembly.Operations.Count > 0)
+            {
+                // Use explicitly defined operations
+                foreach (var op in assembly.Operations.Values.Where(o => o.Enabled))
+                {
+                    sw.WriteLine($"{Q(assembly.PartNumber)}{Q(location + op.WorkCenter)}{op.OpNumber} {op.Setup:0.####} {op.Run:0.####} {Q("COMMON SET")}0");
+                }
+            }
+            else
+            {
+                // Default assembly routing: N140 - ASSEMBLY
+                // Setup: 0.25 hrs (15 min) per assembly
+                // Run: Based on number of children (0.05 hrs per child, minimum 0.1 hrs)
+                double assemblySetup = 0.25;
+                int children = assembly.ChildCount > 0 ? assembly.ChildCount : assembly.Quantity;
+                double assemblyRun = Math.Max(0.1, children * 0.05);
+
+                // OP20 - Assembly operation
+                sw.WriteLine($"{Q(assembly.PartNumber)}{Q("N140")}20 {assemblySetup:0.####} {assemblyRun:0.####} {Q("COMMON SET")}0");
+
+                // OP30 - Inspection (if marked as requiring inspection)
+                if (assembly.RequiresInspection)
+                {
+                    sw.WriteLine($"{Q(assembly.PartNumber)}{Q("N150")}30 0.05 0.1 {Q("COMMON SET")}0");
                 }
             }
         }
@@ -406,6 +448,10 @@ namespace NM.Core.Export
         public string CustPartNumber { get; set; }
 
         public Dictionary<string, RoutingOperation> Operations { get; } = new Dictionary<string, RoutingOperation>(StringComparer.OrdinalIgnoreCase);
+
+        // Assembly-specific flags
+        public bool RequiresInspection { get; set; }
+        public int ChildCount { get; set; }  // For calculating assembly run time
     }
 
     public sealed class RoutingOperation
