@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Windows.Forms;
+using NM.Core.Processing;
 using NM.Core.ProblemParts;
+using NM.SwAddin.Geometry;
 using NM.SwAddin.Validation;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
@@ -27,6 +30,20 @@ namespace NM.SwAddin.UI
         private Button _btnConfirmFix;
         private Button _btnClose;
 
+        // Tube diagnostic controls
+        private GroupBox _grpTubeDiagnostics;
+        private Button _btnShowCutLength;
+        private Button _btnShowHoles;
+        private Button _btnShowBoundary;
+        private Button _btnShowProfile;
+        private Button _btnShowAll;
+        private Button _btnClearSelection;
+        private Label _lblDiagStatus;
+
+        // Diagnostic state
+        private TubeDiagnosticInfo _tubeDiagnostics;
+        private IModelDoc2 _openedModel;
+
         public bool Resolved { get; private set; }
 
         public ProblemReviewDialog(ProblemPartManager.ProblemItem item, ISldWorks swApp = null)
@@ -36,7 +53,7 @@ namespace NM.SwAddin.UI
 
             Text = "Review Problem Part";
             Width = 720;
-            Height = 560;
+            Height = 640;
             StartPosition = FormStartPosition.CenterParent;
 
             BuildUi();
@@ -52,21 +69,46 @@ namespace NM.SwAddin.UI
             _lblAttempts = new Label { Left = 10, Top = 90, Width = 680, Text = "Attempts: " };
 
             _txtReason = new TextBox { Left = 10, Top = 120, Width = 680, Height = 80, Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical };
-            _lstSuggestions = new ListBox { Left = 10, Top = 210, Width = 680, Height = 220 };
+            _lstSuggestions = new ListBox { Left = 10, Top = 210, Width = 680, Height = 140 };
 
-            _btnOpen = new Button { Left = 10, Top = 440, Width = 160, Text = "Open in SolidWorks" };
+            // Tube Diagnostics GroupBox
+            _grpTubeDiagnostics = new GroupBox { Left = 10, Top = 360, Width = 680, Height = 100, Text = "Tube Diagnostics (requires part open in SolidWorks)" };
+
+            _btnShowCutLength = new Button { Left = 10, Top = 20, Width = 100, Height = 25, Text = "Cut Length" };
+            _btnShowCutLength.Click += OnShowCutLengthEdges;
+
+            _btnShowHoles = new Button { Left = 115, Top = 20, Width = 100, Height = 25, Text = "Hole Edges" };
+            _btnShowHoles.Click += OnShowHoleEdges;
+
+            _btnShowBoundary = new Button { Left = 220, Top = 20, Width = 100, Height = 25, Text = "Boundary" };
+            _btnShowBoundary.Click += OnShowBoundaryEdges;
+
+            _btnShowProfile = new Button { Left = 325, Top = 20, Width = 100, Height = 25, Text = "Profile Faces" };
+            _btnShowProfile.Click += OnShowProfileFaces;
+
+            _btnShowAll = new Button { Left = 430, Top = 20, Width = 100, Height = 25, Text = "Show All" };
+            _btnShowAll.Click += OnShowAllDiagnostics;
+
+            _btnClearSelection = new Button { Left = 535, Top = 20, Width = 100, Height = 25, Text = "Clear" };
+            _btnClearSelection.Click += OnClearSelection;
+
+            _lblDiagStatus = new Label { Left = 10, Top = 50, Width = 660, Height = 40, Text = "Open part first, then click a button to highlight edges/faces." };
+
+            _grpTubeDiagnostics.Controls.AddRange(new Control[] { _btnShowCutLength, _btnShowHoles, _btnShowBoundary, _btnShowProfile, _btnShowAll, _btnClearSelection, _lblDiagStatus });
+
+            _btnOpen = new Button { Left = 10, Top = 520, Width = 160, Text = "Open in SolidWorks" };
             _btnOpen.Click += OnOpenInSolidWorks;
 
-            _btnMark = new Button { Left = 180, Top = 440, Width = 160, Text = "Mark Reviewed" };
+            _btnMark = new Button { Left = 180, Top = 520, Width = 160, Text = "Mark Reviewed" };
             _btnMark.Click += (s, e) => { DialogResult = DialogResult.OK; Close(); };
 
-            _btnConfirmFix = new Button { Left = 350, Top = 440, Width = 160, Text = "Confirm Fix" };
+            _btnConfirmFix = new Button { Left = 350, Top = 520, Width = 160, Text = "Confirm Fix" };
             _btnConfirmFix.Click += OnConfirmFix;
 
-            _btnClose = new Button { Left = 520, Top = 440, Width = 100, Text = "Close" };
+            _btnClose = new Button { Left = 520, Top = 520, Width = 100, Text = "Close" };
             _btnClose.Click += (s, e) => Close();
 
-            Controls.AddRange(new Control[] { _lblFile, _lblPath, _lblConfig, _lblCategory, _lblAttempts, _txtReason, _lstSuggestions, _btnOpen, _btnMark, _btnConfirmFix, _btnClose });
+            Controls.AddRange(new Control[] { _lblFile, _lblPath, _lblConfig, _lblCategory, _lblAttempts, _txtReason, _lstSuggestions, _grpTubeDiagnostics, _btnOpen, _btnMark, _btnConfirmFix, _btnClose });
         }
 
         private void LoadData()
@@ -211,5 +253,170 @@ namespace NM.SwAddin.UI
             catch { }
             return (int)swDocumentTypes_e.swDocPART;
         }
+
+        #region Tube Diagnostic Event Handlers
+
+        private bool EnsurePartOpenAndExtractDiagnostics()
+        {
+            if (_swApp == null)
+            {
+                _lblDiagStatus.Text = "SolidWorks instance not available.";
+                return false;
+            }
+
+            // Check if model is already open
+            if (_openedModel == null)
+            {
+                // Try to get active document
+                _openedModel = _swApp.ActiveDoc as IModelDoc2;
+
+                // If not the right file, try to open it
+                if (_openedModel == null || !string.Equals(_openedModel.GetPathName(), _item.FilePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    int errs = 0, warns = 0;
+                    int docType = GuessDocType(_item.FilePath);
+                    if (docType != (int)swDocumentTypes_e.swDocPART)
+                    {
+                        _lblDiagStatus.Text = "Tube diagnostics only work on parts.";
+                        return false;
+                    }
+
+                    _openedModel = _swApp.OpenDoc6(_item.FilePath, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, _item.Configuration, ref errs, ref warns) as IModelDoc2;
+                    if (_openedModel == null || errs != 0)
+                    {
+                        _lblDiagStatus.Text = "Failed to open part: error " + errs;
+                        return false;
+                    }
+                }
+            }
+
+            // Extract diagnostics if not already done
+            if (_tubeDiagnostics == null)
+            {
+                try
+                {
+                    var extractor = new TubeGeometryExtractor(_swApp);
+                    var (profile, diagnostics) = extractor.ExtractWithDiagnostics(_openedModel);
+                    _tubeDiagnostics = diagnostics;
+
+                    if (profile != null)
+                    {
+                        _lblDiagStatus.Text = $"Profile: {profile.Shape}, OD={profile.OuterDiameterMeters:F3}m, CutLen={profile.CutLengthMeters:F3}m | " + diagnostics.GetSummary();
+                    }
+                    else
+                    {
+                        _lblDiagStatus.Text = "No tube profile detected. " + diagnostics.GetSummary();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _lblDiagStatus.Text = "Extraction failed: " + ex.Message;
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private void OnShowCutLengthEdges(object sender, EventArgs e)
+        {
+            if (!EnsurePartOpenAndExtractDiagnostics()) return;
+
+            try
+            {
+                var extractor = new TubeGeometryExtractor(_swApp);
+                extractor.SelectCutLengthEdges(_openedModel, _tubeDiagnostics, 0x00FF00); // Green
+                _lblDiagStatus.Text = $"Selected {_tubeDiagnostics.CutLengthEdges.Count} cut length edges (green).";
+            }
+            catch (Exception ex)
+            {
+                _lblDiagStatus.Text = "Select failed: " + ex.Message;
+            }
+        }
+
+        private void OnShowHoleEdges(object sender, EventArgs e)
+        {
+            if (!EnsurePartOpenAndExtractDiagnostics()) return;
+
+            try
+            {
+                var extractor = new TubeGeometryExtractor(_swApp);
+                extractor.SelectHoleEdges(_openedModel, _tubeDiagnostics);
+                _lblDiagStatus.Text = $"Selected {_tubeDiagnostics.HoleEdges.Count} hole edges (red).";
+            }
+            catch (Exception ex)
+            {
+                _lblDiagStatus.Text = "Select failed: " + ex.Message;
+            }
+        }
+
+        private void OnShowBoundaryEdges(object sender, EventArgs e)
+        {
+            if (!EnsurePartOpenAndExtractDiagnostics()) return;
+
+            try
+            {
+                var extractor = new TubeGeometryExtractor(_swApp);
+                extractor.SelectBoundaryEdges(_openedModel, _tubeDiagnostics);
+                _lblDiagStatus.Text = $"Selected {_tubeDiagnostics.BoundaryEdges.Count} boundary edges (blue).";
+            }
+            catch (Exception ex)
+            {
+                _lblDiagStatus.Text = "Select failed: " + ex.Message;
+            }
+        }
+
+        private void OnShowProfileFaces(object sender, EventArgs e)
+        {
+            if (!EnsurePartOpenAndExtractDiagnostics()) return;
+
+            try
+            {
+                var extractor = new TubeGeometryExtractor(_swApp);
+                extractor.SelectProfileFaces(_openedModel, _tubeDiagnostics);
+                _lblDiagStatus.Text = $"Selected {_tubeDiagnostics.ProfileFaces.Count} profile faces (cyan).";
+            }
+            catch (Exception ex)
+            {
+                _lblDiagStatus.Text = "Select failed: " + ex.Message;
+            }
+        }
+
+        private void OnShowAllDiagnostics(object sender, EventArgs e)
+        {
+            if (!EnsurePartOpenAndExtractDiagnostics()) return;
+
+            try
+            {
+                var extractor = new TubeGeometryExtractor(_swApp);
+                extractor.SelectAllDiagnostics(_openedModel, _tubeDiagnostics);
+                _lblDiagStatus.Text = _tubeDiagnostics.GetSummary();
+            }
+            catch (Exception ex)
+            {
+                _lblDiagStatus.Text = "Select failed: " + ex.Message;
+            }
+        }
+
+        private void OnClearSelection(object sender, EventArgs e)
+        {
+            if (_openedModel == null)
+            {
+                _lblDiagStatus.Text = "No model open.";
+                return;
+            }
+
+            try
+            {
+                _openedModel.ClearSelection2(true);
+                _lblDiagStatus.Text = "Selection cleared.";
+            }
+            catch (Exception ex)
+            {
+                _lblDiagStatus.Text = "Clear failed: " + ex.Message;
+            }
+        }
+
+        #endregion
     }
 }

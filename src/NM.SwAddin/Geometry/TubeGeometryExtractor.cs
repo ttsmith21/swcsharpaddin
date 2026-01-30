@@ -623,5 +623,339 @@ namespace NM.SwAddin.Geometry
 
             return result;
         }
+
+        #region Diagnostic Selection Methods (VB.NET Audit - UI/Visual Feedback)
+
+        /// <summary>
+        /// Extracts tube geometry with diagnostic information for visual debugging.
+        /// Use this when a part fails classification to understand what was detected.
+        /// </summary>
+        public (TubeProfile Profile, TubeDiagnosticInfo Diagnostics) ExtractWithDiagnostics(IModelDoc2 model)
+        {
+            var diagnostics = new TubeDiagnosticInfo();
+            var profile = Extract(model);
+
+            if (model == null)
+                return (profile, diagnostics);
+
+            try
+            {
+                var docType = (swDocumentTypes_e)model.GetType();
+                if (docType != swDocumentTypes_e.swDocPART)
+                    return (profile, diagnostics);
+
+                var partDoc = (IPartDoc)model;
+                var bodiesObj = partDoc.GetBodies2((int)swBodyType_e.swSolidBody, true);
+                if (bodiesObj == null)
+                    return (profile, diagnostics);
+
+                var bodies = ((object[])bodiesObj).Cast<IBody2>().ToList();
+                var faces = new List<FaceWrapper>();
+                foreach (var body in bodies)
+                {
+                    var bodyFaces = body.GetFaces() as object[];
+                    if (bodyFaces != null)
+                        faces.AddRange(bodyFaces.Cast<IFace2>().Select(f => new FaceWrapper(f)));
+                }
+
+                if (faces.Count == 0)
+                    return (profile, diagnostics);
+
+                // Populate diagnostics based on profile type
+                PopulateDiagnostics(model, faces, profile, diagnostics);
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError("ExtractWithDiagnostics", ex.Message, ex);
+            }
+
+            return (profile, diagnostics);
+        }
+
+        private void PopulateDiagnostics(IModelDoc2 model, List<FaceWrapper> faces, TubeProfile profile, TubeDiagnosticInfo diagnostics)
+        {
+            // Find max-area faces
+            double maxArea = faces.Max(f => f.Area);
+            var maxAreaFaces = faces.Where(f => IsTendsToZero(f.Area - maxArea)).ToList();
+
+            // Check for round profile
+            var roundFace = maxAreaFaces.FirstOrDefault(f => f.IsRound);
+
+            if (roundFace != null)
+            {
+                PopulateRoundDiagnostics(faces, roundFace, diagnostics);
+            }
+            else
+            {
+                PopulateNonRoundDiagnostics(model, faces, diagnostics);
+            }
+        }
+
+        private void PopulateRoundDiagnostics(List<FaceWrapper> faces, FaceWrapper outerFace, TubeDiagnosticInfo diagnostics)
+        {
+            // Profile faces: outer cylinder and inner cylinder(s)
+            diagnostics.ProfileFaces.Add(outerFace.Face);
+            foreach (var face in faces)
+            {
+                if (face != outerFace && face.IsRound && outerFace.IsAxisParallelTo(face))
+                    diagnostics.ProfileFaces.Add(face.Face);
+            }
+
+            // Cut length edges: outer loop edges (circles at ends)
+            diagnostics.CutLengthEdges.AddRange(outerFace.GetOuterLoopEdges());
+
+            // Hole edges
+            diagnostics.HoleEdges.AddRange(outerFace.GetHoleEdges());
+
+            // Boundary edges (same as cut length for round)
+            diagnostics.BoundaryEdges.AddRange(diagnostics.CutLengthEdges);
+        }
+
+        private void PopulateNonRoundDiagnostics(IModelDoc2 model, List<FaceWrapper> faces, TubeDiagnosticInfo diagnostics)
+        {
+            var planarFaces = faces.Where(f => f.IsPlanar).ToList();
+            if (planarFaces.Count == 0) return;
+
+            double maxPlanarArea = planarFaces.Max(f => f.Area);
+            var primaryFace = planarFaces.First(f => IsTendsToZero(f.Area - maxPlanarArea));
+
+            // Get axis direction
+            double[] startPt, endPt;
+            double edgeLength;
+            var axisDirection = primaryFace.GetLargestLinearEdgeDirection(out startPt, out endPt, out edgeLength);
+
+            // Find parallel and perpendicular faces
+            var primaryNormal = primaryFace.Normal;
+            var facesParallelToPrimary = faces.Where(f => f.IsPlanar && f.IsNormalParallelTo(primaryFace)).ToList();
+            var secondaryDir = CrossProduct(primaryNormal, axisDirection);
+            var facesNormalToSecondary = faces.Where(f => f.IsPlanar && f.IsNormalParallelTo(secondaryDir)).ToList();
+
+            // Profile faces
+            var cutFaces = new List<FaceWrapper>();
+            cutFaces.AddRange(facesParallelToPrimary);
+            cutFaces.AddRange(facesNormalToSecondary);
+            var primaryCutFaces = FilterToLargestAreaFaces(cutFaces);
+
+            foreach (var fw in primaryCutFaces)
+                diagnostics.ProfileFaces.Add(fw.Face);
+
+            // Hole edges from all profile faces
+            foreach (var face in primaryCutFaces)
+                diagnostics.HoleEdges.AddRange(face.GetHoleEdges());
+
+            // Boundary edges
+            var boundaryEdges = FaceWrapper.GetBoundaryEdges(primaryCutFaces, _swApp);
+            diagnostics.BoundaryEdges.AddRange(boundaryEdges);
+
+            // Cut length edges (boundary edges perpendicular to axis + hole edges)
+            foreach (var edge in boundaryEdges)
+            {
+                if (!IsEdgeParallelToDirection(edge, axisDirection))
+                    diagnostics.CutLengthEdges.Add(edge);
+            }
+            diagnostics.CutLengthEdges.AddRange(diagnostics.HoleEdges);
+
+            // If no boundary edges found, use fallback
+            if (boundaryEdges.Count == 0)
+            {
+                foreach (var face in primaryCutFaces)
+                {
+                    foreach (var edge in face.GetOuterLoopEdges())
+                    {
+                        if (!IsEdgeParallelToDirection(edge, axisDirection))
+                        {
+                            if (!diagnostics.CutLengthEdges.Contains(edge))
+                                diagnostics.CutLengthEdges.Add(edge);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Selects all edges that contribute to cut length calculation.
+        /// Highlights in SolidWorks with a specific color/mark.
+        /// </summary>
+        public void SelectCutLengthEdges(IModelDoc2 model, TubeDiagnosticInfo diagnostics, int colorRGB = 0x00FF00)
+        {
+            if (model == null || diagnostics == null) return;
+
+            model.ClearSelection2(true);
+            var selMgr = (ISelectionMgr)model.SelectionManager;
+            var selectData = selMgr.CreateSelectData();
+            selectData.Mark = 1;
+
+            foreach (var edge in diagnostics.CutLengthEdges)
+            {
+                var entity = (IEntity)edge;
+                entity.Select4(true, selectData);
+            }
+
+            // Set highlight color if model extension supports it
+            try
+            {
+                var ext = model.Extension;
+                // Note: Actual color highlighting requires more complex approach
+                // This selects the edges which shows them highlighted in default selection color
+            }
+            catch { }
+
+            ErrorHandler.DebugLog($"[TUBE-DIAG] Selected {diagnostics.CutLengthEdges.Count} cut length edges");
+        }
+
+        /// <summary>
+        /// Selects all hole edges detected on the profile.
+        /// </summary>
+        public void SelectHoleEdges(IModelDoc2 model, TubeDiagnosticInfo diagnostics)
+        {
+            if (model == null || diagnostics == null) return;
+
+            model.ClearSelection2(true);
+            var selMgr = (ISelectionMgr)model.SelectionManager;
+            var selectData = selMgr.CreateSelectData();
+            selectData.Mark = 2;
+
+            foreach (var edge in diagnostics.HoleEdges)
+            {
+                var entity = (IEntity)edge;
+                entity.Select4(true, selectData);
+            }
+
+            ErrorHandler.DebugLog($"[TUBE-DIAG] Selected {diagnostics.HoleEdges.Count} hole edges");
+        }
+
+        /// <summary>
+        /// Selects profile boundary edges (edges at the profile perimeter).
+        /// </summary>
+        public void SelectBoundaryEdges(IModelDoc2 model, TubeDiagnosticInfo diagnostics)
+        {
+            if (model == null || diagnostics == null) return;
+
+            model.ClearSelection2(true);
+            var selMgr = (ISelectionMgr)model.SelectionManager;
+            var selectData = selMgr.CreateSelectData();
+            selectData.Mark = 3;
+
+            foreach (var edge in diagnostics.BoundaryEdges)
+            {
+                var entity = (IEntity)edge;
+                entity.Select4(true, selectData);
+            }
+
+            ErrorHandler.DebugLog($"[TUBE-DIAG] Selected {diagnostics.BoundaryEdges.Count} boundary edges");
+        }
+
+        /// <summary>
+        /// Selects all faces used for profile dimension calculation.
+        /// </summary>
+        public void SelectProfileFaces(IModelDoc2 model, TubeDiagnosticInfo diagnostics)
+        {
+            if (model == null || diagnostics == null) return;
+
+            model.ClearSelection2(true);
+            var selMgr = (ISelectionMgr)model.SelectionManager;
+            var selectData = selMgr.CreateSelectData();
+            selectData.Mark = 4;
+
+            foreach (var face in diagnostics.ProfileFaces)
+            {
+                var entity = (IEntity)face;
+                entity.Select4(true, selectData);
+            }
+
+            ErrorHandler.DebugLog($"[TUBE-DIAG] Selected {diagnostics.ProfileFaces.Count} profile faces");
+        }
+
+        /// <summary>
+        /// Selects all diagnostic elements at once with different marks.
+        /// Mark 1 = Cut length edges, Mark 2 = Hole edges, Mark 3 = Boundary edges, Mark 4 = Profile faces
+        /// </summary>
+        public void SelectAllDiagnostics(IModelDoc2 model, TubeDiagnosticInfo diagnostics)
+        {
+            if (model == null || diagnostics == null) return;
+
+            model.ClearSelection2(true);
+            var selMgr = (ISelectionMgr)model.SelectionManager;
+
+            // Select profile faces first (Mark 4)
+            var selectData4 = selMgr.CreateSelectData();
+            selectData4.Mark = 4;
+            foreach (var face in diagnostics.ProfileFaces)
+            {
+                var entity = (IEntity)face;
+                entity.Select4(true, selectData4);
+            }
+
+            // Select boundary edges (Mark 3)
+            var selectData3 = selMgr.CreateSelectData();
+            selectData3.Mark = 3;
+            foreach (var edge in diagnostics.BoundaryEdges)
+            {
+                var entity = (IEntity)edge;
+                entity.Select4(true, selectData3);
+            }
+
+            // Select hole edges (Mark 2)
+            var selectData2 = selMgr.CreateSelectData();
+            selectData2.Mark = 2;
+            foreach (var edge in diagnostics.HoleEdges)
+            {
+                var entity = (IEntity)edge;
+                entity.Select4(true, selectData2);
+            }
+
+            // Select cut length edges (Mark 1) - these may overlap with boundary/hole
+            var selectData1 = selMgr.CreateSelectData();
+            selectData1.Mark = 1;
+            foreach (var edge in diagnostics.CutLengthEdges)
+            {
+                var entity = (IEntity)edge;
+                entity.Select4(true, selectData1);
+            }
+
+            ErrorHandler.DebugLog($"[TUBE-DIAG] Selected all diagnostics: " +
+                $"{diagnostics.ProfileFaces.Count} faces, {diagnostics.BoundaryEdges.Count} boundary, " +
+                $"{diagnostics.HoleEdges.Count} holes, {diagnostics.CutLengthEdges.Count} cut length");
+        }
+
+        #endregion
+    }
+
+    /// <summary>
+    /// Stores diagnostic information from tube extraction for visual debugging.
+    /// Use with TubeGeometryExtractor.ExtractWithDiagnostics() and Select* methods.
+    /// </summary>
+    public sealed class TubeDiagnosticInfo
+    {
+        /// <summary>
+        /// Edges that contribute to the cut length calculation.
+        /// </summary>
+        public List<IEdge> CutLengthEdges { get; } = new List<IEdge>();
+
+        /// <summary>
+        /// Edges that form hole perimeters on the profile.
+        /// </summary>
+        public List<IEdge> HoleEdges { get; } = new List<IEdge>();
+
+        /// <summary>
+        /// Boundary edges at the profile perimeter (non-round profiles only).
+        /// </summary>
+        public List<IEdge> BoundaryEdges { get; } = new List<IEdge>();
+
+        /// <summary>
+        /// Faces used for dimension calculation.
+        /// </summary>
+        public List<IFace2> ProfileFaces { get; } = new List<IFace2>();
+
+        /// <summary>
+        /// Gets a summary of the diagnostic data.
+        /// </summary>
+        public string GetSummary()
+        {
+            return $"Profile Faces: {ProfileFaces.Count}, " +
+                   $"Boundary Edges: {BoundaryEdges.Count}, " +
+                   $"Cut Length Edges: {CutLengthEdges.Count}, " +
+                   $"Hole Edges: {HoleEdges.Count}";
+        }
     }
 }
