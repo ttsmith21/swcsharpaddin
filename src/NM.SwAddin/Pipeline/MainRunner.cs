@@ -5,6 +5,7 @@ using NM.Core.Manufacturing;
 using NM.Core.Processing;
 using NM.Core.Tubes;
 using NM.SwAddin.Processing;
+using NM.SwAddin.SheetMetal;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
@@ -210,6 +211,10 @@ namespace NM.SwAddin.Pipeline
                         isSheetMetal = true;
                         pd.Classification = PartType.SheetMetal;
                         ErrorHandler.DebugLog("[SMDBG] Step 1: SHEET METAL DETECTED - Classification set to SheetMetal");
+
+                        // Validate bend allowance settings (logs warnings for non-table settings)
+                        // Ported from VBA sheetmetal1.bas Process_CustomBendAllowance()
+                        BendAllowanceValidator.ValidateAllFeatures(doc);
                     }
                     else
                     {

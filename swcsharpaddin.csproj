@@ -176,6 +176,9 @@
     <Compile Include="src\NM.SwAddin\Processing\ClassificationPipeline.cs" />
     <Compile Include="src\NM.Core\DataModel\QATestResult.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\QARunner.cs" />
+    <Compile Include="src\NM.BatchRunner\Program.cs" />
+    <Compile Include="src\NM.BatchRunner\SolidWorksLauncher.cs" />
+    <Compile Include="src\NM.SwAddin\SheetMetal\BendAllowanceValidator.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />
