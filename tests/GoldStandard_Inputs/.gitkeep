@@ -1,0 +1,9 @@
+# Gold Standard Input Files
+
+Place your test SLDPRT files in this directory.
+
+Suggested naming convention:
+- SM_<description>_<gauge>_<material>.sldprt  (Sheet Metal)
+- Tube_<OD>_<schedule>.sldprt                 (Tubes)
+- MultiBody_<description>.sldprt              (Validation failure tests)
+- Assy_<description>.sldasm                   (Assemblies)
