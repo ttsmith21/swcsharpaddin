@@ -109,6 +109,67 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe /codebase bin\Debug\s
 
 **Important:** Close SolidWorks before building. The DLL is locked while SW is running.
 
+## Performance Instrumentation
+
+The codebase includes a performance tracking system for identifying bottlenecks and detecting regressions.
+
+### Using PerformanceTracker
+
+```csharp
+// Add timing to any operation
+PerformanceTracker.Instance.StartTimer("MyOperation");
+try {
+    // ... code to measure ...
+} finally {
+    PerformanceTracker.Instance.StopTimer("MyOperation");
+}
+```
+
+**Timer naming conventions:**
+- `InsertBends2_Probe` / `InsertBends2_Final_*` - Sheet metal conversion
+- `TryFlatten_Probe` / `TryFlatten_Final` - Flatten operations
+- `GetLargestFace` / `FindLongestLinearEdge` - Geometry analysis
+- `CustomProperty_Read` / `CustomProperty_Write` - Property I/O
+- `Validation` / `Classification` / `Processing` - Pipeline phases
+
+### BatchPerformanceScope
+
+Use the RAII wrapper for batch operations to disable graphics updates:
+
+```csharp
+using (new BatchPerformanceScope(swApp, doc, suppressFeatureTree: true))
+{
+    // Batch operations run with CommandInProgress=true
+    // and optionally FeatureTree disabled
+}
+```
+
+### Performance Analysis Workflow
+
+```
+1. Run /qa to process test parts and generate timing.csv
+2. Run /perf to analyze timing data and identify bottlenecks
+3. Make optimizations
+4. Run /qa again to measure improvement
+5. Update baseline if performance improved: tests/timing-baseline.json
+```
+
+### Performance Targets
+
+| Operation | Target | Red Flag |
+|-----------|--------|----------|
+| `InsertBends2_*` | <500ms | >2000ms |
+| `TryFlatten_*` | <200ms | >1000ms |
+| `CustomProperty_*` | <50ms | >100ms |
+| `GetLargestFace` | <500ms | >2000ms |
+| Total per-part | <3000ms | >10000ms |
+
+### Output Files
+
+- `tests/timing.csv` - Raw timing data from last QA run
+- `tests/timing-baseline.json` - Baseline for regression detection
+- `tests/Run_Latest/results.json` - Includes TimingSummary section
+
 ## Target Framework
 
 - .NET Framework 4.8.1
