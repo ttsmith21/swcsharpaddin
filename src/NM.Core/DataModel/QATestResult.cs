@@ -40,6 +40,12 @@ namespace NM.Core.DataModel
         public string TubeNPS { get; set; }
         public string TubeSchedule { get; set; }
 
+        // Assembly specifics
+        public bool? IsAssembly { get; set; }
+        public int? TotalComponentCount { get; set; }
+        public int? UniquePartCount { get; set; }
+        public int? SubAssemblyCount { get; set; }
+
         // Material
         public string Material { get; set; }
         public string MaterialCategory { get; set; }

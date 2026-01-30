@@ -6,7 +6,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using NM.Core;
 using NM.Core.DataModel;
+using NM.SwAddin.AssemblyProcessing;
 using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 
 namespace NM.SwAddin.Pipeline
 {
@@ -91,11 +93,12 @@ namespace NM.SwAddin.Pipeline
 
                 QALog($"[{proc}] Config loaded: InputPath={config.InputPath}, OutputPath={config.OutputPath}");
 
-                // 2. Collect all part files
+                // 2. Collect all part files and assembly files
                 var partFiles = Directory.GetFiles(config.InputPath, "*.sldprt", SearchOption.TopDirectoryOnly);
-                summary.TotalFiles = partFiles.Length;
+                var assyFiles = Directory.GetFiles(config.InputPath, "*.sldasm", SearchOption.TopDirectoryOnly);
+                summary.TotalFiles = partFiles.Length + assyFiles.Length;
 
-                QALog($"[{proc}] Found {partFiles.Length} part files in {config.InputPath}");
+                QALog($"[{proc}] Found {partFiles.Length} part files and {assyFiles.Length} assembly files in {config.InputPath}");
 
                 // 3. Process each file
                 // IMPORTANT: Disable saving to preserve golden input files
@@ -108,6 +111,26 @@ namespace NM.SwAddin.Pipeline
                 foreach (var filePath in partFiles)
                 {
                     var result = ProcessSingleFile(filePath, options);
+                    summary.Results.Add(result);
+
+                    switch (result.Status)
+                    {
+                        case "Success":
+                            summary.Passed++;
+                            break;
+                        case "Failed":
+                            summary.Failed++;
+                            break;
+                        default:
+                            summary.Errors++;
+                            break;
+                    }
+                }
+
+                // 4. Process assembly files
+                foreach (var filePath in assyFiles)
+                {
+                    var result = ProcessAssemblyFile(filePath);
                     summary.Results.Add(result);
 
                     switch (result.Status)
@@ -215,6 +238,120 @@ namespace NM.SwAddin.Pipeline
                     FilePath = filePath,
                     Status = "Error",
                     Message = $"Exception: {ex.Message}",
+                    ElapsedMs = sw.Elapsed.TotalMilliseconds
+                };
+            }
+        }
+
+        private QATestResult ProcessAssemblyFile(string filePath)
+        {
+            const string proc = nameof(QARunner) + ".ProcessAssemblyFile";
+            var fileName = Path.GetFileName(filePath);
+            var sw = Stopwatch.StartNew();
+
+            try
+            {
+                QALog($"");
+                QALog($"========== Processing Assembly: {fileName} ==========");
+
+                // Open the assembly file
+                int errors = 0, warnings = 0;
+                var doc = _swApp.OpenDoc6(filePath,
+                    (int)swDocumentTypes_e.swDocASSEMBLY,
+                    (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+                    "", ref errors, ref warnings);
+
+                if (doc == null)
+                {
+                    return new QATestResult
+                    {
+                        FileName = fileName,
+                        FilePath = filePath,
+                        Status = "Error",
+                        Message = $"Failed to open assembly (errors={errors}, warnings={warnings})",
+                        IsAssembly = true,
+                        Classification = "Assembly",
+                        ElapsedMs = sw.Elapsed.TotalMilliseconds
+                    };
+                }
+
+                try
+                {
+                    var asm = doc as IAssemblyDoc;
+                    if (asm == null)
+                    {
+                        return new QATestResult
+                        {
+                            FileName = fileName,
+                            FilePath = filePath,
+                            Status = "Error",
+                            Message = "Document is not an assembly",
+                            IsAssembly = true,
+                            Classification = "Assembly",
+                            ElapsedMs = sw.Elapsed.TotalMilliseconds
+                        };
+                    }
+
+                    // Use AssemblyComponentQuantifier to collect component info
+                    var quantifier = new AssemblyComponentQuantifier();
+                    var components = quantifier.CollectViaRecursion(asm);
+
+                    // Count unique parts and sub-assemblies
+                    int uniquePartCount = 0;
+                    int subAssemblyCount = 0;
+                    int totalComponentCount = 0;
+
+                    foreach (var kvp in components)
+                    {
+                        totalComponentCount += kvp.Value.Quantity;
+
+                        var path = kvp.Value.FilePath ?? "";
+                        if (path.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ||
+                            path.EndsWith(".sldasm", StringComparison.OrdinalIgnoreCase))
+                        {
+                            subAssemblyCount++;
+                        }
+                        else
+                        {
+                            uniquePartCount++;
+                        }
+                    }
+
+                    sw.Stop();
+
+                    var result = new QATestResult
+                    {
+                        FileName = fileName,
+                        FilePath = filePath,
+                        Status = "Success",
+                        Classification = "Assembly",
+                        IsAssembly = true,
+                        TotalComponentCount = totalComponentCount,
+                        UniquePartCount = uniquePartCount,
+                        SubAssemblyCount = subAssemblyCount,
+                        ElapsedMs = sw.Elapsed.TotalMilliseconds
+                    };
+
+                    QALog($"[{proc}] Result: Status=Success, Components={totalComponentCount}, UniqueParts={uniquePartCount}, SubAssemblies={subAssemblyCount}");
+                    return result;
+                }
+                finally
+                {
+                    CloseDocument(doc);
+                }
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                ErrorHandler.HandleError(proc, $"Exception processing assembly {fileName}", ex);
+                return new QATestResult
+                {
+                    FileName = fileName,
+                    FilePath = filePath,
+                    Status = "Error",
+                    Message = $"Exception: {ex.Message}",
+                    IsAssembly = true,
+                    Classification = "Assembly",
                     ElapsedMs = sw.Elapsed.TotalMilliseconds
                 };
             }
@@ -413,6 +550,16 @@ namespace NM.SwAddin.Pipeline
                     sb.AppendLine($"      \"TubeNPS\": \"{Escape(r.TubeNPS)}\",");
                 if (!string.IsNullOrEmpty(r.TubeSchedule))
                     sb.AppendLine($"      \"TubeSchedule\": \"{Escape(r.TubeSchedule)}\",");
+
+                // Assembly
+                if (r.IsAssembly.HasValue)
+                    sb.AppendLine($"      \"IsAssembly\": {r.IsAssembly.Value.ToString().ToLower()},");
+                if (r.TotalComponentCount.HasValue)
+                    sb.AppendLine($"      \"TotalComponentCount\": {r.TotalComponentCount.Value},");
+                if (r.UniquePartCount.HasValue)
+                    sb.AppendLine($"      \"UniquePartCount\": {r.UniquePartCount.Value},");
+                if (r.SubAssemblyCount.HasValue)
+                    sb.AppendLine($"      \"SubAssemblyCount\": {r.SubAssemblyCount.Value},");
 
                 // Material
                 if (!string.IsNullOrEmpty(r.Material))

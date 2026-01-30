@@ -238,7 +238,22 @@ namespace NM.SwAddin.Pipeline
                             ErrorHandler.DebugLog("[SMDBG] Step 2: Tube detection returned null");
                         }
 
-                        if (tube != null && tube.Shape != TubeShape.None && tube.WallThickness > 0 && tube.Length > 0)
+                        // Tube detection validation:
+                        // - Must have a minimum length (0.5" = 12.7mm) to avoid classifying machined blocks as tubes
+                        // - Must have proper aspect ratio (length > 2x wall thickness) for true extrusions
+                        const double MIN_TUBE_LENGTH_IN = 0.5;
+                        bool isValidTube = tube != null &&
+                                           tube.Shape != TubeShape.None &&
+                                           tube.WallThickness > 0 &&
+                                           tube.Length >= MIN_TUBE_LENGTH_IN &&
+                                           tube.Length > tube.WallThickness * 2;
+
+                        if (!isValidTube && tube != null)
+                        {
+                            ErrorHandler.DebugLog($"[SMDBG] Step 2: Tube detection REJECTED - Length={tube.Length:F3}in (min={MIN_TUBE_LENGTH_IN}), Wall={tube.WallThickness:F3}in, AspectRatio={tube.Length / Math.Max(tube.WallThickness, 0.001):F1}");
+                        }
+
+                        if (isValidTube)
                         {
                             const double IN_TO_M = 0.0254;
                             pd.Tube.IsTube = true;
@@ -291,7 +306,7 @@ namespace NM.SwAddin.Pipeline
                             // Only truly invalid geometry (knife edges, degenerate faces) has essentially no mass.
                             var massProps = doc.Extension?.CreateMassProperty() as IMassProperty;
                             double massKg = massProps?.Mass ?? 0.0;
-                            const double MIN_MASS_KG = 0.005; // ~0.01 lb - anything below this is degenerate
+                            const double MIN_MASS_KG = 0.001; // ~0.002 lb (1 gram) - only truly degenerate geometry is below this
 
                             if (massKg < MIN_MASS_KG)
                             {
