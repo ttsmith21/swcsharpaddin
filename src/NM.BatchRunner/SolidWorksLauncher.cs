@@ -160,29 +160,91 @@ namespace NM.BatchRunner
                     try
                     {
                         Console.WriteLine("Closing SolidWorks...");
-                        _swApp.ExitApp();
+
+                        // Step 1: Close all open documents first to avoid save prompts
+                        try
+                        {
+                            Console.WriteLine("  Closing all documents...");
+                            _swApp.CloseAllDocuments(true); // true = include unsaved
+                            Console.WriteLine("  Documents closed.");
+                        }
+                        catch (Exception docEx)
+                        {
+                            Console.Error.WriteLine($"  Warning: Error closing documents: {docEx.Message}");
+                            // Log full exception for debugging
+                            System.IO.File.AppendAllText(@"C:\Temp\nm_shutdown_log.txt",
+                                $"{DateTime.Now:O} CloseAllDocuments error: {docEx}\r\n");
+                        }
+
+                        // Step 2: Small delay to let SW finish cleanup
+                        System.Threading.Thread.Sleep(500);
+
+                        // Step 3: Call ExitApp
+                        try
+                        {
+                            Console.WriteLine("  Calling ExitApp...");
+                            _swApp.ExitApp();
+                            Console.WriteLine("  ExitApp returned.");
+                        }
+                        catch (Exception exitEx)
+                        {
+                            Console.Error.WriteLine($"  Warning: ExitApp failed: {exitEx.Message}");
+                            System.IO.File.AppendAllText(@"C:\Temp\nm_shutdown_log.txt",
+                                $"{DateTime.Now:O} ExitApp error: {exitEx}\r\n");
+                        }
+
+                        // Step 4: Release COM reference
+                        try
+                        {
+                            Marshal.ReleaseComObject(_swApp);
+                        }
+                        catch { }
+
                         _swApp = null;
                     }
                     catch (Exception ex)
                     {
-                        Console.Error.WriteLine($"Warning: Error closing SolidWorks: {ex.Message}");
+                        Console.Error.WriteLine($"Warning: Error during SolidWorks shutdown: {ex.Message}");
+                        System.IO.File.AppendAllText(@"C:\Temp\nm_shutdown_log.txt",
+                            $"{DateTime.Now:O} Shutdown error: {ex}\r\n");
                     }
                 }
 
                 // Wait for process to exit, then force kill if needed
-                if (_swProcess != null && !_swProcess.HasExited)
+                if (_swProcess != null)
                 {
-                    if (!_swProcess.WaitForExit(10000))
+                    try
                     {
-                        Console.WriteLine("SolidWorks did not exit gracefully, forcing termination...");
-                        try
+                        if (!_swProcess.HasExited)
                         {
-                            _swProcess.Kill();
+                            Console.WriteLine("  Waiting for SolidWorks process to exit...");
+                            if (!_swProcess.WaitForExit(15000)) // Increased timeout
+                            {
+                                Console.WriteLine("  SolidWorks did not exit gracefully, forcing termination...");
+                                try
+                                {
+                                    _swProcess.Kill();
+                                    _swProcess.WaitForExit(5000); // Wait for kill to complete
+                                }
+                                catch (Exception killEx)
+                                {
+                                    Console.Error.WriteLine($"  Warning: Kill failed: {killEx.Message}");
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("  SolidWorks process exited.");
+                            }
                         }
-                        catch { }
+                    }
+                    catch (Exception procEx)
+                    {
+                        Console.Error.WriteLine($"  Warning: Process handling error: {procEx.Message}");
                     }
                     _swProcess = null;
                 }
+
+                Console.WriteLine("SolidWorks shutdown complete.");
             }
 
             _disposed = true;

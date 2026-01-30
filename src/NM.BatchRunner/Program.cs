@@ -6,10 +6,21 @@ namespace NM.BatchRunner
 {
     class Program
     {
+        private static readonly string CrashLogPath = @"C:\Temp\nm_batch_crash.txt";
+
         static int Main(string[] args)
         {
+            // Set up global exception handlers for crash logging
+            AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+            {
+                var ex = e.ExceptionObject as Exception;
+                LogCrash("UnhandledException", ex);
+            };
+
             Console.WriteLine("NM.BatchRunner - Headless SolidWorks Automation");
             Console.WriteLine("================================================");
+            Console.WriteLine($"Started at: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            Console.WriteLine();
 
             if (args.Length == 0 || args[0] == "--help" || args[0] == "-h")
             {
@@ -44,8 +55,35 @@ namespace NM.BatchRunner
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Error: {ex.Message}");
-                File.WriteAllText(@"C:\Temp\nm_batch_error.txt", ex.ToString());
+                LogCrash("Main", ex);
                 return 1;
+            }
+            finally
+            {
+                Console.WriteLine();
+                Console.WriteLine($"Finished at: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            }
+        }
+
+        static void LogCrash(string context, Exception ex)
+        {
+            try
+            {
+                var logEntry = $"=== CRASH LOG ===\r\n" +
+                    $"Time: {DateTime.Now:O}\r\n" +
+                    $"Context: {context}\r\n" +
+                    $"Exception: {ex?.GetType().Name ?? "Unknown"}\r\n" +
+                    $"Message: {ex?.Message ?? "No message"}\r\n" +
+                    $"Stack:\r\n{ex?.StackTrace ?? "No stack trace"}\r\n" +
+                    $"Inner: {ex?.InnerException?.Message ?? "None"}\r\n" +
+                    $"================\r\n\r\n";
+
+                File.AppendAllText(CrashLogPath, logEntry);
+                Console.Error.WriteLine($"Crash logged to: {CrashLogPath}");
+            }
+            catch
+            {
+                // Can't log, just continue
             }
         }
 
