@@ -577,7 +577,6 @@ namespace NM.SwAddin
                     // NOTE: ICurve.IsLine() only exists in SW 2024+, so use Identity() for 2022 compatibility
                     bool isLine = false;
                     int curveIdentity = -1;
-                    bool identityException = false;
 
                     try
                     {
@@ -586,7 +585,6 @@ namespace NM.SwAddin
                     }
                     catch (Exception ex)
                     {
-                        identityException = true;
                         ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: Identity() threw: {ex.Message}");
                     }
 

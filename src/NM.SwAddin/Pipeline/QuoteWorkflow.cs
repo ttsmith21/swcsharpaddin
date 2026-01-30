@@ -269,7 +269,6 @@ namespace NM.SwAddin.Pipeline
                 try
                 {
                     int errors = 0;
-                    int warnings = 0;
 
                     // Load the foreign file
                     var model = _swApp.LoadFile4(foreignFile, "r", null, ref errors) as IModelDoc2;

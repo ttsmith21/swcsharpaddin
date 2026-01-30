@@ -755,7 +755,7 @@ namespace NM.Core
             public const bool EnablePerformanceMonitoring = true;
 
             /// <summary>Set to true to enable verbose debugging.</summary>
-            public const bool EnableDebugMode = true;
+            public static readonly bool EnableDebugMode = true;
 
             /// <summary>Returns whether production mode is enabled.</summary>
             public static bool IsProductionMode => ProductionMode;

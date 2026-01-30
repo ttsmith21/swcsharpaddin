@@ -23,7 +23,6 @@ namespace NM.Core
         /// </summary>
         public ProblemPartInfo(string partPath, string reason, string configuration = "")
         {
-            const string proc = nameof(ProblemPartInfo);
             // Use SolidWorksApiWrapper.ValidateString pattern indirectly: keep NM.Core free of COM
             if (string.IsNullOrWhiteSpace(partPath)) throw new ArgumentException("Invalid part path", nameof(partPath));
             if (string.IsNullOrWhiteSpace(reason)) throw new ArgumentException("Invalid reason", nameof(reason));

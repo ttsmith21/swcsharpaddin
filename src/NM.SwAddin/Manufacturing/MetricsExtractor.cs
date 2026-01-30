@@ -44,8 +44,9 @@ namespace NM.SwAddin.Manufacturing
                 else if (u.Contains("LOOSE")) diff = DifficultyLevel.Loose;
             }
 
-            // Has internal cuts heuristic (pierce > 0 or internal length > 0). Placeholder: set false for now.
-            bool hasInternalCuts = false; // Placeholder for future pierce/cut detection
+            // Has internal cuts heuristic (pierce > 0 or internal length > 0). Placeholder for future pierce/cut detection.
+            // TODO: Implement internal cut detection based on pierce count or internal cut length
+            _ = false; // hasInternalCuts - placeholder, suppress warning
 
             // WARN if thickness is missing - this will corrupt downstream calculations
             double thicknessIn = info?.ThicknessInInches ?? 0;

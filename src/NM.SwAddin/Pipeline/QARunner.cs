@@ -197,8 +197,14 @@ namespace NM.SwAddin.Pipeline
                 QALog($"");
                 QALog($"========== Processing: {fileName} ==========");
 
-                // Open the file
-                if (!SolidWorksFileOps.EnsureOpen(_swApp, filePath, out var doc))
+                // Open the file (check if already open first, then open if needed)
+                var fileOps = new SolidWorksFileOperations(_swApp);
+                var doc = fileOps.GetOpenDocumentByPath(filePath);
+                if (doc == null)
+                {
+                    doc = fileOps.OpenSWDocument(filePath, silent: true, readOnly: false);
+                }
+                if (doc == null)
                 {
                     return new QATestResult
                     {
