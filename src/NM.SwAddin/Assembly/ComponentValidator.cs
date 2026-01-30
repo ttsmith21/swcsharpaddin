@@ -26,7 +26,40 @@ namespace NM.SwAddin.AssemblyProcessing
 
             try
             {
-                // 1) Suppression / lightweight
+                // 1) File exists - CHECK THIS FIRST before suppression check
+                // Missing references often appear as "suppressed" in SolidWorks
+                if (string.IsNullOrWhiteSpace(modelInfo.FilePath) || !File.Exists(modelInfo.FilePath))
+                {
+                    result.IsValid = false;
+                    result.Reason = "File not found";
+                    return result;
+                }
+
+                // 2) Sub-assembly check - only process parts, not sub-assemblies
+                if (IsSubAssembly(component, modelInfo))
+                {
+                    result.IsValid = false;
+                    result.Reason = "Sub-assembly (skipped)";
+                    return result;
+                }
+
+                // 3) Virtual component (contains '^' in path)
+                if (!string.IsNullOrWhiteSpace(modelInfo.FilePath) && modelInfo.FilePath.IndexOf('^') >= 0)
+                {
+                    result.IsValid = false;
+                    result.Reason = "Virtual component";
+                    return result;
+                }
+
+                // 4) Imported (STEP/IGES/others) by extension check
+                if (IsImportedComponent(component))
+                {
+                    result.IsValid = false;
+                    result.Reason = "Imported component (STEP/IGES)";
+                    return result;
+                }
+
+                // 5) Suppression / lightweight - after file check so missing refs aren't called "suppressed"
                 var suppression = (swComponentSuppressionState_e)component.GetSuppression2();
                 result.State = suppression;
                 switch (suppression)
@@ -51,39 +84,7 @@ namespace NM.SwAddin.AssemblyProcessing
                         break;
                 }
 
-                // 2) Sub-assembly check - only process parts, not sub-assemblies
-                if (IsSubAssembly(component, modelInfo))
-                {
-                    result.IsValid = false;
-                    result.Reason = "Sub-assembly (skipped)";
-                    return result;
-                }
-
-                // 3) Virtual component (contains '^' in path)
-                if (!string.IsNullOrWhiteSpace(modelInfo.FilePath) && modelInfo.FilePath.IndexOf('^') >= 0)
-                {
-                    result.IsValid = false;
-                    result.Reason = "Virtual component";
-                    return result;
-                }
-
-                // 3) Imported (STEP/IGES/others) by extension check
-                if (IsImportedComponent(component))
-                {
-                    result.IsValid = false;
-                    result.Reason = "Imported component (STEP/IGES)";
-                    return result;
-                }
-
-                // 4) File exists
-                if (string.IsNullOrWhiteSpace(modelInfo.FilePath) || !File.Exists(modelInfo.FilePath))
-                {
-                    result.IsValid = false;
-                    result.Reason = "File not found";
-                    return result;
-                }
-
-                // 5) Toolbox
+                // 6) Toolbox
                 if (IsToolboxComponent(component))
                 {
                     result.IsValid = false;
