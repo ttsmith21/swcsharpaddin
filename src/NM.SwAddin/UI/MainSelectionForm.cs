@@ -2,6 +2,8 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 using NM.Core;
+using SolidWorks.Interop.sldworks;
+using SolidWorks.Interop.swconst;
 
 namespace NM.SwAddin.UI
 {
@@ -11,6 +13,7 @@ namespace NM.SwAddin.UI
     public sealed class MainSelectionForm : Form
     {
         public ProcessingOptions Options { get; private set; }
+        private readonly ISldWorks _swApp;
 
         // Entry Point
         private RadioButton rbSinglePart, rbAssembly, rbFolder;
@@ -46,8 +49,9 @@ namespace NM.SwAddin.UI
         // Buttons
         private Button btnOK, btnCancel;
 
-        public MainSelectionForm()
+        public MainSelectionForm(ISldWorks swApp = null)
         {
+            _swApp = swApp;
             Options = new ProcessingOptions();
             InitializeComponent();
         }
@@ -163,7 +167,7 @@ namespace NM.SwAddin.UI
 
             rbBendTable = new RadioButton { Text = "Bend Table", Left = 15, Top = 20, Width = 90 };
             rbKFactor = new RadioButton { Text = "K-Factor:", Left = 120, Top = 20, Width = 80, Checked = true };
-            txtKFactor = new TextBox { Text = Configuration.Defaults.DefaultKFactor.ToString("F3"), Left = 205, Top = 18, Width = 60 };
+            txtKFactor = new TextBox { Text = NM.Core.Configuration.Defaults.DefaultKFactor.ToString("F3"), Left = 205, Top = 18, Width = 60 };
 
             rbBendTable.CheckedChanged += (s, e) => { txtKFactor.Enabled = !rbBendTable.Checked; };
             rbKFactor.CheckedChanged += (s, e) => { txtKFactor.Enabled = rbKFactor.Checked; };
@@ -195,12 +199,12 @@ namespace NM.SwAddin.UI
             cboMode.Items.AddRange(new[] { "Production", "Normal", "Debug" });
             cboMode.SelectedIndex = 1; // Normal
 
-            chkEnableLogging = new CheckBox { Text = "Enable Logging", Left = 180, Top = 22, AutoSize = true, Checked = Configuration.Defaults.LogEnabledDefault };
-            chkShowWarnings = new CheckBox { Text = "Show Warnings", Left = 310, Top = 22, AutoSize = true, Checked = Configuration.Defaults.ShowWarningsDefault };
-            chkPerfMonitoring = new CheckBox { Text = "Perf Monitoring", Left = 440, Top = 22, AutoSize = true, Checked = Configuration.Defaults.EnablePerformanceMonitoringDefault };
+            chkEnableLogging = new CheckBox { Text = "Enable Logging", Left = 180, Top = 22, AutoSize = true, Checked = NM.Core.Configuration.Defaults.LogEnabledDefault };
+            chkShowWarnings = new CheckBox { Text = "Show Warnings", Left = 310, Top = 22, AutoSize = true, Checked = NM.Core.Configuration.Defaults.ShowWarningsDefault };
+            chkPerfMonitoring = new CheckBox { Text = "Perf Monitoring", Left = 440, Top = 22, AutoSize = true, Checked = NM.Core.Configuration.Defaults.EnablePerformanceMonitoringDefault };
 
             var lblLog = new Label { Text = "Log Path:", Left = 15, Top = 55, AutoSize = true };
-            txtLogPath = new TextBox { Left = 75, Top = 52, Width = 400, Text = Configuration.FilePaths.ErrorLogPath };
+            txtLogPath = new TextBox { Left = 75, Top = 52, Width = 400, Text = NM.Core.Configuration.FilePaths.ErrorLogPath };
             btnBrowseLog = new Button { Text = "...", Left = 480, Top = 50, Width = 30, Height = 24 };
             btnBrowseLog.Click += (s, e) => { using (var sfd = new SaveFileDialog { Filter = "Text|*.txt", FileName = System.IO.Path.GetFileName(txtLogPath.Text) }) if (sfd.ShowDialog() == DialogResult.OK) txtLogPath.Text = sfd.FileName; };
 
@@ -220,7 +224,54 @@ namespace NM.SwAddin.UI
             AcceptButton = btnOK;
             CancelButton = btnCancel;
 
+            // Check active document type and adjust entry point options (like VBA)
+            SetEntryPointFromActiveDoc();
+
             ApplyToolTips();
+        }
+
+        private void SetEntryPointFromActiveDoc()
+        {
+            if (_swApp == null) return;
+
+            try
+            {
+                var swModel = (IModelDoc2)_swApp.ActiveDoc;
+                if (swModel != null)
+                {
+                    var docType = (swDocumentTypes_e)swModel.GetType();
+                    if (docType == swDocumentTypes_e.swDocASSEMBLY)
+                    {
+                        // Assembly open - select Assembly mode, disable Single Part
+                        rbAssembly.Checked = true;
+                        rbSinglePart.Enabled = false;
+                    }
+                    else if (docType == swDocumentTypes_e.swDocPART)
+                    {
+                        // Part open - select Single Part, disable Assembly
+                        rbSinglePart.Checked = true;
+                        rbAssembly.Enabled = false;
+                    }
+                    else
+                    {
+                        // Drawing or other - default to Folder mode
+                        rbFolder.Checked = true;
+                        rbSinglePart.Enabled = false;
+                        rbAssembly.Enabled = false;
+                    }
+                }
+                else
+                {
+                    // No document open - default to Folder mode
+                    rbFolder.Checked = true;
+                    rbSinglePart.Enabled = false;
+                    rbAssembly.Enabled = false;
+                }
+            }
+            catch
+            {
+                // If anything fails, leave defaults
+            }
         }
 
         private RadioButton MakeRadio(string text, int left, int top, bool isChecked = false)
@@ -317,8 +368,8 @@ namespace NM.SwAddin.UI
             }
             else
             {
-                o.BendTable = Configuration.FilePaths.BendTableNone;
-                o.KFactor = double.TryParse(txtKFactor.Text, out double k) ? k : Configuration.Defaults.DefaultKFactor;
+                o.BendTable = NM.Core.Configuration.FilePaths.BendTableNone;
+                o.KFactor = double.TryParse(txtKFactor.Text, out double k) ? k : NM.Core.Configuration.Defaults.DefaultKFactor;
             }
 
             // Output

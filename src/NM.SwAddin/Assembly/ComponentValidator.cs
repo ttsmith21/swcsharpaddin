@@ -51,7 +51,15 @@ namespace NM.SwAddin.AssemblyProcessing
                         break;
                 }
 
-                // 2) Virtual component (contains '^' in path)
+                // 2) Sub-assembly check - only process parts, not sub-assemblies
+                if (IsSubAssembly(component, modelInfo))
+                {
+                    result.IsValid = false;
+                    result.Reason = "Sub-assembly (skipped)";
+                    return result;
+                }
+
+                // 3) Virtual component (contains '^' in path)
                 if (!string.IsNullOrWhiteSpace(modelInfo.FilePath) && modelInfo.FilePath.IndexOf('^') >= 0)
                 {
                     result.IsValid = false;
@@ -90,6 +98,25 @@ namespace NM.SwAddin.AssemblyProcessing
                 ErrorHandler.HandleError(nameof(ComponentValidator) + ".ValidateComponent", "Validation failed", ex, ErrorHandler.LogLevel.Warning);
                 return new ValidationResult { IsValid = false, Reason = "Validation error" };
             }
+        }
+
+        private static bool IsSubAssembly(IComponent2 component, SwModelInfo modelInfo)
+        {
+            try
+            {
+                // Check file extension first (fast)
+                string path = (modelInfo?.FilePath ?? component?.GetPathName() ?? string.Empty).ToLowerInvariant();
+                if (path.EndsWith(".sldasm"))
+                    return true;
+
+                // Also check model type if we can get it
+                var model = component?.GetModelDoc2() as IModelDoc2;
+                if (model != null && model.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY)
+                    return true;
+
+                return false;
+            }
+            catch { return false; }
         }
 
         private static bool IsImportedComponent(IComponent2 component)

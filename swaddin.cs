@@ -496,7 +496,7 @@ namespace swcsharpaddin
             {
                 // Show settings form first (like the VBA UIX)
                 NM.Core.ProcessingOptions options;
-                using (var settingsForm = new MainSelectionForm())
+                using (var settingsForm = new MainSelectionForm(iSwApp))
                 {
                     if (settingsForm.ShowDialog() != System.Windows.Forms.DialogResult.OK)
                     {
