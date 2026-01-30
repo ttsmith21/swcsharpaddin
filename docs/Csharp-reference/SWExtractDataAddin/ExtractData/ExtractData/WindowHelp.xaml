@@ -1,0 +1,56 @@
+﻿<Window x:Class="WindowHelp"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Extract Profile Data - Help" 
+        Height="500" Width="450"
+        WindowStartupLocation="CenterScreen" WindowStyle="None"  
+        UseLayoutRounding="True" Topmost="True" ResizeMode="NoResize" 
+        BorderThickness="2" BorderBrush="Black" Background="#FF343131">
+    <Border BorderThickness="2" BorderBrush="AntiqueWhite" >
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="15*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Name="txtProductName" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" 
+                       Text="Extract Profile Data" FontSize="40" FontFamily="Calibri"
+                       Foreground="AntiqueWhite" Margin="0,5,0,5" 
+                       HorizontalAlignment="Center" VerticalAlignment="Center" Height="Auto" Width="Auto"/>
+
+            <RichTextBox Grid.Row ="2" Grid.Column="1" IsEnabled="false" Background="Transparent" BorderBrush="Transparent"  BorderThickness="1"
+                         FontFamily="Calibri" FontSize="16" HorizontalAlignment="Stretch" Foreground="AntiqueWhite">
+                <FlowDocument>
+                    <Paragraph>
+                        <Bold>Welcome to Extract Profile Data Addin!!!</Bold>
+                    </Paragraph>
+                    <Paragraph>1. This addin works only with STEP files.</Paragraph>
+                    <Paragraph>2. This addin imports all the STEP files in the specified input location.</Paragraph>
+                    <Paragraph>3. The addin reads profile information and populates the grid.</Paragraph>
+                    <Paragraph>4. The returned values are always in the Model units.</Paragraph>
+                    <Paragraph>5. The addin saves each model in the parent directory and adds all the values from the grid as custom properties.</Paragraph>
+                    <Paragraph>This product has a license attached to it. The license information can be accessed by clicking the information 
+                        button in lower right corner of the User Interface.</Paragraph>
+                    <Paragraph>
+                        <Bold>Happy Exporting!!!</Bold>
+                    </Paragraph>
+                </FlowDocument>
+            </RichTextBox>
+
+            <StackPanel Grid.Row ="4" Grid.Column ="1" Grid.ColumnSpan="1" Orientation="Horizontal" 
+                        HorizontalAlignment="Right" VerticalAlignment="Stretch">
+                <Button Height="Auto" Name="CmdClose" Click="CmdClose_Click" Content="Close" Width="60" 
+                        Background="#FFDDD9D9" Foreground="Brown" />
+            </StackPanel>
+        </Grid>
+    </Border>
+    
+</Window>

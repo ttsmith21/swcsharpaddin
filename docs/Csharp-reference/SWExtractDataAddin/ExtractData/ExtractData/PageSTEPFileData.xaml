@@ -1,0 +1,147 @@
+﻿<Page x:Class="PageSTEPFileData"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      mc:Ignorable="d" 
+      Title="PageSTEPFileData">
+    <Grid Background="Wheat" >
+        <DataGrid x:Name="dgvSTEPFilesInfo" Background="White"
+                  ItemsSource="{Binding STEPFileCollection}" 
+                  RowHeaderWidth="0"
+                  CanUserAddRows="False" CanUserDeleteRows="False" 
+                  CanUserReorderColumns="False" CanUserResizeColumns="True" CanUserSortColumns="True"
+                  GridLinesVisibility="Vertical" VerticalGridLinesBrush="AliceBlue"
+                  AutoGenerateColumns="False" 
+                  ScrollViewer.CanContentScroll="True" 
+                  ScrollViewer.VerticalScrollBarVisibility="Auto" 
+                  ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                  BorderBrush="Black" BorderThickness="1">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn x:Name="dgvCheckBoxColumn" Width="Auto">
+                    <DataGridTemplateColumn.HeaderTemplate>
+                        <DataTemplate>
+                            <CheckBox x:Name="dgvCheckBoxHeader" Checked="CheckBox_Checked" Unchecked="CheckBox_Unchecked" IsChecked="True" Margin="5,5"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.HeaderTemplate>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <CheckBox Name="chkSelectFile" FontSize="12" Margin="5,5" Width="14" Height="14"
+                                      IsThreeState="False" IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            </CheckBox>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn x:Name="dgvColumnFileName" Width="Auto" Header="File Name"
+                                        CanUserSort="true" SortMemberPath="FileName">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <Button Name="CMDActivateDocument" Click="CMDActivateDocument_Click" 
+                                        IsEnabled="{Binding IsPopulatedInSW, Mode=OneWay}"
+                                        ToolTip="Click to activate document" CommandParameter="{Binding}" 
+                                        Background="Transparent" BorderBrush="Transparent"
+                                        HorizontalAlignment="Left" VerticalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                                        <TextBlock Text="{Binding FileName, Mode=OneWay}"
+                                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn x:Name="dgvColumnShape" Width="Auto" CanUserSort="False" Header="Shape" >
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <ComboBox Name="comboShapes" ItemsSource="{Binding PossibleShapes, Mode=OneWay}" 
+                                      SelectedItem="{Binding Shape, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      IsEnabled="False" 
+                                      Width="Auto" Height="Auto" Background="White"
+                                      HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                            </ComboBox>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn x:Name="dgvColumnCrossSection" Width="Auto" Header="Cross Section"
+                                    Binding="{Binding CrossSection, Mode=OneWay}"
+                                    IsReadOnly="True">
+                </DataGridTextColumn>
+                <DataGridTemplateColumn x:Name="dgvColumnMaterialLength" Width="Auto" Header="Material Length"
+                                        CanUserSort="true" SortMemberPath="MaterialLength" >
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Button Name="CMDCalloutForMaterialLength" Click="CMDCalloutForMaterialLength_Click" 
+                                        CommandParameter="{Binding}" ToolTip="Click to show points defining material length" 
+                                        BorderBrush="Transparent" Background="Transparent" Width ="Auto" Height="Auto" Margin="0"
+                                        HorizontalAlignment="Left" VerticalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal" Background="Transparent" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                                        <TextBlock Text="{Binding MaterialLength, Mode=OneWay}" 
+                                                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn x:Name="dgvColumnWallThickness" Width="Auto" Header="Wall Thickness"
+                                    Binding="{Binding WallThickness, Mode=OneWay}"
+                                    IsReadOnly="True">
+                </DataGridTextColumn>
+                <DataGridTemplateColumn x:Name="dgvColumnCutLength" Width="Auto" Header="Cut Length"
+                                        CanUserSort="true" SortMemberPath="CutLength">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <Button Name="CMDShowEdgesForCutLength" Click="CMDShowEdgesForCutLength_Click" 
+                                        CommandParameter="{Binding}" ToolTip="Click to show edges defining cut length" 
+                                        BorderBrush="Transparent" Background="Transparent" 
+                                        HorizontalAlignment="Left" VerticalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                                        <TextBlock Text="{Binding CutLength, Mode=OneWay}" 
+                                                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn x:Name="dgvColumnNumberOfHoles" Width="Auto" Header="# Holes"
+                                        CanUserSort="true" SortMemberPath="NumberOfHoles">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <Button Name="CMDShowEdgesForHoles" Click="CMDShowEdgesForHoles_Click" 
+                                        ToolTip="Click to show edges defining holes" CommandParameter="{Binding}" 
+                                        Background="Transparent" BorderBrush="Transparent"
+                                        HorizontalAlignment="Left" VerticalAlignment="Stretch">
+                                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                                        <TextBlock Text="{Binding NumberOfHoles, Mode=OneWay}"
+                                            HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="{x:Type DataGridColumnHeader}">
+                    <Setter Property="TextElement.FontSize" Value="12"/>
+                    <Setter Property="TextElement.FontFamily" Value="Segoe UI"/>
+                    <Setter Property="TextElement.FontWeight" Value="Bold"/>
+                </Style>
+            </DataGrid.ColumnHeaderStyle>
+            <DataGrid.CellStyle>
+                <Style TargetType="{x:Type DataGridCell}">
+                    <Setter Property="TextElement.FontSize" Value="11"/>
+                    <Setter Property="TextElement.FontFamily" Value="Segoe UI"/>
+                    <Setter Property="TextElement.FontWeight" Value="Regular"/>
+                </Style>
+            </DataGrid.CellStyle>
+        </DataGrid>
+    </Grid>
+</Page>

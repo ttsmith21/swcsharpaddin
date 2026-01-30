@@ -1,0 +1,45 @@
+﻿<Window x:Class="WindowAbout"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Extract Profile Data - About" 
+        Height="400" Width="400"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" 
+        UseLayoutRounding="True" Topmost="True" ResizeMode="NoResize" 
+        Background="#FF343131"
+        BorderThickness="2" BorderBrush="Black">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="4*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="3*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <TextBlock Name="txtProductName" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="4" 
+                   Text="Extract Profile Data" FontSize="40" FontFamily="Calibri"
+                   Foreground="AntiqueWhite" Margin="0,5,0,5" 
+                   HorizontalAlignment="Center" VerticalAlignment="Center" Height="Auto" Width="Auto"/>
+        <TextBlock Name="txtVersion" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="4" 
+                   Text="version" FontFamily="Calibri" FontSize="10" FontWeight="Bold" 
+                   Foreground="AntiqueWhite" Margin="0,5,0,5"
+                   HorizontalAlignment="Center" VerticalAlignment="Center" Height="Auto" Width="Auto"/>
+        
+        
+        <StackPanel Grid.Row ="8" Grid.Column ="1" Grid.ColumnSpan="2" Orientation="Horizontal" 
+                    HorizontalAlignment="Right" VerticalAlignment="Stretch">
+            <Button Height="Auto" Name="CmdClose" Click="CmdClose_Click" Content="Close" Width="60" 
+                    Background="AntiqueWhite" Foreground="#FF343131" FontWeight="Bold"/>
+        </StackPanel>
+    </Grid>
+</Window>

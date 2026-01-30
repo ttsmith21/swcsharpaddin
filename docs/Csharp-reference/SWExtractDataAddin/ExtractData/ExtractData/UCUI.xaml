@@ -1,0 +1,132 @@
+﻿<UserControl x:Class="UCUI"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d">
+    <Grid Name="grdMain">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Border Grid.Row="0" Background="White" BorderThickness="1" BorderBrush="Black"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <StackPanel Name="spCommands" Orientation="Horizontal">
+                <Button Name="CmdSelectSTEPFileFolder" Margin="1,0" ToolTip="Select folder containing requisite STEP files"
+                        Click="CmdSelectSTEPFileFolder_Click" Background="Transparent" BorderBrush="White"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Orientation="Vertical" Background="Transparent">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="24" Text="&#xE8DA;" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,5"/>
+                        <TextBlock FontFamily="Segoe UI" FontSize="10" Text="Profile folder" TextWrapping="Wrap"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2" FontWeight="Bold"/>
+                    </StackPanel>
+                </Button>
+                <Separator />
+                <Button Name="CmdRefreshData" Margin="1,0" ToolTip="Refresh grid"
+                        Click="CmdRefreshData_Click" Background="Transparent" BorderBrush="White"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Orientation="Vertical" Background="Transparent">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="24" Text="&#xE72C;" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,5"/>
+                        <TextBlock FontFamily="Segoe UI" FontSize="10" Text="Refresh" TextWrapping="Wrap"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2" FontWeight="Bold"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="CmdClearData" Margin="1,0" ToolTip="Clear grid"
+                        IsEnabled="{Binding IsDataPopulated, Mode=OneWay}"
+                        Click="CmdClearData_Click" Background="Transparent" BorderBrush="White"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Orientation="Vertical" Background="Transparent">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="24" Text="&#xE894;" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,5"/>
+                        <TextBlock FontFamily="Segoe UI" FontSize="10" Text="Clear" TextWrapping="Wrap"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2" FontWeight="Bold"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="CmdProcessData" Margin="1,0" ToolTip="Extract data of all selected models"
+                        IsEnabled="{Binding IsDataPopulated, Mode=OneWay}"
+                        Click="CmdProcessData_Click" Background="Transparent" BorderBrush="White"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Orientation="Vertical" Background="Transparent">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="24" Text="&#xE8B6;" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,5"/>
+                        <TextBlock FontFamily="Segoe UI" FontSize="10" Text="Extract data" TextWrapping="Wrap"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2" FontWeight="Bold"/>
+                    </StackPanel>
+                </Button>
+                <Button Name="CmdSaveData" Margin="1,0" ToolTip="Save data as custom properties in model"
+                        IsEnabled="{Binding IsDataExtracted, Mode=OneWay}"
+                        Click="CmdSaveData_Click" Background="Transparent" BorderBrush="White"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Orientation="Vertical" Background="Transparent">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="24" Text="&#xE78C;" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,5"/>
+                        <TextBlock FontFamily="Segoe UI" FontSize="10" Text="Save" TextWrapping="Wrap"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2" FontWeight="Bold"/>
+                    </StackPanel>
+                </Button>
+                <ToggleButton Name="ToggleShadedWithEdges" Margin="1,0" ToolTip="toggle model to show shaded with edges"
+                              IsChecked="{Binding IsShadedWithEdges, Mode=TwoWay}"
+                              Click="toggleShadedWithEdges_Click" Background="Transparent" BorderBrush="White"
+                              HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel Orientation="Vertical" Background="Transparent">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="24" Text="&#xE890;" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,5"/>
+                        <TextBlock FontFamily="Segoe UI" FontSize="10" Text="Shaded with edges" TextWrapping="Wrap" Width="90"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="2" FontWeight="Bold"/>
+                    </StackPanel>
+                </ToggleButton>
+            </StackPanel>
+        </Border>
+        <Border Grid.Row="1" Background="White" BorderThickness="1" BorderBrush="Black"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Frame x:Name="frameMainUI" Background="White" ScrollViewer.CanContentScroll="True"
+                   ScrollViewer.HorizontalScrollBarVisibility="Auto" ScrollViewer.VerticalScrollBarVisibility="Auto" 
+                   HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+        </Border> 
+        <Border Grid.Row="2" BorderBrush="#FF26B42D" BorderThickness="1" Background="White"
+                HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" Grid.Column="0">
+                    <ProgressBar Name="pbProcessStatus" Background="Transparent" Width="100" Margin="5,3"
+                                 BorderBrush="Black" BorderThickness="1"
+                                 Minimum="{Binding Minimum, Mode=OneWay}"
+                                 Maximum="{Binding Maximum, Mode=OneWay}"
+                                 IsIndeterminate="{Binding IsIndeterminate, Mode=OneWay}"
+                                 Visibility="{Binding ProgressBarVisibility, Mode=OneWay}"
+                                 Value="{Binding ProgressLevel, Mode=OneWay}"
+                                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"/>
+                    <TextBlock Name="lblProcessStatus" Width="Auto" Margin="5,3"
+                               Text="{Binding ProgressText, Mode=OneWay}"
+                               Visibility="{Binding ProgressBarVisibility, Mode=OneWay}"
+                               FontFamily="Segoe UI" FontSize="13" FontWeight="Bold"
+                               HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Grid.Column="1">
+                    <Button Name="CmdHelp" Margin="2,0" ToolTip="Help"
+                            Click="CmdHelp_Click" Background="Transparent" BorderBrush="White"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="24" Text="&#xE897;" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,5"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Name="CmdAbout" Margin="2,0" ToolTip="About"
+                            Click="CmdAbout_Click" Background="Transparent" BorderBrush="White"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Background="Transparent">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="24" Text="&#xE80F;" 
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,5,0,5"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>
