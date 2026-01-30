@@ -179,6 +179,8 @@
     <Compile Include="src\NM.BatchRunner\Program.cs" />
     <Compile Include="src\NM.BatchRunner\SolidWorksLauncher.cs" />
     <Compile Include="src\NM.SwAddin\SheetMetal\BendAllowanceValidator.cs" />
+    <Compile Include="src\NM.Core\DataModel\TimingBaseline.cs" />
+    <Compile Include="src\NM.SwAddin\Utils\BatchPerformanceScope.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />

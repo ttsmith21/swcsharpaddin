@@ -126,7 +126,9 @@ namespace NM.SwAddin
                 const double seedK = 0.5;
 
                 ErrorHandler.DebugLog($"[SMDBG] Calling InsertBends2 (PROBE): radius={seedRadius}m, K={seedK}");
+                PerformanceTracker.Instance.StartTimer("InsertBends2_Probe");
                 bool okProbe = part.InsertBends2(seedRadius, string.Empty, seedK, -1, true, 1.0, true);
+                PerformanceTracker.Instance.StopTimer("InsertBends2_Probe");
 
                 if (!okProbe || !SolidWorksApiWrapper.HasSheetMetalFeature(model))
                 {
@@ -171,7 +173,10 @@ namespace NM.SwAddin
 
                 // Flatten probe and do mass comparison (±3%)
                 ErrorHandler.DebugLog("[SMDBG] Flattening probe for mass comparison...");
-                if (!TryFlatten(model, info))
+                PerformanceTracker.Instance.StartTimer("TryFlatten_Probe");
+                bool probeFlattened = TryFlatten(model, info);
+                PerformanceTracker.Instance.StopTimer("TryFlatten_Probe");
+                if (!probeFlattened)
                 {
                     ErrorHandler.DebugLog("[SMDBG] FAIL: Could not flatten probe");
                     try { model.EditUndo2(2); } catch { }
@@ -247,7 +252,9 @@ namespace NM.SwAddin
                 {
                     // With bend table: K=-1, BA=-1 (table provides values)
                     ErrorHandler.DebugLog($"[SMDBG] Trying final insert with bend table...");
+                    PerformanceTracker.Instance.StartTimer("InsertBends2_Final_BendTable");
                     finalOk = part.InsertBends2(finalR, bendPath, -1.0, -1, true, 1.0, true);
+                    PerformanceTracker.Instance.StopTimer("InsertBends2_Final_BendTable");
                     if (finalOk && SolidWorksApiWrapper.HasSheetMetalFeature(model))
                     {
                         usedBendTable = true;
@@ -272,7 +279,9 @@ namespace NM.SwAddin
                 {
                     // K-factor insert (primary if no bend table, fallback if table failed)
                     ErrorHandler.DebugLog($"[SMDBG] Final insert with K-factor: K={finalK}");
+                    PerformanceTracker.Instance.StartTimer("InsertBends2_Final_KFactor");
                     finalOk = part.InsertBends2(finalR, string.Empty, finalK, -1, true, 1.0, true);
+                    PerformanceTracker.Instance.StopTimer("InsertBends2_Final_KFactor");
                     if (finalOk)
                     {
                         ErrorHandler.DebugLog($"[SMDBG] Final insert with K-factor: SUCCESS");
@@ -292,7 +301,10 @@ namespace NM.SwAddin
                 if (flatten)
                 {
                     ErrorHandler.DebugLog("[SMDBG] Final flatten...");
-                    if (!TryFlatten(model, info))
+                    PerformanceTracker.Instance.StartTimer("TryFlatten_Final");
+                    bool finalFlattened = TryFlatten(model, info);
+                    PerformanceTracker.Instance.StopTimer("TryFlatten_Final");
+                    if (!finalFlattened)
                     {
                         ErrorHandler.DebugLog("[SMDBG] FAIL: Final TryFlatten failed");
                         return false;
@@ -494,6 +506,7 @@ namespace NM.SwAddin
 
         private static IFace2 GetLargestFace(IBody2 body)
         {
+            PerformanceTracker.Instance.StartTimer("GetLargestFace");
             IFace2 best = null; double bestArea = 0.0;
             try
             {
@@ -506,6 +519,10 @@ namespace NM.SwAddin
                 }
             }
             catch { }
+            finally
+            {
+                PerformanceTracker.Instance.StopTimer("GetLargestFace");
+            }
             return best;
         }
 
@@ -518,6 +535,7 @@ namespace NM.SwAddin
         /// </summary>
         private static IEdge FindLongestLinearEdge(IBody2 body)
         {
+            PerformanceTracker.Instance.StartTimer("FindLongestLinearEdge");
             IEdge best = null;
             double bestLen = 0.0;
 
@@ -635,6 +653,10 @@ namespace NM.SwAddin
             catch (Exception ex)
             {
                 ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge exception: {ex.Message}");
+            }
+            finally
+            {
+                PerformanceTracker.Instance.StopTimer("FindLongestLinearEdge");
             }
 
             return best;

@@ -151,7 +151,13 @@ namespace NM.SwAddin.Pipeline
                 summary.TotalElapsedMs = sw.Elapsed.TotalMilliseconds;
                 summary.CompletedAt = DateTime.UtcNow;
 
-                // 4. Write results
+                // 4a. Export timing data and populate summary
+                ExportTimingData(summary, config.OutputPath);
+
+                // 4b. Check for timing regressions against baseline
+                CheckForRegressions(summary, config.OutputPath);
+
+                // 4c. Write results
                 if (!string.IsNullOrWhiteSpace(config.OutputPath))
                 {
                     WriteResults(summary, config.OutputPath);
@@ -413,6 +419,124 @@ namespace NM.SwAddin.Pipeline
             }
         }
 
+        /// <summary>
+        /// Exports timing data from PerformanceTracker and populates the summary's TimingSummary.
+        /// </summary>
+        private void ExportTimingData(QARunSummary summary, string outputPath)
+        {
+            const string proc = nameof(ExportTimingData);
+            try
+            {
+                // Populate timing summary from PerformanceTracker
+                var timerSummaries = PerformanceTracker.Instance.GetTimingSummaries();
+                foreach (var ts in timerSummaries)
+                {
+                    summary.TimingSummary[ts.Name] = new QATimingSummary
+                    {
+                        Count = ts.Count,
+                        TotalMs = ts.TotalMs,
+                        AvgMs = ts.AvgMs,
+                        MinMs = ts.MinMs,
+                        MaxMs = ts.MaxMs
+                    };
+                }
+
+                // Export detailed CSV if output path is provided
+                if (!string.IsNullOrWhiteSpace(outputPath))
+                {
+                    var outputDir = Path.GetDirectoryName(outputPath);
+                    if (!string.IsNullOrEmpty(outputDir))
+                    {
+                        var timingCsvPath = Path.Combine(outputDir, "timing.csv");
+                        if (PerformanceTracker.Instance.IsEnabled)
+                        {
+                            PerformanceTracker.Instance.ExportToCsv(timingCsvPath);
+                            QALog($"[{proc}] Timing data exported to: {timingCsvPath}");
+
+                            // Log summary to debug output
+                            QALog("");
+                            QALog("=== Performance Timing Summary ===");
+                            foreach (var ts in timerSummaries)
+                            {
+                                QALog($"  {ts.Name,-35} Count={ts.Count,3} Total={ts.TotalMs,8:F1}ms Avg={ts.AvgMs,8:F1}ms");
+                            }
+                        }
+                        else
+                        {
+                            QALog($"[{proc}] Performance tracking disabled - no timing.csv generated");
+                        }
+                    }
+                }
+
+                // Clear timers for next run
+                PerformanceTracker.Instance.ClearAllTimers();
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError(proc, "Failed to export timing data", ex, ErrorHandler.LogLevel.Warning);
+            }
+        }
+
+        /// <summary>
+        /// Checks for timing regressions against baseline.
+        /// Reports warnings if any operation is >20% slower than baseline.
+        /// </summary>
+        private void CheckForRegressions(QARunSummary summary, string outputPath)
+        {
+            const string proc = nameof(CheckForRegressions);
+            try
+            {
+                if (string.IsNullOrWhiteSpace(outputPath)) return;
+
+                var outputDir = Path.GetDirectoryName(outputPath);
+                if (string.IsNullOrEmpty(outputDir)) return;
+
+                // Look for baseline in tests/ directory (one level up from output run folder)
+                var testsDir = Path.GetDirectoryName(outputDir);
+                if (string.IsNullOrEmpty(testsDir)) return;
+
+                var baselinePath = Path.Combine(testsDir, "timing-baseline.json");
+                if (!File.Exists(baselinePath))
+                {
+                    QALog($"[{proc}] No baseline found at {baselinePath} - skipping regression check");
+                    QALog($"[{proc}] To create a baseline, copy a good timing.csv to timing-baseline.json format");
+                    return;
+                }
+
+                // Read baseline
+                var baselineJson = File.ReadAllText(baselinePath);
+                var baseline = SimpleBaselineParser.Parse(baselineJson);
+                if (baseline == null || baseline.Timers == null || baseline.Timers.Count == 0)
+                {
+                    QALog($"[{proc}] Could not parse baseline or baseline has no timers");
+                    return;
+                }
+
+                // Detect regressions
+                var detector = new TimingRegressionDetector();
+                var regressions = detector.DetectRegressions(summary.TimingSummary, baseline);
+
+                if (regressions.Count > 0)
+                {
+                    QALog("");
+                    QALog("=== TIMING REGRESSIONS DETECTED ===");
+                    foreach (var r in regressions)
+                    {
+                        QALog($"  {r}");
+                    }
+                    QALog($"Baseline from: {baseline.CreatedAt}");
+                }
+                else
+                {
+                    QALog($"[{proc}] No regressions detected (baseline from {baseline.CreatedAt})");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError(proc, "Regression check failed", ex, ErrorHandler.LogLevel.Warning);
+            }
+        }
+
         private void WriteResults(QARunSummary summary, string outputPath)
         {
             try
@@ -480,6 +604,67 @@ namespace NM.SwAddin.Pipeline
             }
 
             return config as T;
+        }
+    }
+
+    /// <summary>
+    /// Simple parser for timing baseline JSON files.
+    /// </summary>
+    internal static class SimpleBaselineParser
+    {
+        public static TimingBaseline Parse(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return null;
+
+            var baseline = new TimingBaseline();
+
+            // Parse top-level string fields
+            var stringPattern = @"""(\w+)""\s*:\s*""([^""\\]*(?:\\.[^""\\]*)*)""";
+            var stringMatches = Regex.Matches(json, stringPattern);
+            foreach (Match m in stringMatches)
+            {
+                var key = m.Groups[1].Value;
+                var value = m.Groups[2].Value;
+                switch (key)
+                {
+                    case "CreatedAt": baseline.CreatedAt = value; break;
+                    case "RunId": baseline.RunId = value; break;
+                }
+            }
+
+            // Parse top-level numeric fields
+            var numPattern = @"""(\w+)""\s*:\s*(-?\d+\.?\d*)";
+            var numMatches = Regex.Matches(json, numPattern);
+            foreach (Match m in numMatches)
+            {
+                var key = m.Groups[1].Value;
+                var value = m.Groups[2].Value;
+                switch (key)
+                {
+                    case "FileCount":
+                        if (int.TryParse(value, out var fc)) baseline.FileCount = fc;
+                        break;
+                    case "TotalElapsedMs":
+                        if (double.TryParse(value, out var te)) baseline.TotalElapsedMs = te;
+                        break;
+                }
+            }
+
+            // Parse Timers section - look for nested objects
+            // Pattern: "TimerName": { "AvgMs": 123.4, "MaxMs": 456.7, "Count": 10 }
+            var timerPattern = @"""(\w+)""\s*:\s*\{\s*""AvgMs""\s*:\s*(-?\d+\.?\d*)\s*,\s*""MaxMs""\s*:\s*(-?\d+\.?\d*)\s*,\s*""Count""\s*:\s*(\d+)\s*\}";
+            var timerMatches = Regex.Matches(json, timerPattern);
+            foreach (Match m in timerMatches)
+            {
+                var name = m.Groups[1].Value;
+                var entry = new BaselineTimerEntry();
+                if (double.TryParse(m.Groups[2].Value, out var avg)) entry.AvgMs = avg;
+                if (double.TryParse(m.Groups[3].Value, out var max)) entry.MaxMs = max;
+                if (int.TryParse(m.Groups[4].Value, out var count)) entry.Count = count;
+                baseline.Timers[name] = entry;
+            }
+
+            return baseline;
         }
     }
 
@@ -591,7 +776,27 @@ namespace NM.SwAddin.Pipeline
                     sb.AppendLine();
             }
 
-            sb.AppendLine("  ]");
+            sb.AppendLine("  ],");
+
+            // TimingSummary section
+            sb.AppendLine("  \"TimingSummary\": {");
+            int tsIndex = 0;
+            foreach (var kvp in summary.TimingSummary)
+            {
+                tsIndex++;
+                sb.AppendLine($"    \"{Escape(kvp.Key)}\": {{");
+                sb.AppendLine($"      \"Count\": {kvp.Value.Count},");
+                sb.AppendLine($"      \"TotalMs\": {kvp.Value.TotalMs:F1},");
+                sb.AppendLine($"      \"AvgMs\": {kvp.Value.AvgMs:F1},");
+                sb.AppendLine($"      \"MinMs\": {kvp.Value.MinMs:F1},");
+                sb.AppendLine($"      \"MaxMs\": {kvp.Value.MaxMs:F1}");
+                sb.Append("    }");
+                if (tsIndex < summary.TimingSummary.Count)
+                    sb.AppendLine(",");
+                else
+                    sb.AppendLine();
+            }
+            sb.AppendLine("  }");
             sb.AppendLine("}");
 
             return sb.ToString();

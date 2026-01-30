@@ -97,6 +97,8 @@ namespace NM.SwAddin.Pipeline
                 int totalBomQty = 0;
                 var fileOps = new SolidWorksFileOperations(swApp);
 
+                // Batch performance optimization: disable graphics updates during component loop
+                using (new BatchPerformanceScope(swApp, asmModel))
                 foreach (var mi in prep.ComponentsToProcess)
                 {
                     // Get quantity from BOM

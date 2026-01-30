@@ -178,5 +178,23 @@ namespace NM.Core.DataModel
         public int Errors { get; set; }
         public double TotalElapsedMs { get; set; }
         public List<QATestResult> Results { get; set; } = new List<QATestResult>();
+
+        /// <summary>
+        /// Performance timing summary by operation category.
+        /// Keys are timer names (e.g., "InsertBends2_Probe", "TryFlatten_Final").
+        /// </summary>
+        public Dictionary<string, QATimingSummary> TimingSummary { get; set; } = new Dictionary<string, QATimingSummary>();
+    }
+
+    /// <summary>
+    /// Summary statistics for a single timer category in QA results.
+    /// </summary>
+    public sealed class QATimingSummary
+    {
+        public int Count { get; set; }
+        public double TotalMs { get; set; }
+        public double AvgMs { get; set; }
+        public double MinMs { get; set; }
+        public double MaxMs { get; set; }
     }
 }
