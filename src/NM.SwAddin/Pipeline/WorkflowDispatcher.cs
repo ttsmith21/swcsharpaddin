@@ -395,20 +395,33 @@ namespace NM.SwAddin.Pipeline
 
         private void CollectAssemblyComponents(WorkflowContext context)
         {
+            PerformanceTracker.Instance.StartTimer("CollectAssemblyComponents");
             var doc = context.SourceDocument;
-            if (doc == null) return;
+            if (doc == null)
+            {
+                PerformanceTracker.Instance.StopTimer("CollectAssemblyComponents");
+                return;
+            }
 
             var assyDoc = doc as IAssemblyDoc;
-            if (assyDoc == null) return;
+            if (assyDoc == null)
+            {
+                PerformanceTracker.Instance.StopTimer("CollectAssemblyComponents");
+                return;
+            }
 
             // Step 1: Get BOM quantities FIRST (the authoritative source)
+            PerformanceTracker.Instance.StartTimer("BomQuantification");
             var quantifier = new AssemblyComponentQuantifier();
             var quantities = quantifier.CollectQuantitiesHybrid(assyDoc, "");
+            PerformanceTracker.Instance.StopTimer("BomQuantification");
             ErrorHandler.DebugLog($"[ASMQTY] BOM returned {quantities.Count} unique entries");
 
             // Step 2: Get validated unique components
+            PerformanceTracker.Instance.StartTimer("ComponentCollection");
             var collector = new ComponentCollector();
             var result = collector.CollectUniqueComponents(assyDoc);
+            PerformanceTracker.Instance.StopTimer("ComponentCollection");
 
             // Step 3: Merge quantities into SwModelInfo
             foreach (var mi in result.ValidComponents)
@@ -442,6 +455,7 @@ namespace NM.SwAddin.Pipeline
             {
                 context.TotalBomQuantity += q.Quantity;
             }
+            PerformanceTracker.Instance.StopTimer("CollectAssemblyComponents");
             ErrorHandler.DebugLog($"[ASMQTY] Total BOM quantity: {context.TotalBomQuantity}");
         }
 

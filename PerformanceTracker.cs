@@ -158,6 +158,111 @@ namespace NM.Core
             }
         }
 
+        /// <summary>
+        /// Generates a formatted timing summary showing stats for each timer.
+        /// </summary>
+        /// <param name="exportPath">Optional path to export CSV. If null, only returns summary string.</param>
+        /// <returns>Formatted summary string with timing statistics.</returns>
+        public string PrintSummary(string exportPath = null)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("=== Performance Timing Summary ===");
+            sb.AppendLine();
+
+            List<TimerSummary> summaries;
+            lock (_listGate)
+            {
+                summaries = _timers.Select(kv =>
+                {
+                    var entries = kv.Value.Where(t => t.ElapsedMs >= 0).ToList();
+                    if (entries.Count == 0) return null;
+
+                    return new TimerSummary
+                    {
+                        Name = kv.Key,
+                        Count = entries.Count,
+                        TotalMs = entries.Sum(t => (double)t.ElapsedMs),
+                        MinMs = entries.Min(t => (double)t.ElapsedMs),
+                        MaxMs = entries.Max(t => (double)t.ElapsedMs),
+                        AvgMs = entries.Average(t => (double)t.ElapsedMs)
+                    };
+                })
+                .Where(s => s != null)
+                .OrderByDescending(s => s.TotalMs)
+                .ToList();
+            }
+
+            if (summaries.Count == 0)
+            {
+                sb.AppendLine("No timing data collected.");
+                return sb.ToString();
+            }
+
+            // Header
+            sb.AppendLine($"{"Timer Name",-30} {"Count",6} {"Total",10} {"Avg",10} {"Min",10} {"Max",10}");
+            sb.AppendLine(new string('-', 80));
+
+            foreach (var s in summaries)
+            {
+                sb.AppendLine($"{TruncateName(s.Name, 30),-30} {s.Count,6} {FormatMs(s.TotalMs),10} {FormatMs(s.AvgMs),10} {FormatMs(s.MinMs),10} {FormatMs(s.MaxMs),10}");
+            }
+
+            sb.AppendLine(new string('-', 80));
+
+            // Grand total
+            double grandTotal = summaries.Sum(s => s.TotalMs);
+            sb.AppendLine($"{"TOTAL",-30} {summaries.Sum(s => s.Count),6} {FormatMs(grandTotal),10}");
+            sb.AppendLine();
+
+            // Export to CSV if path provided
+            if (!string.IsNullOrWhiteSpace(exportPath))
+            {
+                ExportToCsv(exportPath);
+                sb.AppendLine($"Detailed timings exported to: {exportPath}");
+            }
+
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Logs timing summary to ErrorHandler debug output.
+        /// </summary>
+        public void LogSummary()
+        {
+            if (!IsEnabled) return;
+            var summary = PrintSummary();
+            foreach (var line in summary.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                ErrorHandler.DebugLog($"[PERF] {line}");
+            }
+        }
+
+        private static string FormatMs(double ms)
+        {
+            if (ms < 1000)
+                return $"{ms:F1}ms";
+            else if (ms < 60000)
+                return $"{ms / 1000.0:F2}s";
+            else
+                return $"{ms / 60000.0:F2}m";
+        }
+
+        private static string TruncateName(string name, int maxLen)
+        {
+            if (string.IsNullOrEmpty(name)) return "";
+            return name.Length <= maxLen ? name : name.Substring(0, maxLen - 3) + "...";
+        }
+
+        private sealed class TimerSummary
+        {
+            public string Name { get; set; }
+            public int Count { get; set; }
+            public double TotalMs { get; set; }
+            public double MinMs { get; set; }
+            public double MaxMs { get; set; }
+            public double AvgMs { get; set; }
+        }
+
         public void Dispose()
         {
             if (_disposed) return;

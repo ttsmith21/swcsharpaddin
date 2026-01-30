@@ -100,11 +100,16 @@ namespace NM.SwAddin.Pipeline
         {
             const string proc = nameof(MainRunner) + ".RunSinglePartData";
             ErrorHandler.PushCallStack(proc);
+            PerformanceTracker.Instance.StartTimer("RunSinglePartData");
             try
             {
                 var pd = new PartData();
+
+                // ====== VALIDATION ======
+                PerformanceTracker.Instance.StartTimer("Validation");
                 if (swApp == null || doc == null)
                 {
+                    PerformanceTracker.Instance.StopTimer("Validation");
                     pd.Status = ProcessingStatus.Failed;
                     pd.FailureReason = "Null app or document";
                     return pd;
@@ -113,6 +118,7 @@ namespace NM.SwAddin.Pipeline
                 var type = (swDocumentTypes_e)doc.GetType();
                 if (type != swDocumentTypes_e.swDocPART)
                 {
+                    PerformanceTracker.Instance.StopTimer("Validation");
                     pd.Status = ProcessingStatus.Skipped;
                     pd.FailureReason = "Active document is not a part";
                     return pd;
@@ -131,6 +137,7 @@ namespace NM.SwAddin.Pipeline
                 var partDoc = doc as IPartDoc;
                 if (partDoc == null)
                 {
+                    PerformanceTracker.Instance.StopTimer("Validation");
                     pd.Status = ProcessingStatus.Failed;
                     pd.FailureReason = "Could not cast to IPartDoc";
                     return pd;
@@ -139,6 +146,7 @@ namespace NM.SwAddin.Pipeline
                 var bodiesObj = partDoc.GetBodies2((int)swBodyType_e.swSolidBody, true);
                 if (bodiesObj == null)
                 {
+                    PerformanceTracker.Instance.StopTimer("Validation");
                     pd.Status = ProcessingStatus.Failed;
                     pd.FailureReason = "No solid body detected";
                     return pd;
@@ -147,6 +155,7 @@ namespace NM.SwAddin.Pipeline
                 var bodies = (object[])bodiesObj;
                 if (bodies.Length == 0)
                 {
+                    PerformanceTracker.Instance.StopTimer("Validation");
                     pd.Status = ProcessingStatus.Failed;
                     pd.FailureReason = "No solid body detected";
                     return pd;
@@ -155,6 +164,7 @@ namespace NM.SwAddin.Pipeline
                 // Multi-body check - FAIL validation for multi-body parts
                 if (bodies.Length > 1)
                 {
+                    PerformanceTracker.Instance.StopTimer("Validation");
                     pd.Status = ProcessingStatus.Failed;
                     pd.FailureReason = $"Multi-body part ({bodies.Length} bodies)";
                     return pd;
@@ -165,10 +175,12 @@ namespace NM.SwAddin.Pipeline
                 // Material check - FAIL validation if no material assigned
                 if (string.IsNullOrWhiteSpace(pd.Material))
                 {
+                    PerformanceTracker.Instance.StopTimer("Validation");
                     pd.Status = ProcessingStatus.Failed;
                     pd.FailureReason = "No material assigned";
                     return pd;
                 }
+                PerformanceTracker.Instance.StopTimer("Validation");
 
                 // Build core wrappers
                 var info = new NM.Core.ModelInfo();
@@ -176,7 +188,9 @@ namespace NM.SwAddin.Pipeline
                 var swModel = new SolidWorksModel(info, swApp);
                 swModel.Attach(doc, cfg);
 
+                // ====== CLASSIFICATION ======
                 // VBA Logic: Try sheet metal FIRST, only fall back to tube if sheet metal fails
+                PerformanceTracker.Instance.StartTimer("Classification");
                 ErrorHandler.DebugLog("[SMDBG] === CLASSIFICATION START ===");
                 ErrorHandler.DebugLog($"[SMDBG] File: {pathOrTitle}");
 
@@ -282,6 +296,7 @@ namespace NM.SwAddin.Pipeline
                             if (massKg < MIN_MASS_KG)
                             {
                                 ErrorHandler.DebugLog($"[SMDBG] Step 3: Part has no measurable thickness, low sheet% ({sheetPercent:P0}), and negligible mass ({massKg:F4} kg) - failing as invalid geometry");
+                                PerformanceTracker.Instance.StopTimer("Classification");
                                 pd.Status = ProcessingStatus.Failed;
                                 pd.FailureReason = "Invalid geometry - no measurable thickness";
                                 return pd;
@@ -294,7 +309,11 @@ namespace NM.SwAddin.Pipeline
                     }
                 }
 
+                PerformanceTracker.Instance.StopTimer("Classification");
+
+                // ====== PROCESSING ======
                 // Proceed with appropriate processor
+                PerformanceTracker.Instance.StartTimer("Processing");
                 IPartProcessor processor;
                 ProcessingResult pres;
                 if (isSheetMetal)
@@ -313,6 +332,7 @@ namespace NM.SwAddin.Pipeline
                     processor = factory.Get(ProcessorType.Generic);
                     pres = processor.Process(doc, info, options ?? new ProcessingOptions());
                 }
+                PerformanceTracker.Instance.StopTimer("Processing");
                 if (!pres.Success)
                 {
                     pd.Status = ProcessingStatus.Failed;
@@ -358,9 +378,13 @@ namespace NM.SwAddin.Pipeline
                 }
 
                 // ====== COST CALCULATIONS ======
+                PerformanceTracker.Instance.StartTimer("CostCalculation");
                 CalculateCosts(pd, info, options ?? new ProcessingOptions());
+                PerformanceTracker.Instance.StopTimer("CostCalculation");
 
+                // ====== PROPERTY WRITE ======
                 // Map DTO -> properties and batch save
+                PerformanceTracker.Instance.StartTimer("PropertyWrite");
                 var mapped = PartDataPropertyMap.ToProperties(pd);
                 foreach (var kv in mapped)
                 {
@@ -377,11 +401,13 @@ namespace NM.SwAddin.Pipeline
                 {
                     if (!swModel.SavePropertiesToSolidWorks())
                     {
+                        PerformanceTracker.Instance.StopTimer("PropertyWrite");
                         pd.Status = ProcessingStatus.Failed;
                         pd.FailureReason = "Property writeback failed";
                         return pd;
                     }
                 }
+                PerformanceTracker.Instance.StopTimer("PropertyWrite");
 
                 return pd;
             }
@@ -393,6 +419,7 @@ namespace NM.SwAddin.Pipeline
             }
             finally
             {
+                PerformanceTracker.Instance.StopTimer("RunSinglePartData");
                 ErrorHandler.PopCallStack();
             }
         }

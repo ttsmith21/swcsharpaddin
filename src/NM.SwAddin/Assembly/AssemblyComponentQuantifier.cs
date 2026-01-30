@@ -53,10 +53,14 @@ namespace NM.SwAddin.AssemblyProcessing
             var model = (IModelDoc2)asm;
 
             // 1) Try BOM-based
+            PerformanceTracker.Instance.StartTimer("BomTableRead");
             var bomCounts = TryCollectViaBom(asm, bomTemplatePath);
+            PerformanceTracker.Instance.StopTimer("BomTableRead");
 
             // 2) Cross-check via recursion
+            PerformanceTracker.Instance.StartTimer("RecursiveTraversal");
             var recCounts = CollectViaRecursion(asm);
+            PerformanceTracker.Instance.StopTimer("RecursiveTraversal");
 
             // 3) Reconcile: prefer BOM, log discrepancies
             foreach (var kv in recCounts)
@@ -110,12 +114,21 @@ namespace NM.SwAddin.AssemblyProcessing
         /// </summary>
         public BomNode CollectHierarchy(IAssemblyDoc asm)
         {
+            PerformanceTracker.Instance.StartTimer("CollectHierarchy");
             var model = (IModelDoc2)asm;
-            if (model == null) return null;
+            if (model == null)
+            {
+                PerformanceTracker.Instance.StopTimer("CollectHierarchy");
+                return null;
+            }
 
             var cfg = model.ConfigurationManager?.ActiveConfiguration;
             var root = cfg?.GetRootComponent3(true);
-            if (root == null) return null;
+            if (root == null)
+            {
+                PerformanceTracker.Instance.StopTimer("CollectHierarchy");
+                return null;
+            }
 
             var rootNode = new BomNode
             {
@@ -133,6 +146,7 @@ namespace NM.SwAddin.AssemblyProcessing
                 CollectChildrenHierarchy(arr, rootNode);
             }
 
+            PerformanceTracker.Instance.StopTimer("CollectHierarchy");
             return rootNode;
         }
 

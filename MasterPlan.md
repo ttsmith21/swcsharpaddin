@@ -390,6 +390,39 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe /codebase bin\Debug\s
 - Tube processing: ✅ Ready (OP20 routing, cost calculations integrated)
 - Assembly processing: ✅ Ready (multi-level BOM, parent routing)
 - Drawing output: ✅ Ready (flat pattern DXF export for nesting)
+- Performance timers: ✅ Ready (pipeline instrumentation for bottleneck detection)
+
+---
+
+## Performance Instrumentation
+
+Comprehensive timing instrumentation has been added throughout the pipeline:
+
+### MainRunner Timers
+- `RunSinglePartData` - Total part processing time
+- `Validation` - Multi-body, material, and geometry checks
+- `Classification` - Sheet metal vs tube vs generic detection
+- `Processing` - Processor execution
+- `CostCalculation` - All work center cost calculations
+- `PropertyWrite` - Custom property save operations
+
+### Assembly Timers
+- `CollectAssemblyComponents` - Total assembly collection time
+- `BomQuantification` - BOM table quantity extraction
+- `ComponentCollection` - Component validation and collection
+- `BomTableRead` - BOM table API operations
+- `RecursiveTraversal` - Hierarchical component traversal
+- `CollectHierarchy` - Full BOM hierarchy construction
+
+### Usage
+```csharp
+// After processing, generate timing summary
+string summary = PerformanceTracker.Instance.PrintSummary("performance.csv");
+Console.WriteLine(summary);
+
+// Or log to debug output
+PerformanceTracker.Instance.LogSummary();
+```
 
 ---
 
@@ -398,5 +431,5 @@ C:\Windows\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe /codebase bin\Debug\s
 1. **Production testing** with real production files
 2. **Expand QA test corpus** - Add classes D-H to gold standard tests
 3. **User documentation** - Training materials
-4. **Performance optimization** - Profile large assemblies
+4. **Performance optimization** - Analyze timer data from large assemblies
 5. **Edge case handling** - Based on production feedback
