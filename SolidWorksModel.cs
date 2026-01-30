@@ -218,8 +218,9 @@ namespace NM.SwAddin
                             ok &= SolidWorksApiWrapper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, config);
                             break;
                         case PropertyState.Modified:
-                            ErrorHandler.DebugLog($"Set prop '{name}'='{val}'");
-                            ok &= SolidWorksApiWrapper.SetCustomProperty(Document, name, val, config);
+                            // VBA pattern: Always delete-then-add for reliability
+                            ErrorHandler.DebugLog($"Modify prop '{name}'='{val}' (using delete+add)");
+                            ok &= SolidWorksApiWrapper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, config);
                             break;
                         case PropertyState.Deleted:
                             ErrorHandler.DebugLog($"Delete prop '{name}'");
