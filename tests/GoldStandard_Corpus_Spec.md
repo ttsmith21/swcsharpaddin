@@ -58,11 +58,18 @@ This document defines the "Exhaustive List" of test parts required to validate t
 
 | ID | Name | Description | File Name Convention |
 |----|------|-------------|---------------------|
-| D1 | Machined Block | A complex milled part with pockets (cannot unfold) | `D1_MachinedBlock.sldprt` |
+| D1 | Machined Block | A milled part with a counter bore and a pockets (cannot unfold) | `D1_MachinedBlock.sldprt` |
 | D2 | Elbow Fitting | A pipe elbow (curved axis, not straight tube) | `D2_ElbowFitting.sldprt` |
 | D3 | Motor/Gearbox | A purchase component (complex geometry) | `D3_Motor.sldprt` |
 | D4 | Fastener | A screw or bolt (threads, hex head) | `D4_Fastener.sldprt` |
 | D5 | Casting | Irregular geometry with variable wall thickness | `D5_Casting.sldprt` |
+| D6 | U-Bolt | Curved or formed sold rod | `D6_Ubolt.sldprt` |
+| D7 | Nut | Nut w/o internal threads hex head | `D7_Nut_No_Threads.sldprt` |
+| D8 | Swagelock T-Fitting | T fitting with hex and threads | `D8_Swagelock_T_Fitting.sldprt` |
+| D9 | Fastener | A screw or bolt w/o threads (no threads, hex head) | `D9_Fastener_No_Threads.sldprt` |
+| D10 | Reducer | A pipe reducer | `D10_Pipe_Reducer.sldprt` |
+| D11 | Valve | A pipe Valve | `D11_Pipe_Valve.sldprt` |
+| D12 | Stud | A threded stud | `D12_Stud_Threaded.sldprt` |
 
 ---
 
@@ -74,7 +81,7 @@ This document defines the "Exhaustive List" of test parts required to validate t
 |----|------|-------------|-------|----------|---------------------|
 | E1 | Thick Plate | 1" thick plate | MaxSheetThickness | `SheetMetal` or `Generic`? | `E1_ThickPlate_1in.sldprt` |
 | E2 | Foil/Shim | 0.005" shim | MinSheetThickness | `SheetMetal` | `E2_Foil_005.sldprt` |
-| E3 | Tapered Wall | Sheet metal with draft angle | Thickness not constant | `Generic` | `E3_TaperedWall.sldprt` |
+| E3 | Tapered Wall | Sheet metal with draft angle | Top sheet area does not equal bottom sheet area | `Generic` | `E3_TaperedWall.sldprt` |
 | E4 | Concentricity Fail | Tube with off-center ID (eccentric) | Concentricity check | `Generic` or `Failed` | `E4_EccentricTube.sldprt` |
 | E5 | Non-Planar Face | Bent part with no flat reference face | Unfolding | `Failed` or special handling | `E5_NonPlanarFace.sldprt` |
 | E6 | Huge Dimensions | 100-meter long part | BBox overflow/units | Handled gracefully | `E6_HugePart.sldprt` |
@@ -89,11 +96,11 @@ This document defines the "Exhaustive List" of test parts required to validate t
 |----|------|-------------|-------|---------------------|
 | F1 | Single Level Assembly | Simple assembly with 3 unique parts | Basic traversal | `F1_SimpleAssy.sldasm` |
 | F2 | Multi-Level Assembly | Assembly containing sub-assemblies | Recursion depth | `F2_MultiLevelAssy.sldasm` |
-| F3 | Flexible Sub-Assembly | Sub-assembly set to "Flexible" | Geometry validation | `F3_FlexibleAssy.sldasm` |
+| F3 | Flexible Sub-Assembly | F1_SimpleAssy Sub-assembly set to "Flexible" | Geometry validation | `F3_FlexibleAssy.sldasm` |
 | F4 | Virtual Components | Parts saved internally to assembly | Path resolution | `F4_VirtualComps.sldasm` |
-| F5 | Suppressed Components | Components suppressed in active config | Should be skipped | `F5_SuppressedComps.sldasm` |
+| F5 | Suppressed Components | F1_SimpleAssy and C3_SquareTube_2x2 Components suppressed in active config | Should be skipped | `F5_SuppressedComps.sldasm` |
 | F6 | Lightweight Components | Components loaded lightweight | ResolveAllLightweight | `F6_LightweightComps.sldasm` |
-| F7 | Envelope Components | Reference-only components | Should be excluded | `F7_EnvelopeComps.sldasm` |
+| F7 | Envelope Components | B1_NativeBracket_14ga_CS is Enveloped - Reference-only components | Should be excluded | `F7_EnvelopeComps.sldasm` |
 | F8 | Missing Reference | Assembly with missing part file | Error handling | `F8_MissingRef.sldasm` |
 
 ---
