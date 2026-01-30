@@ -1222,6 +1222,64 @@ namespace NM.SwAddin
         }
         #endregion
 
+        #region Performance Control Methods
+        /// <summary>
+        /// Graphics update control is not available on ModelDocExtension in SolidWorks 2022.
+        /// This method is a placeholder for future versions or alternative implementations.
+        /// Use CommandInProgress and FeatureTree controls instead.
+        /// </summary>
+        public static void SetGraphicsUpdate(IModelDoc2 model, bool enabled)
+        {
+            // Note: EnableGraphicsUpdate property is not available on ModelDocExtension in SW 2022 API
+            // This method is kept for API compatibility but has no effect
+            ErrorHandler.DebugLog($"[PERF] SetGraphicsUpdate({enabled}) - no-op in SW 2022");
+        }
+
+        /// <summary>
+        /// Sets CommandInProgress flag on the application.
+        /// Setting true prevents undo record consolidation during batch ops.
+        /// IMPORTANT: Always set to false when done.
+        /// </summary>
+        public static void SetCommandInProgress(ISldWorks swApp, bool inProgress)
+        {
+            const string procName = "SetCommandInProgress";
+            try
+            {
+                if (swApp == null) return;
+                swApp.CommandInProgress = inProgress;
+                ErrorHandler.DebugLog($"[PERF] CommandInProgress set to {inProgress}");
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError(procName, $"Failed to set CommandInProgress={inProgress}", ex, ErrorHandler.LogLevel.Warning);
+            }
+        }
+
+        /// <summary>
+        /// Enables or disables feature tree updates.
+        /// Disable during feature-heavy operations for speedup.
+        /// IMPORTANT: Always restore to true when done.
+        /// </summary>
+        public static void SetFeatureTreeUpdate(IModelDoc2 model, bool enabled)
+        {
+            const string procName = "SetFeatureTreeUpdate";
+            try
+            {
+                if (model == null) return;
+                var fm = model.FeatureManager;
+                if (fm != null)
+                {
+                    fm.EnableFeatureTree = enabled;
+                    ErrorHandler.DebugLog($"[PERF] FeatureTree updates set to {enabled}");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError(procName, $"Failed to set EnableFeatureTree={enabled}", ex, ErrorHandler.LogLevel.Warning);
+            }
+        }
+        #endregion
+
         #region Mass Properties Methods
         /// <summary>
         /// Retrieves mass, volume, and center of mass from a model.
@@ -1468,6 +1526,7 @@ namespace NM.SwAddin
         {
             const string procName = "AddCustomProperty";
             ErrorHandler.PushCallStack(procName);
+            PerformanceTracker.Instance.StartTimer("CustomProperty_Write");
             try
             {
                 if (!ValidateModel(swModel, procName)) return false;
@@ -1506,6 +1565,7 @@ namespace NM.SwAddin
             }
             finally
             {
+                PerformanceTracker.Instance.StopTimer("CustomProperty_Write");
                 ErrorHandler.PopCallStack();
             }
         }
@@ -1796,6 +1856,7 @@ namespace NM.SwAddin
         public static string GetCustomPropertyValue(IModelDoc2 model, string propName, string configName = "")
         {
             if (model == null || string.IsNullOrEmpty(propName)) return string.Empty;
+            PerformanceTracker.Instance.StartTimer("CustomProperty_Read");
             try
             {
                 var ext = model.Extension;
@@ -1816,6 +1877,10 @@ namespace NM.SwAddin
             catch
             {
                 return string.Empty;
+            }
+            finally
+            {
+                PerformanceTracker.Instance.StopTimer("CustomProperty_Read");
             }
         }
 

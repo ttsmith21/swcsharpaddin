@@ -11,6 +11,7 @@ using NM.Core.ProblemParts;
 using NM.SwAddin.AssemblyProcessing;
 using NM.SwAddin.Drawing;
 using NM.SwAddin.UI;
+using NM.SwAddin.Utils;
 using NM.SwAddin.Validation;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
@@ -170,6 +171,8 @@ namespace NM.SwAddin.Pipeline
                 var sw = System.Diagnostics.Stopwatch.StartNew();
                 int processed = 0;
 
+                // Batch performance optimization: disable graphics updates during processing loop
+                using (new BatchPerformanceScope(_swApp, context.SourceDocument))
                 foreach (var modelInfo in context.GoodModels)
                 {
                     processed++;

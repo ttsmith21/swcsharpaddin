@@ -9,6 +9,7 @@ using NM.Core.Export;
 using NM.SwAddin.Import;
 using NM.SwAddin.Pipeline;
 using NM.SwAddin.UI;
+using NM.SwAddin.Utils;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
@@ -74,6 +75,8 @@ namespace NM.SwAddin.Processing
                 Application.DoEvents();
 
                 int step = 0;
+                // Batch performance optimization: disable graphics updates during file processing loop
+                using (new BatchPerformanceScope(_swApp, null))
                 foreach (var file in files)
                 {
                     if (progress.IsCanceled) break;

@@ -253,7 +253,38 @@ namespace NM.Core
             return name.Length <= maxLen ? name : name.Substring(0, maxLen - 3) + "...";
         }
 
-        private sealed class TimerSummary
+        /// <summary>
+        /// Returns a list of timer summaries for external consumption (e.g., QA reports).
+        /// </summary>
+        public List<TimerSummary> GetTimingSummaries()
+        {
+            lock (_listGate)
+            {
+                return _timers.Select(kv =>
+                {
+                    var entries = kv.Value.Where(t => t.ElapsedMs >= 0).ToList();
+                    if (entries.Count == 0) return null;
+
+                    return new TimerSummary
+                    {
+                        Name = kv.Key,
+                        Count = entries.Count,
+                        TotalMs = entries.Sum(t => (double)t.ElapsedMs),
+                        MinMs = entries.Min(t => (double)t.ElapsedMs),
+                        MaxMs = entries.Max(t => (double)t.ElapsedMs),
+                        AvgMs = entries.Average(t => (double)t.ElapsedMs)
+                    };
+                })
+                .Where(s => s != null)
+                .OrderByDescending(s => s.TotalMs)
+                .ToList();
+            }
+        }
+
+        /// <summary>
+        /// Summary statistics for a single timer category.
+        /// </summary>
+        public sealed class TimerSummary
         {
             public string Name { get; set; }
             public int Count { get; set; }
