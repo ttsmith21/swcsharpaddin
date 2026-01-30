@@ -345,6 +345,18 @@ namespace NM.SwAddin.Pipeline
                     pd.Sheet.BendCount = info.CustomProperties.BendCount;
                 }
 
+                // ====== COPY ERP-RELEVANT CUSTOM PROPERTIES ======
+                // These properties are used by ErpExportDataBuilder for VBA-parity export
+                string[] erpProps = { "rbPartType", "rbPartTypeSub", "OS_WC", "OS_WC_A",
+                                      "CustPartNumber", "PurchasedPartNumber", "Print",
+                                      "Description", "Revision", "OP20" };
+                foreach (var prop in erpProps)
+                {
+                    var val = info.CustomProperties.GetPropertyValue(prop);
+                    if (val != null && !string.IsNullOrEmpty(val.ToString()))
+                        pd.Extra[prop] = val.ToString();
+                }
+
                 // ====== COST CALCULATIONS ======
                 CalculateCosts(pd, info, options ?? new ProcessingOptions());
 

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows.Forms;
 using NM.Core;
 using NM.Core.DataModel;
+using NM.Core.Export;
 using NM.Core.Models;
 using NM.Core.ProblemParts;
 using NM.SwAddin.AssemblyProcessing;
@@ -135,6 +136,7 @@ namespace NM.SwAddin.Pipeline
                 {
                     ProcessGoodModelsPass2(context, options);
                     AggregateCosts(context);  // Aggregate costs after processing
+                    GenerateErpExport(context);  // Generate Import.prn if enabled
                 }
 
                 context.ProcessingComplete = true;
@@ -235,6 +237,71 @@ namespace NM.SwAddin.Pipeline
             context.GrandTotalCost = grandTotal;
 
             ErrorHandler.DebugLog($"[COST] Assembly Total: Material=${totalMaterial:N2}, Processing=${totalProcessing:N2}, TOTAL=${grandTotal:N2}");
+        }
+
+        private void GenerateErpExport(WorkflowContext context)
+        {
+            if (!context.GenerateErpExport || context.ProcessedModels.Count == 0)
+                return;
+
+            try
+            {
+                // Build PartData list from ProcessingResults
+                var partDataList = context.ProcessedModels
+                    .Where(m => m.ProcessingResult != null)
+                    .Select(m => m.ProcessingResult)
+                    .ToList();
+
+                if (partDataList.Count == 0)
+                {
+                    ErrorHandler.DebugLog("[EXPORT] No parts with ProcessingResult - skipping export");
+                    return;
+                }
+
+                // Determine parent part number from source
+                string parentNumber = context.Source == WorkflowContext.SourceType.Assembly
+                    ? Path.GetFileNameWithoutExtension(context.RootPath)
+                    : "";
+
+                var erpData = ErpExportDataBuilder.FromPartDataCollection(
+                    partDataList,
+                    parentNumber,
+                    context.Customer);
+
+                // Add BOM relationships from SwModelInfo quantities
+                if (context.Source == WorkflowContext.SourceType.Assembly)
+                {
+                    erpData.BomRelationships.Clear();
+                    int pieceNo = 1;
+                    foreach (var mi in context.ProcessedModels)
+                    {
+                        if (mi.ProcessingResult == null) continue;
+                        erpData.BomRelationships.Add(new BomRelationship
+                        {
+                            ParentPartNumber = parentNumber,
+                            ChildPartNumber = Path.GetFileNameWithoutExtension(mi.FilePath),
+                            PieceNumber = pieceNo.ToString(),
+                            Quantity = mi.Quantity
+                        });
+                        pieceNo++;
+                    }
+                }
+
+                // Export to Import.prn
+                string exportPath = Path.Combine(
+                    Path.GetDirectoryName(context.RootPath) ?? ".",
+                    "Import.prn");
+
+                var exporter = new ErpExportFormat { Customer = context.Customer };
+                exporter.ExportToImportPrn(erpData, exportPath);
+                context.ErpExportPath = exportPath;
+
+                ErrorHandler.DebugLog($"[EXPORT] Generated: {exportPath}");
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError("GenerateErpExport", "Export failed", ex, ErrorHandler.LogLevel.Warning);
+            }
         }
 
         private void ClearProblemManager()

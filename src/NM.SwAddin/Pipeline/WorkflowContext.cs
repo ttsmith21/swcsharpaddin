@@ -102,6 +102,21 @@ namespace NM.SwAddin.Pipeline
         public double GrandTotalCost { get; set; }
 
         /// <summary>
+        /// Path to generated Import.prn file (null if export not performed).
+        /// </summary>
+        public string ErpExportPath { get; set; }
+
+        /// <summary>
+        /// Whether to generate ERP export after processing.
+        /// </summary>
+        public bool GenerateErpExport { get; set; }
+
+        /// <summary>
+        /// Customer name for ERP records.
+        /// </summary>
+        public string Customer { get; set; } = "";
+
+        /// <summary>
         /// Timing for validation pass.
         /// </summary>
         public TimeSpan ValidationElapsed { get; set; }
@@ -176,6 +191,11 @@ namespace NM.SwAddin.Pipeline
                 sb.AppendLine($"  Material: ${TotalMaterialCost:N2}");
                 sb.AppendLine($"  Processing: ${TotalProcessingCost:N2}");
                 sb.AppendLine($"  TOTAL: ${GrandTotalCost:N2}");
+            }
+            if (!string.IsNullOrEmpty(ErpExportPath))
+            {
+                sb.AppendLine();
+                sb.AppendLine($"ERP Export: {ErpExportPath}");
             }
             sb.AppendLine();
             sb.AppendLine($"Total Time: {TotalElapsed.TotalSeconds:F1}s");

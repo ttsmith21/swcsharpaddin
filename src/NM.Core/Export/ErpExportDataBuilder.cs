@@ -108,21 +108,104 @@ namespace NM.Core.Export
                     break;
             }
 
-            // Determine part type (Standard, Outsourced, Purchased, etc.)
-            if (pd.IsPurchased)
+            // Determine part type from custom properties (VBA parity)
+            erpPart.PartType = DetectPartType(pd);
+            erpPart.Location = ExtractLocation(pd);
+
+            // Handle OS/MP/CUST variants based on part type
+            switch (erpPart.PartType)
             {
-                erpPart.PartType = ErpPartType.Purchased;
-                erpPart.PurchasedPartNumber = erpPart.PartNumber;
-            }
-            else
-            {
-                erpPart.PartType = ErpPartType.Standard;
+                case ErpPartType.Outsourced:
+                    erpPart.RequiresOsPart = true;
+                    string osWc = pd.Extra.TryGetValue("OS_WC", out var wc) ? wc : "OS";
+                    if (osWc.Length > 3) osWc = osWc.Substring(0, 3);
+                    erpPart.OsWorkCenter = osWc;
+                    erpPart.OsPartNumber = $"{osWc}-{erpPart.PartNumber}";
+                    break;
+
+                case ErpPartType.Machined:
+                    erpPart.RequiresOsPart = true;
+                    erpPart.OsWorkCenter = "MP";
+                    erpPart.MpPartNumber = $"MP-{erpPart.PartNumber}";
+                    break;
+
+                case ErpPartType.CustomerSupplied:
+                    string custNum = pd.Extra.TryGetValue("CustPartNumber", out var cn) ? cn : erpPart.PartNumber;
+                    if (!custNum.StartsWith("CUST-", StringComparison.OrdinalIgnoreCase))
+                        custNum = "CUST-" + custNum;
+                    erpPart.CustPartNumber = custNum;
+                    break;
+
+                case ErpPartType.Purchased:
+                    erpPart.PurchasedPartNumber = pd.Extra.TryGetValue("PurchasedPartNumber", out var pn)
+                        ? pn : erpPart.PartNumber;
+                    break;
             }
 
             // Map routing operations from cost data
             MapRoutingOperations(erpPart, pd);
 
             return erpPart;
+        }
+
+        /// <summary>
+        /// Detects part type from custom properties (VBA: rbPartType, rbPartTypeSub).
+        /// </summary>
+        private static ErpPartType DetectPartType(PartData pd)
+        {
+            // Check rbPartType custom property
+            if (pd.Extra.TryGetValue("rbPartType", out var rbPartType))
+            {
+                switch (rbPartType)
+                {
+                    case "2": // Outsourced
+                        return ErpPartType.Outsourced;
+                    case "1": // Special - check rbPartTypeSub for machined/purchased/customer
+                        if (pd.Extra.TryGetValue("rbPartTypeSub", out var sub))
+                        {
+                            switch (sub)
+                            {
+                                case "0": return ErpPartType.Machined;
+                                case "1": return ErpPartType.Purchased;
+                                case "2": return ErpPartType.CustomerSupplied;
+                            }
+                        }
+                        return ErpPartType.Machined;
+                    case "0": // Standard
+                    default:
+                        break;
+                }
+            }
+
+            // Fallback: check IsPurchased flag
+            if (pd.IsPurchased) return ErpPartType.Purchased;
+
+            return ErpPartType.Standard;
+        }
+
+        /// <summary>
+        /// Extracts location from OP20 work center (VBA: strLocation = Left(OP20, 1)).
+        /// </summary>
+        private static string ExtractLocation(PartData pd, string defaultLocation = "F")
+        {
+            // Try OP20 work center first (VBA pattern)
+            var workCenter = pd.Cost.OP20_WorkCenter;
+            if (!string.IsNullOrEmpty(workCenter) && workCenter.Length >= 1)
+            {
+                char loc = workCenter[0];
+                if (loc == 'F' || loc == 'N' || loc == 'D')
+                    return loc.ToString();
+            }
+
+            // Try OP20 custom property as fallback
+            if (pd.Extra.TryGetValue("OP20", out var op20) && !string.IsNullOrEmpty(op20) && op20.Length >= 1)
+            {
+                char loc = op20[0];
+                if (loc == 'F' || loc == 'N' || loc == 'D')
+                    return loc.ToString();
+            }
+
+            return defaultLocation;
         }
 
         private static void MapRoutingOperations(ErpPartData erpPart, PartData pd)
