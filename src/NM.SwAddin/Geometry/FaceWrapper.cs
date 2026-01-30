@@ -349,5 +349,178 @@ namespace NM.SwAddin.Geometry
         {
             return Math.Abs(val) < Tolerance;
         }
+
+        #region Edge Filtering (VB.NET Audit Resolution)
+
+        /// <summary>
+        /// Gets both faces adjacent to an edge.
+        /// Port of VB.NET GetAdjacentFaceOfThisEdgeOtherThanMe pattern.
+        /// </summary>
+        public static (IFace2 face1, IFace2 face2) GetAdjacentFaces(IEdge edge)
+        {
+            if (edge == null) return (null, null);
+
+            var faces = edge.GetTwoAdjacentFaces2() as object[];
+            if (faces == null || faces.Length < 2)
+                return (null, null);
+
+            return ((IFace2)faces[0], (IFace2)faces[1]);
+        }
+
+        /// <summary>
+        /// Gets boundary edges - edges where one adjacent face is in the collection and one is not.
+        /// Both adjacent faces must be planar.
+        /// Port of VB.NET GetAllEdgesWhoseAdjacentFacesArePlanarAndWhoseOtherAdjacentFaceIsNotInThisCollection.
+        /// </summary>
+        /// <param name="faceCollection">Collection of faces defining the profile</param>
+        /// <param name="swApp">SolidWorks application for face comparison</param>
+        /// <returns>List of boundary edges</returns>
+        public static List<IEdge> GetBoundaryEdges(List<FaceWrapper> faceCollection, ISldWorks swApp)
+        {
+            if (faceCollection == null || faceCollection.Count == 0 || swApp == null)
+                return new List<IEdge>();
+
+            var result = new List<IEdge>();
+            var processedEdges = new HashSet<object>(); // Track processed edges by reference
+
+            foreach (var fw in faceCollection)
+            {
+                foreach (var edge in fw.GetOuterLoopEdges())
+                {
+                    // Skip if already processed
+                    if (processedEdges.Contains(edge)) continue;
+                    processedEdges.Add(edge);
+
+                    var (face1, face2) = GetAdjacentFaces(edge);
+                    if (face1 == null || face2 == null) continue;
+
+                    // Both faces must be planar
+                    var surf1 = (ISurface)face1.GetSurface();
+                    var surf2 = (ISurface)face2.GetSurface();
+                    if (surf1 == null || surf2 == null) continue;
+                    if (!surf1.IsPlane() || !surf2.IsPlane()) continue;
+
+                    // Check if one face is in collection, one is not
+                    bool f1InCollection = IsFaceInCollection(face1, faceCollection, swApp);
+                    bool f2InCollection = IsFaceInCollection(face2, faceCollection, swApp);
+
+                    // XOR - exactly one must be in collection
+                    if (f1InCollection != f2InCollection)
+                    {
+                        result.Add(edge);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Checks if a face is in the face wrapper collection.
+        /// </summary>
+        private static bool IsFaceInCollection(IFace2 face, List<FaceWrapper> collection, ISldWorks swApp)
+        {
+            if (face == null || collection == null) return false;
+
+            foreach (var fw in collection)
+            {
+                if (swApp.IsSame(face, fw.Face) == (int)swObjectEquality.swObjectSame)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Checks if edge endpoints lie on any face in the collection.
+        /// Port of VB.NET DoesStartAndEndPointsOfThisEdgeLieOnFacesFromThisFaceCollection.
+        /// Uses vertex-to-face proximity check.
+        /// </summary>
+        /// <param name="edge">Edge to check</param>
+        /// <param name="faces">Collection of faces</param>
+        /// <param name="tolerance">Distance tolerance for point-on-face check (default 1e-6 meters)</param>
+        /// <returns>True if both endpoints lie on faces in the collection</returns>
+        public static bool DoEdgeEndpointsLieOnFaces(IEdge edge, List<FaceWrapper> faces, double tolerance = 1e-6)
+        {
+            if (edge == null || faces == null || faces.Count == 0)
+                return false;
+
+            var startVertex = (IVertex)edge.GetStartVertex();
+            var endVertex = (IVertex)edge.GetEndVertex();
+
+            if (startVertex == null || endVertex == null) return false;
+
+            var startPoint = (double[])startVertex.GetPoint();
+            var endPoint = (double[])endVertex.GetPoint();
+
+            if (startPoint == null || endPoint == null) return false;
+
+            bool startOnFace = IsPointOnAnyFace(startPoint, faces, tolerance);
+            bool endOnFace = IsPointOnAnyFace(endPoint, faces, tolerance);
+
+            return startOnFace && endOnFace;
+        }
+
+        /// <summary>
+        /// Checks if a point lies on any face in the collection using closest point distance.
+        /// </summary>
+        private static bool IsPointOnAnyFace(double[] point, List<FaceWrapper> faces, double tolerance)
+        {
+            if (point == null || point.Length < 3) return false;
+
+            foreach (var fw in faces)
+            {
+                // Use face's GetClosestPointOn to check if point is on face
+                var closestPoint = fw.Face.GetClosestPointOn(point[0], point[1], point[2]) as double[];
+                if (closestPoint != null && closestPoint.Length >= 3)
+                {
+                    double dx = closestPoint[0] - point[0];
+                    double dy = closestPoint[1] - point[1];
+                    double dz = closestPoint[2] - point[2];
+                    double distSq = dx * dx + dy * dy + dz * dz;
+
+                    if (distSq < tolerance * tolerance)
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Gets all edges that share a loop with the given edge on the specified face.
+        /// Port of VB.NET GetEdgesWhichAreInLoopWithThisEdge.
+        /// </summary>
+        /// <param name="edge">The reference edge</param>
+        /// <param name="face">The face containing the edge</param>
+        /// <returns>List of other edges in the same loop</returns>
+        public static List<IEdge> GetEdgesInSameLoop(IEdge edge, IFace2 face)
+        {
+            var result = new List<IEdge>();
+            if (edge == null || face == null) return result;
+
+            var loops = face.GetLoops() as object[];
+            if (loops == null) return result;
+
+            foreach (ILoop2 loop in loops.Cast<ILoop2>())
+            {
+                var loopEdges = loop.GetEdges() as object[];
+                if (loopEdges == null) continue;
+
+                var edgeList = loopEdges.Cast<IEdge>().ToList();
+
+                // Check if this loop contains the target edge
+                bool containsEdge = edgeList.Any(e => ReferenceEquals(e, edge));
+
+                if (containsEdge)
+                {
+                    // Return all other edges in this loop
+                    result.AddRange(edgeList.Where(e => !ReferenceEquals(e, edge)));
+                    break; // Edge can only be in one loop per face
+                }
+            }
+
+            return result;
+        }
+
+        #endregion
     }
 }

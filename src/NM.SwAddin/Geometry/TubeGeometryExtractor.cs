@@ -404,25 +404,51 @@ namespace NM.SwAddin.Geometry
             }
 
             // Count holes and calculate cut length
+            // VB.NET Audit Resolution: Filter to largest-area faces and use boundary edge detection
             var cutFaces = new List<FaceWrapper>();
             cutFaces.AddRange(facesParallelToPrimary);
             cutFaces.AddRange(facesNormalToSecondary);
 
+            // Filter to largest-area faces only (VB.NET face removal logic)
+            var primaryCutFaces = FilterToLargestAreaFaces(cutFaces);
+
             int holeCount = 0;
             var cutEdges = new List<IEdge>();
 
-            foreach (var face in cutFaces)
+            // Collect hole edges from all primary faces
+            foreach (var face in primaryCutFaces)
             {
                 holeCount += face.GetHoles().Count;
                 cutEdges.AddRange(face.GetHoleEdges());
+            }
 
-                // Add outer edges that are perpendicular to axis (cut profile edges)
-                foreach (var edge in face.GetOuterLoopEdges())
+            // Get boundary edges using VB.NET audit resolution method
+            // These are edges where one adjacent face is in our collection and one is not
+            var boundaryEdges = FaceWrapper.GetBoundaryEdges(primaryCutFaces, _swApp);
+
+            // Filter boundary edges: only keep those perpendicular to axis
+            foreach (var edge in boundaryEdges)
+            {
+                if (!IsEdgeParallelToDirection(edge, axisDirection))
                 {
-                    if (!IsEdgeParallelToDirection(edge, axisDirection))
+                    if (!cutEdges.Contains(edge))
+                        cutEdges.Add(edge);
+                }
+            }
+
+            // Fallback: if boundary detection yields no edges, use original method
+            if (boundaryEdges.Count == 0)
+            {
+                ErrorHandler.DebugLog("[TUBE] Boundary edge detection returned no edges, using fallback");
+                foreach (var face in primaryCutFaces)
+                {
+                    foreach (var edge in face.GetOuterLoopEdges())
                     {
-                        if (!cutEdges.Contains(edge))
-                            cutEdges.Add(edge);
+                        if (!IsEdgeParallelToDirection(edge, axisDirection))
+                        {
+                            if (!cutEdges.Contains(edge))
+                                cutEdges.Add(edge);
+                        }
                     }
                 }
             }
@@ -566,6 +592,36 @@ namespace NM.SwAddin.Geometry
         private static bool IsTendsToZero(double val)
         {
             return Math.Abs(val) < Tolerance;
+        }
+
+        /// <summary>
+        /// Filters a face collection to only include the largest-area faces.
+        /// Port of VB.NET face removal logic from CFaceCollection.vb:232-298.
+        /// This removes smaller-area faces that would incorrectly contribute to cut length.
+        /// </summary>
+        private static List<FaceWrapper> FilterToLargestAreaFaces(List<FaceWrapper> faces)
+        {
+            if (faces == null || faces.Count <= 1)
+                return faces ?? new List<FaceWrapper>();
+
+            // Find the maximum area
+            double maxArea = faces.Max(f => f.Area);
+
+            // Area tolerance: faces within 1% of max area are considered "largest"
+            const double AREA_TOLERANCE_RATIO = 0.01;
+            double areaTolerance = maxArea * AREA_TOLERANCE_RATIO;
+
+            // Keep only faces whose area is close to the maximum
+            var result = faces.Where(f => (maxArea - f.Area) < areaTolerance).ToList();
+
+            // If filtering removed all faces (shouldn't happen), return original
+            if (result.Count == 0)
+                return faces;
+
+            ErrorHandler.DebugLog($"[TUBE] FilterToLargestAreaFaces: {faces.Count} faces -> {result.Count} " +
+                $"(maxArea={maxArea * 1550003.1:F2}sq.in, tolerance={areaTolerance * 1550003.1:F4}sq.in)");
+
+            return result;
         }
     }
 }
