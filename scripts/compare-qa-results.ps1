@@ -265,6 +265,10 @@ foreach ($result in $results.Results) {
                             $comparisons += @{ Field = $manifestField; Status = "MATCH"; Expected = $expectedVal; Actual = $actualVal }
                         } elseif ($deviation -and $deviation.status -eq "NOT_IMPLEMENTED") {
                             $comparisons += @{ Field = $manifestField; Status = "NOT_IMPL"; Expected = $expectedVal; Actual = $actualVal; Note = $deviation.reason }
+                        } elseif ($deviation -and $deviation.status -eq "INTENTIONAL") {
+                            $comparisons += @{ Field = $manifestField; Status = "INTENTIONAL"; Expected = $expectedVal; Actual = $actualVal; Note = $deviation.reason }
+                        } elseif ($deviation -and $deviation.status -eq "BUG") {
+                            $comparisons += @{ Field = $manifestField; Status = "BUG"; Expected = $expectedVal; Actual = $actualVal; Note = $deviation.reason }
                         } elseif ($null -eq $actualVal -or $actualVal -eq 0) {
                             $comparisons += @{ Field = $manifestField; Status = "MISSING"; Expected = $expectedVal; Actual = "(empty)" }
                         } else {

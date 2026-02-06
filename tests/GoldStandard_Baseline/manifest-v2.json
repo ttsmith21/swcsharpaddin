@@ -124,6 +124,14 @@
                                                                                   "rawWeight": {
                                                                                       "status": "BUG",
                                                                                       "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                                  },
+                                                                                  "routing.N120.run": {
+                                                                                      "status": "BUG",
+                                                                                      "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                                  },
+                                                                                  "routing.N140.setup": {
+                                                                                      "status": "BUG",
+                                                                                      "reason": "BendAnalyzer uses bend radius proxy for longest bend; VBA uses actual bend edge length from sketch"
                                                                                   }
                                                                               },
                                                           "_note":  "Model thickness is 0.073 (nominal 14ga is 0.0747)"
@@ -163,6 +171,14 @@
                                                                                     "rawWeight": {
                                                                                         "status": "BUG",
                                                                                         "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                                    },
+                                                                                    "routing.N120.run": {
+                                                                                        "status": "BUG",
+                                                                                        "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                                    },
+                                                                                    "routing.N140.setup": {
+                                                                                        "status": "BUG",
+                                                                                        "reason": "BendAnalyzer uses bend radius proxy for longest bend; VBA uses actual bend edge length from sketch"
                                                                                     }
                                                                                 },
                                                             "_note":  "Model thickness is 0.075"
@@ -201,6 +217,10 @@
                                                                                    "rawWeight": {
                                                                                        "status": "BUG",
                                                                                        "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                                   },
+                                                                                   "routing.N120.run": {
+                                                                                       "status": "BUG",
+                                                                                       "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
                                                                                    }
                                                                                },
                                                            "_note":  "Model thickness is 0.076 (not nominal 16ga)"
@@ -380,6 +400,10 @@
                                                                           "rawWeight":  {
                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                             "status":  "INTENTIONAL"
+                                                                                        },
+                                                                          "description":  {
+                                                                                            "reason":  "C4 classified as Generic (not Tube), so no ANGLE suffix; requires tube geometry extraction",
+                                                                                            "status":  "BUG"
                                                                                         },
                                                                           "routing":  {
                                                                                           "reason":  "Tube routing uses F110 work center not compared by standard mappings",
@@ -652,6 +676,10 @@
                                                                                              "reason":  "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only",
                                                                                              "status":  "BUG"
                                                                                          },
+                                                                           "routing.N120.run": {
+                                                                                             "reason":  "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time",
+                                                                                             "status":  "BUG"
+                                                                                         },
                                                                            "optiMaterial":  {
                                                                                                 "reason":  "Thick plate (1in) classified as Generic; static service only handles SheetMetal/Tube",
                                                                                                 "status":  "NOT_IMPLEMENTED"
@@ -692,6 +720,14 @@
                                                                      "rawWeight": {
                                                                          "status": "BUG",
                                                                          "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                     },
+                                                                     "routing.N120.run": {
+                                                                         "status": "BUG",
+                                                                         "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                     },
+                                                                     "optiMaterial": {
+                                                                         "status": "BUG",
+                                                                         "reason": "Static gauge table maps 0.005in foil to 30GA (nearest match); VBA Excel lookup returns 22GA"
                                                                      }
                                                                  }
                                          },
@@ -722,6 +758,10 @@
                                                 "knownDeviations":  {
                                                                         "rawWeight":  {
                                                                                           "reason":  "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only",
+                                                                                          "status":  "BUG"
+                                                                                      },
+                                                                        "routing.N120.run": {
+                                                                                          "reason":  "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time",
                                                                                           "status":  "BUG"
                                                                                       },
                                                                         "optiMaterial":  {
@@ -810,6 +850,10 @@
                                                                      "rawWeight": {
                                                                          "status": "BUG",
                                                                          "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                     },
+                                                                     "routing.N120.run": {
+                                                                         "status": "BUG",
+                                                                         "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
                                                                      }
                                                                  },
                                              "_note":  "100m part - test units handling",
