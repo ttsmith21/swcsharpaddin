@@ -181,6 +181,9 @@
     <Compile Include="src\NM.SwAddin\SheetMetal\BendAllowanceValidator.cs" />
     <Compile Include="src\NM.Core\DataModel\TimingBaseline.cs" />
     <Compile Include="src\NM.SwAddin\Utils\BatchPerformanceScope.cs" />
+    <Compile Include="src\NM.SwAddin\UI\ProblemWizardForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />

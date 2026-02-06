@@ -12,6 +12,10 @@ namespace NM.SwAddin.Validation
     /// </summary>
     public sealed class PartValidationAdapter
     {
+        /// <summary>
+        /// Validates a model and returns the result. Does NOT modify model state -
+        /// the caller (BatchValidator) is responsible for state transitions.
+        /// </summary>
         public ValidationResult Validate(SwModelInfo modelInfo, object modelDoc)
         {
             if (modelInfo == null) throw new ArgumentNullException(nameof(modelInfo));
@@ -26,17 +30,15 @@ namespace NM.SwAddin.Validation
             { ValidationStats.Record(false); return ValidationResult.Fail($"Expected part, got {(swDocumentTypes_e)t}"); }
 
             var res = PartPreflight.Analyze(model);
-            if (res == null) { modelInfo.MarkValidated(false, "Analysis failed"); ValidationStats.Record(false); return ValidationResult.Fail("Analysis failed"); }
+            if (res == null) { ValidationStats.Record(false); return ValidationResult.Fail("Analysis failed"); }
 
             if (res.IsProblem)
             {
                 var reason = string.IsNullOrWhiteSpace(res.Reason) ? "Preflight failed" : res.Reason;
-                modelInfo.MarkValidated(false, reason);
                 ValidationStats.Record(false);
                 return ValidationResult.Fail(reason);
             }
 
-            modelInfo.MarkValidated(true);
             ValidationStats.Record(true);
             return ValidationResult.Ok();
         }

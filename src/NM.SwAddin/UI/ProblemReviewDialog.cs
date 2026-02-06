@@ -165,15 +165,25 @@ namespace NM.SwAddin.UI
                 }
                 int errs = 0, warns = 0;
                 int docType = GuessDocType(_item.FilePath);
-                var model = sw.OpenDoc6(_item.FilePath, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, _item.Configuration, ref errs, ref warns);
+
+                // Open without Silent flag so it displays properly
+                var model = sw.OpenDoc6(_item.FilePath, docType, 0, _item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
                 if (model == null || errs != 0)
                 {
                     MessageBox.Show(this, "Open failed (" + errs + ")", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
                 }
-                else
-                {
-                    MessageBox.Show(this, "Opened in SolidWorks.", "OK", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
+
+                // Activate the document to bring it to front
+                int activateErr = 0;
+                sw.ActivateDoc3(model.GetTitle(), true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref activateErr);
+
+                // Store reference for tube diagnostics
+                _openedModel = model;
+
+                // Update button text to show it's open
+                _btnOpen.Text = "Part Opened ✓";
+                _btnOpen.Enabled = false;
             }
             catch (Exception ex)
             {
