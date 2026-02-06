@@ -73,23 +73,37 @@ namespace NM.SwAddin.Validation
                     var model = models[i];
                     if (model == null) continue;
 
-                    progressCallback?.Invoke(i + 1, models.Count, model.FileName ?? "Unknown");
+                    ErrorHandler.DebugLog($"[BATCHVAL] Loop iteration {i + 1}/{models.Count}: {model.FileName}");
 
-                    // Skip already-validated or already-problem models
-                    if (model.State == SwModelInfo.ProcessingState.Problem)
+                    try
                     {
+                        progressCallback?.Invoke(i + 1, models.Count, model.FileName ?? "Unknown");
+
+                        // Skip already-validated or already-problem models
+                        if (model.State == SwModelInfo.ProcessingState.Problem)
+                        {
+                            ErrorHandler.DebugLog($"[BATCHVAL]   Skipping - already marked as Problem");
+                            result.ProblemModels.Add(model);
+                            result.TotalValidated++;
+                            continue;
+                        }
+
+                        ValidateSingleModel(model, result);
+                        result.TotalValidated++;
+                        ErrorHandler.DebugLog($"[BATCHVAL]   After validation: Good={result.GoodModels.Count}, Problem={result.ProblemModels.Count}");
+                    }
+                    catch (Exception modelEx)
+                    {
+                        ErrorHandler.HandleError(proc, $"Validation failed for {model.FileName}", modelEx, ErrorHandler.LogLevel.Error);
+                        MarkAsProblem(model, $"Validation exception: {modelEx.Message}", ProblemPartManager.ProblemCategory.Fatal);
                         result.ProblemModels.Add(model);
                         result.TotalValidated++;
-                        continue;
                     }
-
-                    ValidateSingleModel(model, result);
-                    result.TotalValidated++;
                 }
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(proc, "Batch validation failed", ex, ErrorHandler.LogLevel.Error);
+                ErrorHandler.HandleError(proc, "Batch validation failed (outer)", ex, ErrorHandler.LogLevel.Error);
             }
             finally
             {
@@ -106,24 +120,30 @@ namespace NM.SwAddin.Validation
             IModelDoc2 doc = null;
             bool needsClose = false;
 
+            ErrorHandler.DebugLog($"[BATCHVAL] ValidateSingleModel: {model.FileName} State={model.State}");
+
             try
             {
                 // Use already-open doc if available (stored in ModelDoc property)
                 doc = model.ModelDoc as IModelDoc2;
+                ErrorHandler.DebugLog($"[BATCHVAL]   ModelDoc from property: {(doc != null ? "yes" : "null")}");
 
                 if (doc == null && !string.IsNullOrWhiteSpace(model.FilePath))
                 {
                     // Open silently for validation (read-only is faster)
+                    ErrorHandler.DebugLog($"[BATCHVAL]   Opening file: {model.FilePath}");
                     doc = _fileOps.OpenSWDocument(
                         model.FilePath,
                         silent: true,
                         readOnly: true,
                         configurationName: model.Configuration ?? string.Empty);
                     needsClose = true;
+                    ErrorHandler.DebugLog($"[BATCHVAL]   Opened: {(doc != null ? "yes" : "FAILED")}");
                 }
 
                 if (doc == null)
                 {
+                    ErrorHandler.DebugLog($"[BATCHVAL]   PROBLEM: Failed to open file");
                     MarkAsProblem(model, "Failed to open file", ProblemPartManager.ProblemCategory.FileAccess);
                     result.ProblemModels.Add(model);
                     return;
@@ -131,31 +151,45 @@ namespace NM.SwAddin.Validation
 
                 // Run validation
                 var vr = _validator.Validate(model, doc);
+                ErrorHandler.DebugLog($"[BATCHVAL]   Validation result: Success={vr.Success}, Summary={vr.Summary}");
 
                 if (vr.Success)
                 {
+                    model.MarkValidated(true);
                     result.GoodModels.Add(model);
+                    ErrorHandler.DebugLog($"[BATCHVAL]   Added to GoodModels, count now: {result.GoodModels.Count}");
                 }
                 else
                 {
+                    ErrorHandler.DebugLog($"[BATCHVAL]   PROBLEM: {vr.Summary}");
+                    // MarkAsProblem calls model.MarkValidated internally
                     MarkAsProblem(model, vr.Summary, MapReasonToCategory(vr.Summary));
                     result.ProblemModels.Add(model);
+                    ErrorHandler.DebugLog($"[BATCHVAL]   Added to ProblemModels, count now: {result.ProblemModels.Count}");
                 }
             }
             catch (Exception ex)
             {
+                ErrorHandler.DebugLog($"[BATCHVAL]   EXCEPTION: {ex.Message}");
                 MarkAsProblem(model, ex.Message, ProblemPartManager.ProblemCategory.Fatal);
                 result.ProblemModels.Add(model);
             }
             finally
             {
+                ErrorHandler.DebugLog($"[BATCHVAL]   Finally block, needsClose={needsClose}, doc={(doc != null ? "not null" : "null")}");
                 if (needsClose && doc != null)
                 {
                     try
                     {
-                        _swApp.CloseDoc(doc.GetTitle());
+                        var title = doc.GetTitle();
+                        ErrorHandler.DebugLog($"[BATCHVAL]   Closing doc: {title}");
+                        _swApp.CloseDoc(title);
+                        ErrorHandler.DebugLog($"[BATCHVAL]   Doc closed successfully");
                     }
-                    catch { }
+                    catch (Exception closeEx)
+                    {
+                        ErrorHandler.DebugLog($"[BATCHVAL]   Close failed: {closeEx.Message}");
+                    }
                 }
             }
         }

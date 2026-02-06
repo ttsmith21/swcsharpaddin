@@ -70,6 +70,7 @@
     <Compile Include="AssemblyInfo.cs" />
     <Compile Include="CustomPropertyData.cs" />
     <Compile Include="ErrorHandler.cs" />
+    <Compile Include="IconResourceHelper.cs" />
     <Compile Include="EventHandling.cs" />
     <Compile Include="ModelInfo.cs" />
     <Compile Include="PerformanceTracker.cs" />
@@ -188,12 +189,29 @@
     <Compile Include="src\NM.Core\Processing\DescriptionGenerator.cs" />
     <Compile Include="src\NM.Core\Materials\MaterialCodeMapper.cs" />
     <Compile Include="src\NM.Core\Materials\StaticOptiMaterialService.cs" />
+    <Compile Include="src\NM.SwAddin\UI\ProblemWizardForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
+    <!-- Legacy BMP icons (kept as fallback) -->
     <EmbeddedResource Include="ToolbarLarge.bmp" />
     <EmbeddedResource Include="ToolbarSmall.bmp" />
     <EmbeddedResource Include="MainIconLarge.bmp" />
     <EmbeddedResource Include="MainIconSmall.bmp" />
+    <!-- Modern PNG icons for SolidWorks 2022+ IconList API -->
+    <EmbeddedResource Include="Icons\MainIcon_20.png" />
+    <EmbeddedResource Include="Icons\MainIcon_32.png" />
+    <EmbeddedResource Include="Icons\MainIcon_40.png" />
+    <EmbeddedResource Include="Icons\MainIcon_64.png" />
+    <EmbeddedResource Include="Icons\MainIcon_96.png" />
+    <EmbeddedResource Include="Icons\MainIcon_128.png" />
+    <EmbeddedResource Include="Icons\ToolbarStrip_20.png" />
+    <EmbeddedResource Include="Icons\ToolbarStrip_32.png" />
+    <EmbeddedResource Include="Icons\ToolbarStrip_40.png" />
+    <EmbeddedResource Include="Icons\ToolbarStrip_64.png" />
+    <EmbeddedResource Include="Icons\ToolbarStrip_96.png" />
+    <EmbeddedResource Include="Icons\ToolbarStrip_128.png" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".github\copilot-instructions.md" />

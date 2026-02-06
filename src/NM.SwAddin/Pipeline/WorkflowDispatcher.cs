@@ -60,6 +60,16 @@ namespace NM.SwAddin.Pipeline
                 }
 
                 CollectModels(context);
+                ErrorHandler.DebugLog($"[WORKFLOW] CollectModels complete: AllModels={context.AllModels.Count}, ProblemModels={context.ProblemModels.Count}");
+                foreach (var m in context.AllModels)
+                {
+                    ErrorHandler.DebugLog($"[WORKFLOW]   AllModel: {m.FileName} State={m.State}");
+                }
+                foreach (var m in context.ProblemModels)
+                {
+                    ErrorHandler.DebugLog($"[WORKFLOW]   ProblemModel: {m.FileName} Reason={m.ProblemDescription}");
+                }
+
                 if (context.AllModels.Count == 0)
                 {
                     ShowMessage("No models found to process.", "Workflow");
@@ -102,9 +112,16 @@ namespace NM.SwAddin.Pipeline
                     context.ProblemModels.AddRange(validationResult.ProblemModels);
                     context.ValidationElapsed = validationResult.Elapsed;
                     context.ValidationComplete = true;
+
+                    ErrorHandler.DebugLog($"[WORKFLOW] BatchValidator complete: Good={validationResult.GoodModels.Count}, Problem={validationResult.ProblemModels.Count}");
+                    foreach (var m in validationResult.ProblemModels)
+                    {
+                        ErrorHandler.DebugLog($"[WORKFLOW]   BatchProblem: {m.FileName} Reason={m.ProblemDescription}");
+                    }
                 }
 
                 // Step 3: Show problems if any
+                ErrorHandler.DebugLog($"[WORKFLOW] Before ShowProblemPartsDialog check: ProblemModels.Count={context.ProblemModels.Count}");
                 if (context.ProblemModels.Count > 0)
                 {
                     var action = ShowProblemPartsDialog(context);
@@ -138,6 +155,22 @@ namespace NM.SwAddin.Pipeline
                     ProcessGoodModelsPass2(context, options);
                     AggregateCosts(context);  // Aggregate costs after processing
                     GenerateErpExport(context);  // Generate Import.prn if enabled
+                }
+
+                // Rebuild and save assembly after all parts are processed
+                if (context.Source == WorkflowContext.SourceType.Assembly && context.SourceDocument != null)
+                {
+                    try
+                    {
+                        ErrorHandler.DebugLog("[WORKFLOW] Rebuilding and saving assembly...");
+                        context.SourceDocument.ForceRebuild3(true);
+                        SolidWorksApiWrapper.SaveDocument(context.SourceDocument);
+                        ErrorHandler.DebugLog("[WORKFLOW] Assembly rebuilt and saved.");
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorHandler.DebugLog($"[WORKFLOW] Assembly rebuild/save failed: {ex.Message}");
+                    }
                 }
 
                 context.ProcessingComplete = true;
@@ -185,15 +218,36 @@ namespace NM.SwAddin.Pipeline
                         break;
                     }
 
+                    bool openedHere = false;
+                    IModelDoc2 doc = null;
                     try
                     {
                         modelInfo.StartProcessing();
-                        var partData = MainRunner.RunSinglePartData(_swApp, modelInfo.ModelDoc as IModelDoc2, options);
+
+                        // Get or open the document
+                        doc = modelInfo.ModelDoc as IModelDoc2;
+                        if (doc == null && !string.IsNullOrWhiteSpace(modelInfo.FilePath))
+                        {
+                            int errs = 0, warns = 0;
+                            var ext = (System.IO.Path.GetExtension(modelInfo.FilePath) ?? "").ToLowerInvariant();
+                            int docType = ext == ".sldasm" ? (int)swDocumentTypes_e.swDocASSEMBLY
+                                        : ext == ".slddrw" ? (int)swDocumentTypes_e.swDocDRAWING
+                                        : (int)swDocumentTypes_e.swDocPART;
+                            doc = _swApp.OpenDoc6(modelInfo.FilePath, docType,
+                                (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+                                modelInfo.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
+                            openedHere = doc != null;
+                        }
+
+                        var partData = MainRunner.RunSinglePartData(_swApp, doc, options);
                         modelInfo.ProcessingResult = partData;  // Store for cost aggregation
 
                         var success = (partData?.Status == ProcessingStatus.Success);
                         if (success)
                         {
+                            // Save after successful processing
+                            if (doc != null)
+                                SolidWorksApiWrapper.SaveDocument(doc);
                             modelInfo.CompleteProcessing(true);
                             context.ProcessedModels.Add(modelInfo);
                         }
@@ -207,6 +261,14 @@ namespace NM.SwAddin.Pipeline
                     {
                         modelInfo.CompleteProcessing(false, ex.Message);
                         context.FailedModels.Add(modelInfo);
+                    }
+                    finally
+                    {
+                        // Close docs we opened (don't close docs that were already open)
+                        if (openedHere && doc != null)
+                        {
+                            try { _swApp.CloseDoc(doc.GetTitle()); } catch { }
+                        }
                     }
                 }
 
@@ -445,9 +507,15 @@ namespace NM.SwAddin.Pipeline
             // Add valid components to AllModels (now with quantities)
             context.AllModels.AddRange(result.ValidComponents);
 
-            // Problem components go directly to ProblemModels
+            // Problem components: only add user-fixable problems, silently skip the rest
             foreach (var problem in result.ProblemComponents)
             {
+                var reason = (problem.ProblemDescription ?? "").ToLowerInvariant();
+                if (reason.Contains("sub-assembly") || reason.Contains("toolbox") || reason.Contains("virtual"))
+                {
+                    ErrorHandler.DebugLog($"[WORKFLOW] Silently skipped: {problem.FileName} - {problem.ProblemDescription}");
+                    continue;
+                }
                 problem.MarkValidated(false, problem.ProblemDescription);
                 context.ProblemModels.Add(problem);
             }
@@ -515,16 +583,41 @@ namespace NM.SwAddin.Pipeline
                     category);
             }
 
-            using (var form = new ProblemPartsForm(ProblemPartManager.Instance, _swApp))
+            // Use wizard for step-by-step problem resolution
+            var wizard = new ProblemWizardForm(
+                ProblemPartManager.Instance.GetProblemParts(),
+                _swApp,
+                context.GoodModels.Count);
+
+            // Show as non-modal so user can interact with SolidWorks
+            wizard.Show();
+
+            // Wait for wizard to close while allowing SolidWorks interaction
+            while (wizard.Visible)
             {
-                form.ShowGoodCount(context.GoodModels.Count);
-                var result = form.ShowDialog();
-
-                if (result == DialogResult.Cancel)
-                    return ProblemAction.Cancel;
-
-                return form.SelectedAction;
+                Application.DoEvents();
+                System.Threading.Thread.Sleep(50);
             }
+
+            // Update good count based on fixed problems
+            foreach (var fixedItem in wizard.FixedProblems)
+            {
+                // Find and move from ProblemModels to GoodModels
+                var match = context.ProblemModels.FirstOrDefault(m =>
+                    string.Equals(m.FilePath, fixedItem.FilePath, StringComparison.OrdinalIgnoreCase));
+                if (match != null)
+                {
+                    context.ProblemModels.Remove(match);
+                    match.ResetState();
+                    match.MarkValidated(true);
+                    context.GoodModels.Add(match);
+                }
+            }
+
+            var action = wizard.SelectedAction;
+            wizard.Dispose();
+
+            return action;
         }
 
         private static ProblemPartManager.ProblemCategory GuessProblemCategory(string reason)

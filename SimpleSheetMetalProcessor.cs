@@ -290,7 +290,9 @@ namespace NM.SwAddin
 
                 if (!finalOk || !SolidWorksApiWrapper.HasSheetMetalFeature(model))
                 {
-                    ErrorHandler.DebugLog("[SMDBG] FAIL: Final InsertBends2 failed");
+                    ErrorHandler.DebugLog("[SMDBG] FAIL: Final InsertBends2 failed - undoing broken features");
+                    try { model.EditUndo2(2); } catch { }
+                    try { model.EditRebuild3(); } catch { }
                     Fail(info, "Final InsertBends2 failed");
                     return false;
                 }

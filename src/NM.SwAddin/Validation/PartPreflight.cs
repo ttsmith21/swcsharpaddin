@@ -28,9 +28,18 @@ namespace NM.SwAddin.Validation
                     return new PreflightResult { IsProblem = true, Reason = "Could not cast to IPartDoc" };
 
                 // Check for solid bodies
-                var bodies = part.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
-                if (bodies == null || bodies.Length == 0)
-                    return new PreflightResult { IsProblem = true, Reason = "No solid bodies found" };
+                var solidBodies = part.GetBodies2((int)swBodyType_e.swSolidBody, true) as object[];
+                if (solidBodies == null || solidBodies.Length == 0)
+                {
+                    // Check if there are surface bodies (sheet bodies) - provide clearer message
+                    var surfaceBodies = part.GetBodies2((int)swBodyType_e.swSheetBody, true) as object[];
+                    if (surfaceBodies != null && surfaceBodies.Length > 0)
+                    {
+                        return new PreflightResult { IsProblem = true, Reason = $"Surface body only ({surfaceBodies.Length} surface bodies, no solid)" };
+                    }
+                    return new PreflightResult { IsProblem = true, Reason = "Empty part (no solid or surface bodies)" };
+                }
+                var bodies = solidBodies;
 
                 // Multi-body check - FAIL validation for multi-body parts
                 if (bodies.Length > 1)

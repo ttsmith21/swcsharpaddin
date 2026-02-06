@@ -48,10 +48,13 @@ namespace NM.SwAddin.UI
             _swApp = swApp;
             _items = new BindingList<ProblemPartManager.ProblemItem>(_manager.GetProblemParts());
 
-            Text = "Problem Parts";
+            Text = "Problem Parts - Fix parts in SolidWorks, then click Retry";
             Width = 950;
             Height = 580;
-            StartPosition = FormStartPosition.CenterParent;
+            StartPosition = FormStartPosition.CenterScreen;
+            ShowInTaskbar = true;
+            MinimizeBox = true;
+            MaximizeBox = false;
 
             BuildUi();
             BindGrid();
@@ -89,8 +92,10 @@ namespace NM.SwAddin.UI
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Category", HeaderText = "Category", DataPropertyName = "Category", Width = 120 });
             _grid.Columns.Add(new DataGridViewTextBoxColumn { Name = "Attempts", HeaderText = "Attempts", DataPropertyName = "RetryCount", Width = 70 });
             _grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "CanRetry", HeaderText = "Retryable", DataPropertyName = "CanRetry", Width = 70 });
-            var btn = new DataGridViewButtonColumn { Name = "Action", HeaderText = "Action", Text = "Review", UseColumnTextForButtonValue = true, Width = 80 };
-            _grid.Columns.Add(btn);
+            var btnOpen = new DataGridViewButtonColumn { Name = "Open", HeaderText = "Open", Text = "Open", UseColumnTextForButtonValue = true, Width = 60 };
+            _grid.Columns.Add(btnOpen);
+            var btnRetry = new DataGridViewButtonColumn { Name = "Retry", HeaderText = "Retry", Text = "Retry", UseColumnTextForButtonValue = true, Width = 60 };
+            _grid.Columns.Add(btnRetry);
             _grid.CellContentClick += OnGridCellContentClick;
 
             _btnRetry = new Button { Text = "Retry Selected", Left = 10, Top = 370, Width = 130 };
@@ -136,24 +141,117 @@ namespace NM.SwAddin.UI
         private void OnGridCellContentClick(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0) return;
-            if (_grid.Columns[e.ColumnIndex].Name == "Action")
+            var item = _items[e.RowIndex];
+
+            if (_grid.Columns[e.ColumnIndex].Name == "Open")
             {
-                var item = _items[e.RowIndex];
-                using (var dlg = new ProblemReviewDialog(item, _swApp))
-                {
-                    if (dlg.ShowDialog(this) == DialogResult.OK)
-                    {
-                        item.UserReviewed = true;
-                        if (dlg.Resolved)
-                        {
-                            _manager.RemoveResolvedPart(item);
-                            _items.Remove(item);
-                        }
-                        _grid.Refresh();
-                        UpdateSummary();
-                    }
-                }
+                OpenPartInSolidWorks(item);
             }
+            else if (_grid.Columns[e.ColumnIndex].Name == "Retry")
+            {
+                RetryPart(item, e.RowIndex);
+            }
+        }
+
+        private void OpenPartInSolidWorks(ProblemPartManager.ProblemItem item)
+        {
+            if (_swApp == null)
+            {
+                _lblStatus.Text = "SolidWorks not available";
+                return;
+            }
+
+            try
+            {
+                int errs = 0, warns = 0;
+                int docType = GuessDocType(item.FilePath);
+
+                // Open visibly
+                var model = _swApp.OpenDoc6(item.FilePath, docType, 0, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
+                if (model == null || errs != 0)
+                {
+                    _lblStatus.Text = $"Failed to open: error {errs}";
+                    return;
+                }
+
+                // Activate to bring to front
+                int activateErr = 0;
+                _swApp.ActivateDoc3(model.GetTitle(), true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref activateErr);
+
+                _lblStatus.Text = $"Opened: {item.DisplayName} - Fix it, then click Retry";
+            }
+            catch (Exception ex)
+            {
+                _lblStatus.Text = $"Open failed: {ex.Message}";
+            }
+        }
+
+        private void RetryPart(ProblemPartManager.ProblemItem item, int rowIndex)
+        {
+            if (_swApp == null)
+            {
+                _lblStatus.Text = "SolidWorks not available";
+                return;
+            }
+
+            _lblStatus.Text = $"Retrying: {item.DisplayName}...";
+            Application.DoEvents();
+
+            try
+            {
+                int errs = 0, warns = 0;
+                int docType = GuessDocType(item.FilePath);
+
+                // Try to get already-open doc first
+                var model = _swApp.ActiveDoc as IModelDoc2;
+                if (model == null || !string.Equals(model.GetPathName(), item.FilePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    model = _swApp.OpenDoc6(item.FilePath, docType, 0, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
+                }
+
+                if (model == null || errs != 0)
+                {
+                    _lblStatus.Text = $"Failed to open for retry: error {errs}";
+                    return;
+                }
+
+                // Revalidate
+                var validator = new PartValidationAdapter();
+                var swInfo = new NM.Core.Models.SwModelInfo(item.FilePath) { Configuration = item.Configuration ?? string.Empty };
+                var vr = validator.Validate(swInfo, model);
+
+                if (!vr.Success)
+                {
+                    // Update the problem description with new error
+                    item.ProblemDescription = vr.Summary;
+                    item.RetryCount++;
+                    _grid.InvalidateRow(rowIndex);
+                    _lblStatus.Text = $"Still failing: {vr.Summary}";
+                    return;
+                }
+
+                // Validation passed - remove from problem list
+                _manager.RemoveResolvedPart(item);
+                _items.Remove(item);
+                _goodCount++;
+                _lblGoodCount.Text = $"{_goodCount} valid parts ready to process";
+                _btnContinue.Enabled = _goodCount > 0;
+                _lblStatus.Text = $"Fixed: {item.DisplayName}";
+                UpdateSummary();
+            }
+            catch (Exception ex)
+            {
+                _lblStatus.Text = $"Retry failed: {ex.Message}";
+            }
+        }
+
+        private static int GuessDocType(string path)
+        {
+            var ext = (Path.GetExtension(path) ?? "").ToLowerInvariant();
+            if (ext == ".sldprt") return (int)swDocumentTypes_e.swDocPART;
+            if (ext == ".sldasm") return (int)swDocumentTypes_e.swDocASSEMBLY;
+            if (ext == ".slddrw") return (int)swDocumentTypes_e.swDocDRAWING;
+            return (int)swDocumentTypes_e.swDocPART;
         }
 
         private void OnRetrySelected(object sender, EventArgs e)
