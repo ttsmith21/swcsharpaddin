@@ -1,0 +1,353 @@
+DECL(IM) ADD IM-KEY IM-DRAWING IM-DESCR IM-REV IM-TYPE IM-CLASS IM-CATALOG IM-COMMODITY IM-SAVE-DEMAND-SW IM-PLANNER IM-BUYER IM-STOCK-SW IM-PLAN-SW IM-STD-LOT IM-GL-ACCT IM-STD-MAT IM-ISSUE-SW
+END
+"GOLD_STANDARD_ASM_CLEAN" "" "" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"A1_EmptyFile" "" "" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 2 "" 0 0
+"A4_SuppressedBody" "" "" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 2 "" 0 0
+"A3_MultiBody" "" "" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"A5_NoMaterial" "" "304L BENT" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"B2_ImportedBracket_14ga_CS" "" "304L BENT" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"B3_RolledCylinder_16ga_SS" "" "304L ROLL" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"B1_NativeBracket_14ga_CS" "" "304L BENT" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"C1_RoundTube_2OD_SCH40" "" "304L PIPE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"C2_RectTube_2x1" "" "304L TUBE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"C3_SquareTube_2x2" "" "304L TUBE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"C4_AngleIron_2x2" "" "304L ANGLE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"C5_CChannel" "" "" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"C6_IBeam" "" "304L TUBE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"C7_RoundBar_1dia" "" "304L ROUND" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"D1_MachinedBlock" "" "304L ANGLE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"D10_Pipe_Reducer" "" "3\"X1-1/2\" 304SS STRAIGHT REDUCER BUTT WELD" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"D11_Pipe_Valve" "" "316SS 1\" BALL VALVE, 1000PSI" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"CUST-1628327" "" "316SS 1\" BALL VALVE, 1000PSI" "" 2 1 "NORTHERN" "CUS" 0 12 "BATCH" 0 0 1 "6110.1" 0 2
+"D12_Stud_Threaded" "400-30-0026" "STUD, WELD, NO FLANGE" "U" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"D2_ElbowFitting" "" "4\" SCH 10 WELD ELBOW 90 DEG" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"D3_Motor" "" "MOTOR, ELECTRIC" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"CUST-294303026" "" "MOTOR, ELECTRIC" "" 2 1 "NORTHERN" "CUS" 0 12 "BATCH" 0 0 1 "6110.1" 0 2
+"D6_Ubolt" "" "1-1/4 SS 1/4-20 UBOLT" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"D7_Nut_No_Threads" "" "1/4 NYLOCK NUT" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"D8_Swagelock_T_Fitting" "" "BRASS UNION TEE 1/4\"OD COMPRESSION" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"D9_Fastener_No_Threads" "" "5/8\"-11X3.75\"L HHCS 304L" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"E1_ThickPlate_1in" "" "304L PLATE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"E2_Foil_005" "" "304L PLATE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"E3_TaperedWall" "" "304L PLATE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"E4_EccentricTube" "" "304L TUBE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+"E6_HugePart" "" "304L PLATE" "" 1 9 "NORTHERN" "F" 0 12 "2025" 0 0 1 "" 0 0
+
+DECL(ML) ML-IMKEY ML-LOCATION
+END
+"GOLD_STANDARD_ASM_CLEAN" "PRIMARY" 
+"A1_EmptyFile" "PRIMARY" 
+"A4_SuppressedBody" "PRIMARY" 
+"A3_MultiBody" "PRIMARY" 
+"A5_NoMaterial" "PRIMARY" 
+"B2_ImportedBracket_14ga_CS" "PRIMARY" 
+"B3_RolledCylinder_16ga_SS" "PRIMARY" 
+"B1_NativeBracket_14ga_CS" "PRIMARY" 
+"C1_RoundTube_2OD_SCH40" "PRIMARY" 
+"C2_RectTube_2x1" "PRIMARY" 
+"C3_SquareTube_2x2" "PRIMARY" 
+"C4_AngleIron_2x2" "PRIMARY" 
+"C5_CChannel" "PRIMARY" 
+"C6_IBeam" "PRIMARY" 
+"C7_RoundBar_1dia" "PRIMARY" 
+"D1_MachinedBlock" "PRIMARY" 
+"D10_Pipe_Reducer" "PRIMARY" 
+"D11_Pipe_Valve" "PRIMARY" 
+"CUST-1628327" "PRIMARY" 
+"D12_Stud_Threaded" "PRIMARY" 
+"D2_ElbowFitting" "PRIMARY" 
+"D3_Motor" "PRIMARY" 
+"CUST-294303026" "PRIMARY" 
+"D6_Ubolt" "PRIMARY" 
+"D7_Nut_No_Threads" "PRIMARY" 
+"D8_Swagelock_T_Fitting" "PRIMARY" 
+"D9_Fastener_No_Threads" "PRIMARY" 
+"E1_ThickPlate_1in" "PRIMARY" 
+"E2_Foil_005" "PRIMARY" 
+"E3_TaperedWall" "PRIMARY" 
+"E4_EccentricTube" "PRIMARY" 
+"E6_HugePart" "PRIMARY" 
+
+DECL(PS) ADD PS-PARENT-KEY PS-SUBORD-KEY PS-REV PS-PIECE-NO PS-QTY-P
+END
+"GOLD_STANDARD_ASM_CLEAN" "A1_EmptyFile" "COMMON SET" "01" 2
+"GOLD_STANDARD_ASM_CLEAN" "A4_SuppressedBody" "COMMON SET" "02" 2
+"GOLD_STANDARD_ASM_CLEAN" "A3_MultiBody" "COMMON SET" "03" 1
+"GOLD_STANDARD_ASM_CLEAN" "A5_NoMaterial" "COMMON SET" "04" 1
+"GOLD_STANDARD_ASM_CLEAN" "B2_ImportedBracket_14ga_CS" "COMMON SET" "05" 1
+"GOLD_STANDARD_ASM_CLEAN" "B3_RolledCylinder_16ga_SS" "COMMON SET" "06" 1
+"GOLD_STANDARD_ASM_CLEAN" "B1_NativeBracket_14ga_CS" "COMMON SET" "07" 1
+"GOLD_STANDARD_ASM_CLEAN" "C1_RoundTube_2OD_SCH40" "COMMON SET" "08" 1
+"GOLD_STANDARD_ASM_CLEAN" "C2_RectTube_2x1" "COMMON SET" "09" 1
+"GOLD_STANDARD_ASM_CLEAN" "C3_SquareTube_2x2" "COMMON SET" "10" 1
+"GOLD_STANDARD_ASM_CLEAN" "C4_AngleIron_2x2" "COMMON SET" "11" 1
+"GOLD_STANDARD_ASM_CLEAN" "C5_CChannel" "COMMON SET" "12" 1
+"GOLD_STANDARD_ASM_CLEAN" "C6_IBeam" "COMMON SET" "13" 1
+"GOLD_STANDARD_ASM_CLEAN" "C7_RoundBar_1dia" "COMMON SET" "14" 1
+"GOLD_STANDARD_ASM_CLEAN" "D1_MachinedBlock" "COMMON SET" "15" 1
+"GOLD_STANDARD_ASM_CLEAN" "D10_Pipe_Reducer" "COMMON SET" "16" 1
+"GOLD_STANDARD_ASM_CLEAN" "D11_Pipe_Valve" "COMMON SET" "17" 1
+"GOLD_STANDARD_ASM_CLEAN" "D12_Stud_Threaded" "COMMON SET" "18" 1
+"GOLD_STANDARD_ASM_CLEAN" "D2_ElbowFitting" "COMMON SET" "19" 1
+"GOLD_STANDARD_ASM_CLEAN" "D3_Motor" "COMMON SET" "20" 1
+"GOLD_STANDARD_ASM_CLEAN" "D6_Ubolt" "COMMON SET" "21" 1
+"GOLD_STANDARD_ASM_CLEAN" "D7_Nut_No_Threads" "COMMON SET" "22" 1
+"GOLD_STANDARD_ASM_CLEAN" "D8_Swagelock_T_Fitting" "COMMON SET" "23" 1
+"GOLD_STANDARD_ASM_CLEAN" "D9_Fastener_No_Threads" "COMMON SET" "24" 1
+"GOLD_STANDARD_ASM_CLEAN" "E1_ThickPlate_1in" "COMMON SET" "25" 1
+"GOLD_STANDARD_ASM_CLEAN" "E2_Foil_005" "COMMON SET" "26" 1
+"GOLD_STANDARD_ASM_CLEAN" "E3_TaperedWall" "COMMON SET" "27" 1
+"GOLD_STANDARD_ASM_CLEAN" "E4_EccentricTube" "COMMON SET" "28" 1
+"GOLD_STANDARD_ASM_CLEAN" "E6_HugePart" "COMMON SET" "29" 1
+
+DECL(RT) ADD RT-ITEM-KEY RT-WORKCENTER-KEY  RT-OP-NUM RT-SETUP RT-RUN-STD RT-REV RT-MULT-SEQ
+END
+"GOLD_STANDARD_ASM_CLEAN" "NKIT" 10 0 0 "COMMON SET" 0
+ 
+
+DECL(RN) ADD RN-ITEM-KEY RN-OP-NUM RN-LINE-NO RN-REV RN-DESCR
+END
+"GOLD_STANDARD_ASM_CLEAN" 10 1 "COMMON SET" "AUTHOR: tschoen" 
+"GOLD_STANDARD_ASM_CLEAN" 10 2 "COMMON SET" "DATE: 2/6/2026" 
+"GOLD_STANDARD_ASM_CLEAN" 10 3 "COMMON SET" "------------------------------" 
+"GOLD_STANDARD_ASM_CLEAN" 10 4 "COMMON SET" "ATTACH PRINT:" 
+"GOLD_STANDARD_ASM_CLEAN" 10 5 "COMMON SET" "Q:\\NORTHERN\\" 
+"GOLD_STANDARD_ASM_CLEAN" 10 6 "COMMON SET" ".pdf" 
+"GOLD_STANDARD_ASM_CLEAN" 10 7 "COMMON SET" "------------------------------" 
+"GOLD_STANDARD_ASM_CLEAN" 10 8 "COMMON SET" "" 
+"GOLD_STANDARD_ASM_CLEAN" 10 9 "COMMON SET" "MATERIALS USED" 
+"GOLD_STANDARD_ASM_CLEAN" 10 10 "COMMON SET" "- - -" 
+"GOLD_STANDARD_ASM_CLEAN" 10 11 "COMMON SET" "[304L]" 
+ 
+
+DECL(PS) ADD PS-PARENT-KEY PS-SUBORD-KEY PS-REV PS-PIECE-NO PS-QTY-P PS-DIM-1 PS-ISSUE-SW PS-BFLOCATION-SW PS-BFQTY-SW PS-BFZEROQTY-SW PS-OP-NUM
+END
+"A1_EmptyFile" "" "COMMON SET" "01" .0001 0 2 1 1 1 20
+"A4_SuppressedBody" "" "COMMON SET" "01" .0001 0 2 1 1 1 20
+"A3_MultiBody" "" "COMMON SET" "01" .0001 0 2 1 1 1 20
+"A5_NoMaterial" "S.304L.187IN" "COMMON SET" "01" 57.1922 0 2 1 1 1 20
+"B2_ImportedBracket_14ga_CS" "S.304L14GA" "COMMON SET" "01" 15.8578 0 2 1 1 1 20
+"B3_RolledCylinder_16ga_SS" "S.304L14GA" "COMMON SET" "01" 105.3358 0 2 1 1 1 20
+"B1_NativeBracket_14ga_CS" "S.304L14GA" "COMMON SET" "01" 12.4348 0 2 1 1 1 20
+"C1_RoundTube_2OD_SCH40" "P.304L12\"SCH40S" "COMMON SET" "01" 1. 6 2 1 1 1 20
+"C2_RectTube_2x1" "T.304L2\"X1\"X.060\"" "COMMON SET" "01" 1. 6 2 1 1 1 20
+"C3_SquareTube_2x2" "T.304L2\"SQX.250\"" "COMMON SET" "01" 1. 6 2 1 1 1 20
+"C4_AngleIron_2x2" "A.304L2\"X2\"X.125\"" "COMMON SET" "01" 1. 6 2 1 1 1 20
+"C5_CChannel" "" "COMMON SET" "01" .0001 0 2 1 1 1 20
+"C6_IBeam" "T.304L5.9\"X3.94\"X.170\"" "COMMON SET" "01" 1. 6 2 1 1 1 20
+"C7_RoundBar_1dia" "R.304L1\"" "COMMON SET" "01" 1. 12 2 1 1 1 20
+"D1_MachinedBlock" "C.304L6\"X2\"X.5\"" "COMMON SET" "01" 1. 9.265000 2 1 1 1 20
+"D10_Pipe_Reducer" "REDUCER-3\"X1.5\"SCH10SS" "COMMON SET" "01" 1 0 2 1 1 1 10
+"D11_Pipe_Valve" "CUST-1628327" "COMMON SET" "01" 1 0 2 1 1 1 10
+"D12_Stud_Threaded" "WELDSTUDM8X1.25X12SS" "COMMON SET" "01" 1 0 2 1 1 1 10
+"D2_ElbowFitting" "WELDELBOW904\"SCH10T304LR" "COMMON SET" "01" 1 0 2 1 1 1 10
+"D3_Motor" "CUST-294303026" "COMMON SET" "01" 1 0 2 1 1 1 10
+"D6_Ubolt" "UBOLT-1-1/4\"SS1/4-20" "COMMON SET" "01" 1 0 2 1 1 1 10
+"D7_Nut_No_Threads" "NUTS1/4-20NYLOKHEXSS" "COMMON SET" "01" 1 0 2 1 1 1 10
+"D8_Swagelock_T_Fitting" "PARKER-1PZU6" "COMMON SET" "01" 1 0 2 1 1 1 10
+"D9_Fastener_No_Threads" "BOLTS5/8-11X3-3/4SSHHCS" "COMMON SET" "01" 1 0 2 1 1 1 10
+"E1_ThickPlate_1in" "S.304L1IN" "COMMON SET" "01" 232.0758 0 2 1 1 1 20
+"E2_Foil_005" "S.304L22GA" "COMMON SET" "01" .0877 0 2 1 1 1 20
+"E3_TaperedWall" "S.304L.5IN" "COMMON SET" "01" 132.1343 0 2 1 1 1 20
+"E4_EccentricTube" "T.304L6\"ODX.293\"" "COMMON SET" "01" 1. 12 2 1 1 1 20
+"E6_HugePart" "S.304L.25IN" "COMMON SET" "01" 473401.4848 0 2 1 1 1 20
+
+DECL(RT) ADD RT-ITEM-KEY RT-WORKCENTER-KEY  RT-OP-NUM RT-SETUP RT-RUN-STD RT-REV RT-MULT-SEQ
+END
+"A5_NoMaterial" "O120" 10 0 0 "COMMON SET" 0
+"A5_NoMaterial" "N120" 20 .01 .0212 "COMMON SET" 0
+"A5_NoMaterial" "N140" 40 .36 .0556 "COMMON SET" 0
+"B2_ImportedBracket_14ga_CS" "O120" 10 0 0 "COMMON SET" 0
+"B2_ImportedBracket_14ga_CS" "N120" 20 .01 .0099 "COMMON SET" 0
+"B2_ImportedBracket_14ga_CS" "N140" 40 .18 .0125 "COMMON SET" 0
+"B3_RolledCylinder_16ga_SS" "O120" 10 0 0 "COMMON SET" 0
+"B3_RolledCylinder_16ga_SS" "N120" 20 .01 .0594 "COMMON SET" 0
+"B3_RolledCylinder_16ga_SS" "N325" 50 .375 0.2 "COMMON SET" 0
+"B1_NativeBracket_14ga_CS" "O120" 10 0 0 "COMMON SET" 0
+"B1_NativeBracket_14ga_CS" "N120" 20 .01 .008 "COMMON SET" 0
+"B1_NativeBracket_14ga_CS" "N140" 40 .18 .0125 "COMMON SET" 0
+"C1_RoundTube_2OD_SCH40" "N145" 20 .25 0.0952 "COMMON SET" 0
+"C2_RectTube_2x1" "F110" 20 .15 0.004 "COMMON SET" 0
+"C3_SquareTube_2x2" "F110" 20 .15 0.0118 "COMMON SET" 0
+"C4_AngleIron_2x2" "F110" 20 .25 0.0138 "COMMON SET" 0
+"C6_IBeam" "F110" 20 .15 0.0234 "COMMON SET" 0
+"C7_RoundBar_1dia" "F300" 20 0.2603 0.0103 "COMMON SET" 0
+"D1_MachinedBlock" "F110" 20 .25 0.5352 "COMMON SET" 0
+"D10_Pipe_Reducer" "NPUR" 20 0 0 "COMMON SET" 0
+"D11_Pipe_Valve" "CUST" 20 0 0 "COMMON SET" 0
+"D12_Stud_Threaded" "NPUR" 20 0 0 "COMMON SET" 0
+"D2_ElbowFitting" "NPUR" 20 0 0 "COMMON SET" 0
+"D3_Motor" "CUST" 20 0 0 "COMMON SET" 0
+"D6_Ubolt" "NPUR" 20 0 0 "COMMON SET" 0
+"D7_Nut_No_Threads" "NPUR" 20 0 0 "COMMON SET" 0
+"D8_Swagelock_T_Fitting" "NPUR" 20 0 0 "COMMON SET" 0
+"D9_Fastener_No_Threads" "NPUR" 20 0 0 "COMMON SET" 0
+"E1_ThickPlate_1in" "O120" 10 0 0 "COMMON SET" 0
+"E1_ThickPlate_1in" "N120" 20 .01 .0964 "COMMON SET" 0
+"E2_Foil_005" "O120" 10 0 0 "COMMON SET" 0
+"E2_Foil_005" "N120" 20 .01 .0005 "COMMON SET" 0
+"E3_TaperedWall" "O120" 10 0 0 "COMMON SET" 0
+"E3_TaperedWall" "N120" 20 .01 .0266 "COMMON SET" 0
+"E4_EccentricTube" "F110" 20 .15 0.034 "COMMON SET" 0
+"E6_HugePart" "O120" 10 0 0 "COMMON SET" 0
+"E6_HugePart" "N120" 20 .01 76.3957 "COMMON SET" 0
+
+DECL(RN) ADD RN-ITEM-KEY RN-OP-NUM RN-LINE-NO RN-REV RN-DESCR
+END
+"A1_EmptyFile" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"A1_EmptyFile" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"A1_EmptyFile" 20 3 "COMMON SET" "------------------------------" 
+"A1_EmptyFile" 20 4 "COMMON SET" "ATTACH CAD:" 
+"A1_EmptyFile" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"A1_EmptyFile" 20 6 "COMMON SET" "A1_EmptyFile.edrw" 
+"A4_SuppressedBody" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"A4_SuppressedBody" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"A4_SuppressedBody" 20 3 "COMMON SET" "------------------------------" 
+"A4_SuppressedBody" 20 4 "COMMON SET" "ATTACH CAD:" 
+"A4_SuppressedBody" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"A4_SuppressedBody" 20 6 "COMMON SET" "A4_SuppressedBody.edrw" 
+"A3_MultiBody" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"A3_MultiBody" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"A3_MultiBody" 20 3 "COMMON SET" "------------------------------" 
+"A3_MultiBody" 20 4 "COMMON SET" "ATTACH CAD:" 
+"A3_MultiBody" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"A3_MultiBody" 20 6 "COMMON SET" "A3_MultiBody.edrw" 
+"A5_NoMaterial" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"A5_NoMaterial" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"A5_NoMaterial" 20 3 "COMMON SET" "------------------------------" 
+"A5_NoMaterial" 20 4 "COMMON SET" "ATTACH CAD:" 
+"A5_NoMaterial" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"A5_NoMaterial" 20 6 "COMMON SET" "A5_NoMaterial.edrw" 
+"A5_NoMaterial" 40 1 "COMMON SET" "BRAKE TO CAD" 
+"B2_ImportedBracket_14ga_CS" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"B2_ImportedBracket_14ga_CS" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"B2_ImportedBracket_14ga_CS" 20 3 "COMMON SET" "------------------------------" 
+"B2_ImportedBracket_14ga_CS" 20 4 "COMMON SET" "ATTACH CAD:" 
+"B2_ImportedBracket_14ga_CS" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"B2_ImportedBracket_14ga_CS" 20 6 "COMMON SET" "" 
+"B2_ImportedBracket_14ga_CS" 20 7 "COMMON SET" "B2_ImportedBracket_14ga_CS.edrw" 
+"B2_ImportedBracket_14ga_CS" 40 1 "COMMON SET" "BRAKE TO CAD" 
+"B3_RolledCylinder_16ga_SS" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"B3_RolledCylinder_16ga_SS" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"B3_RolledCylinder_16ga_SS" 20 3 "COMMON SET" "------------------------------" 
+"B3_RolledCylinder_16ga_SS" 20 4 "COMMON SET" "ATTACH CAD:" 
+"B3_RolledCylinder_16ga_SS" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"B3_RolledCylinder_16ga_SS" 20 6 "COMMON SET" "B3_RolledCylinder_16ga_SS.edrw" 
+"B1_NativeBracket_14ga_CS" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"B1_NativeBracket_14ga_CS" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"B1_NativeBracket_14ga_CS" 20 3 "COMMON SET" "------------------------------" 
+"B1_NativeBracket_14ga_CS" 20 4 "COMMON SET" "ATTACH CAD:" 
+"B1_NativeBracket_14ga_CS" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"B1_NativeBracket_14ga_CS" 20 6 "COMMON SET" "B1_NativeBracket_14ga_CS.edrw" 
+"B1_NativeBracket_14ga_CS" 40 1 "COMMON SET" "BRAKE TO CAD" 
+"C1_RoundTube_2OD_SCH40" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"C1_RoundTube_2OD_SCH40" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"C1_RoundTube_2OD_SCH40" 20 3 "COMMON SET" "------------------------------" 
+"C1_RoundTube_2OD_SCH40" 20 4 "COMMON SET" "ATTACH CAD:" 
+"C1_RoundTube_2OD_SCH40" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"C1_RoundTube_2OD_SCH40" 20 6 "COMMON SET" "C1_RoundTube_2OD_SCH40.edrw" 
+"C2_RectTube_2x1" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"C2_RectTube_2x1" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"C2_RectTube_2x1" 20 3 "COMMON SET" "------------------------------" 
+"C2_RectTube_2x1" 20 4 "COMMON SET" "ATTACH CAD:" 
+"C2_RectTube_2x1" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"C2_RectTube_2x1" 20 6 "COMMON SET" "C2_RectTube_2x1.edrw" 
+"C3_SquareTube_2x2" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"C3_SquareTube_2x2" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"C3_SquareTube_2x2" 20 3 "COMMON SET" "------------------------------" 
+"C3_SquareTube_2x2" 20 4 "COMMON SET" "ATTACH CAD:" 
+"C3_SquareTube_2x2" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"C3_SquareTube_2x2" 20 6 "COMMON SET" "C3_SquareTube_2x2.edrw" 
+"C4_AngleIron_2x2" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"C4_AngleIron_2x2" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"C4_AngleIron_2x2" 20 3 "COMMON SET" "------------------------------" 
+"C4_AngleIron_2x2" 20 4 "COMMON SET" "ATTACH CAD:" 
+"C4_AngleIron_2x2" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"C4_AngleIron_2x2" 20 6 "COMMON SET" "C4_AngleIron_2x2.edrw" 
+"C5_CChannel" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"C5_CChannel" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"C5_CChannel" 20 3 "COMMON SET" "------------------------------" 
+"C5_CChannel" 20 4 "COMMON SET" "ATTACH CAD:" 
+"C5_CChannel" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"C5_CChannel" 20 6 "COMMON SET" "C5_CChannel.edrw" 
+"C6_IBeam" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"C6_IBeam" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"C6_IBeam" 20 3 "COMMON SET" "------------------------------" 
+"C6_IBeam" 20 4 "COMMON SET" "ATTACH CAD:" 
+"C6_IBeam" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"C6_IBeam" 20 6 "COMMON SET" "C6_IBeam.edrw" 
+"C7_RoundBar_1dia" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"C7_RoundBar_1dia" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"C7_RoundBar_1dia" 20 3 "COMMON SET" "------------------------------" 
+"C7_RoundBar_1dia" 20 4 "COMMON SET" "ATTACH CAD:" 
+"C7_RoundBar_1dia" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"C7_RoundBar_1dia" 20 6 "COMMON SET" "C7_RoundBar_1dia.edrw" 
+"C7_RoundBar_1dia" 20 7 "COMMON SET" "------------------------------" 
+"C7_RoundBar_1dia" 20 8 "COMMON SET" "Effective Thickness: 1in     " 
+"C7_RoundBar_1dia" 20 9 "COMMON SET" "Force Feed Limit: 5%         " 
+"C7_RoundBar_1dia" 20 10 "COMMON SET" "Blade Pitch: 4/6             " 
+"C7_RoundBar_1dia" 20 11 "COMMON SET" "Feed Rate: 2.72in/min        " 
+"C7_RoundBar_1dia" 20 12 "COMMON SET" "Blade Speed: 151" 
+"D1_MachinedBlock" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"D1_MachinedBlock" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"D1_MachinedBlock" 20 3 "COMMON SET" "------------------------------" 
+"D1_MachinedBlock" 20 4 "COMMON SET" "ATTACH CAD:" 
+"D1_MachinedBlock" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"D1_MachinedBlock" 20 6 "COMMON SET" "D1_MachinedBlock.edrw" 
+"D10_Pipe_Reducer" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"D10_Pipe_Reducer" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"D10_Pipe_Reducer" 20 3 "COMMON SET" "------------------------------" 
+"D11_Pipe_Valve" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"D11_Pipe_Valve" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"D11_Pipe_Valve" 20 3 "COMMON SET" "------------------------------" 
+"D12_Stud_Threaded" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"D12_Stud_Threaded" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"D12_Stud_Threaded" 20 3 "COMMON SET" "------------------------------" 
+"D2_ElbowFitting" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"D2_ElbowFitting" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"D2_ElbowFitting" 20 3 "COMMON SET" "------------------------------" 
+"D3_Motor" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"D3_Motor" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"D3_Motor" 20 3 "COMMON SET" "------------------------------" 
+"D6_Ubolt" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"D6_Ubolt" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"D6_Ubolt" 20 3 "COMMON SET" "------------------------------" 
+"D7_Nut_No_Threads" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"D7_Nut_No_Threads" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"D7_Nut_No_Threads" 20 3 "COMMON SET" "------------------------------" 
+"D8_Swagelock_T_Fitting" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"D8_Swagelock_T_Fitting" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"D8_Swagelock_T_Fitting" 20 3 "COMMON SET" "------------------------------" 
+"D9_Fastener_No_Threads" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"D9_Fastener_No_Threads" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"D9_Fastener_No_Threads" 20 3 "COMMON SET" "------------------------------" 
+"E1_ThickPlate_1in" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"E1_ThickPlate_1in" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"E1_ThickPlate_1in" 20 3 "COMMON SET" "------------------------------" 
+"E1_ThickPlate_1in" 20 4 "COMMON SET" "ATTACH CAD:" 
+"E1_ThickPlate_1in" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"E1_ThickPlate_1in" 20 6 "COMMON SET" "E1_ThickPlate_1in.edrw" 
+"E2_Foil_005" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"E2_Foil_005" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"E2_Foil_005" 20 3 "COMMON SET" "------------------------------" 
+"E2_Foil_005" 20 4 "COMMON SET" "ATTACH CAD:" 
+"E2_Foil_005" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"E2_Foil_005" 20 6 "COMMON SET" "E2_Foil_005.edrw" 
+"E3_TaperedWall" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"E3_TaperedWall" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"E3_TaperedWall" 20 3 "COMMON SET" "------------------------------" 
+"E3_TaperedWall" 20 4 "COMMON SET" "ATTACH CAD:" 
+"E3_TaperedWall" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"E3_TaperedWall" 20 6 "COMMON SET" "E3_TaperedWall.edrw" 
+"E4_EccentricTube" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"E4_EccentricTube" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"E4_EccentricTube" 20 3 "COMMON SET" "------------------------------" 
+"E4_EccentricTube" 20 4 "COMMON SET" "ATTACH CAD:" 
+"E4_EccentricTube" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"E4_EccentricTube" 20 6 "COMMON SET" "E4_EccentricTube.edrw" 
+"E6_HugePart" 20 1 "COMMON SET" "AUTHOR: tschoen" 
+"E6_HugePart" 20 2 "COMMON SET" "DATE: 2/6/2026" 
+"E6_HugePart" 20 3 "COMMON SET" "------------------------------" 
+"E6_HugePart" 20 4 "COMMON SET" "ATTACH CAD:" 
+"E6_HugePart" 20 5 "COMMON SET" "M:\\NORTHERN\\" 
+"E6_HugePart" 20 6 "COMMON SET" "E6_HugePart.edrw" 

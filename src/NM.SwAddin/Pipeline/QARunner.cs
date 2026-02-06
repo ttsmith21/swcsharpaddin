@@ -701,6 +701,9 @@ namespace NM.SwAddin.Pipeline
                 sb.AppendLine($"      \"FilePath\": \"{Escape(r.FilePath)}\",");
                 sb.AppendLine($"      \"Status\": \"{Escape(r.Status)}\",");
 
+                if (!string.IsNullOrEmpty(r.Configuration))
+                    sb.AppendLine($"      \"Configuration\": \"{Escape(r.Configuration)}\",");
+
                 if (!string.IsNullOrEmpty(r.Message))
                     sb.AppendLine($"      \"Message\": \"{Escape(r.Message)}\",");
 
@@ -769,8 +772,52 @@ namespace NM.SwAddin.Pipeline
                     sb.AppendLine($"      \"TapCost\": {r.TapCost.Value:F2},");
                 if (r.DeburCost.HasValue)
                     sb.AppendLine($"      \"DeburCost\": {r.DeburCost.Value:F2},");
+                if (r.RollCost.HasValue)
+                    sb.AppendLine($"      \"RollCost\": {r.RollCost.Value:F2},");
                 if (r.TotalCost.HasValue)
                     sb.AppendLine($"      \"TotalCost\": {r.TotalCost.Value:F2},");
+
+                // Cost breakdown dictionary
+                if (r.CostBreakdown != null && r.CostBreakdown.Count > 0)
+                {
+                    sb.AppendLine("      \"CostBreakdown\": {");
+                    int cbIdx = 0;
+                    foreach (var cb in r.CostBreakdown)
+                    {
+                        cbIdx++;
+                        sb.Append($"        \"{Escape(cb.Key)}\": {cb.Value:F2}");
+                        sb.AppendLine(cbIdx < r.CostBreakdown.Count ? "," : "");
+                    }
+                    sb.AppendLine("      },");
+                }
+
+                // Per-workcenter setup/run times (hours)
+                if (r.F115_Setup.HasValue)
+                    sb.AppendLine($"      \"F115_Setup\": {r.F115_Setup.Value:F4},");
+                if (r.F115_Run.HasValue)
+                    sb.AppendLine($"      \"F115_Run\": {r.F115_Run.Value:F4},");
+                if (r.F140_Setup.HasValue)
+                    sb.AppendLine($"      \"F140_Setup\": {r.F140_Setup.Value:F4},");
+                if (r.F140_Run.HasValue)
+                    sb.AppendLine($"      \"F140_Run\": {r.F140_Run.Value:F4},");
+                if (r.F210_Setup.HasValue)
+                    sb.AppendLine($"      \"F210_Setup\": {r.F210_Setup.Value:F4},");
+                if (r.F210_Run.HasValue)
+                    sb.AppendLine($"      \"F210_Run\": {r.F210_Run.Value:F4},");
+                if (r.F220_Setup.HasValue)
+                    sb.AppendLine($"      \"F220_Setup\": {r.F220_Setup.Value:F4},");
+                if (r.F220_Run.HasValue)
+                    sb.AppendLine($"      \"F220_Run\": {r.F220_Run.Value:F4},");
+                if (r.F325_Setup.HasValue)
+                    sb.AppendLine($"      \"F325_Setup\": {r.F325_Setup.Value:F4},");
+                if (r.F325_Run.HasValue)
+                    sb.AppendLine($"      \"F325_Run\": {r.F325_Run.Value:F4},");
+
+                // ERP fields
+                if (!string.IsNullOrEmpty(r.OptiMaterial))
+                    sb.AppendLine($"      \"OptiMaterial\": \"{Escape(r.OptiMaterial)}\",");
+                if (!string.IsNullOrEmpty(r.Description))
+                    sb.AppendLine($"      \"Description\": \"{Escape(r.Description)}\",");
 
                 sb.AppendLine($"      \"ElapsedMs\": {r.ElapsedMs:F1},");
                 sb.AppendLine($"      \"ProcessedAt\": \"{r.ProcessedAt:O}\"");
