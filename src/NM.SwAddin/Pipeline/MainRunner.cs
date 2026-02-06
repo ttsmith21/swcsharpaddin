@@ -410,6 +410,11 @@ namespace NM.SwAddin.Pipeline
                         pd.Sheet.IsSheetMetal = true;
                         pd.Sheet.BendCount = bends.Count;
                         pd.Sheet.BendsBothDirections = bends.NeedsFlip;
+                        // Store bend geometry for F325/F140 calculations
+                        if (bends.MaxRadiusIn > 0)
+                            pd.Extra["MaxBendRadiusIn"] = bends.MaxRadiusIn.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+                        if (bends.LongestBendIn > 0)
+                            pd.Extra["LongestBendIn"] = bends.LongestBendIn.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
                     }
                 }
                 else if (info.CustomProperties.BendCount > 0)
@@ -658,12 +663,21 @@ namespace NM.SwAddin.Pipeline
             // F140 Press Brake - based on bend info
             if (pd.Sheet.BendCount > 0)
             {
+                double longestBendIn = info.CustomProperties.LongestBendIn;
+                // Fallback: use BendAnalyzer result stored in Extra
+                if (longestBendIn <= 0)
+                {
+                    string extraBend;
+                    if (pd.Extra.TryGetValue("LongestBendIn", out extraBend))
+                        double.TryParse(extraBend, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out longestBendIn);
+                }
+                if (longestBendIn <= 0)
+                    longestBendIn = pd.BBoxWidth_m * M_TO_IN; // Estimate from bounding box
+
                 var bendInfo = new BendInfo
                 {
                     Count = pd.Sheet.BendCount,
-                    LongestBendIn = info.CustomProperties.LongestBendIn > 0
-                        ? info.CustomProperties.LongestBendIn
-                        : pd.BBoxWidth_m * M_TO_IN, // Estimate from bounding box
+                    LongestBendIn = longestBendIn,
                     NeedsFlip = pd.Sheet.BendsBothDirections
                 };
 
@@ -687,6 +701,13 @@ namespace NM.SwAddin.Pipeline
 
             // F325 Roll Forming - based on max bend radius (only if radius > 2 inches)
             double maxRadiusIn = info.CustomProperties.MaxBendRadiusIn;
+            // Fallback: use BendAnalyzer result stored in Extra
+            if (maxRadiusIn <= 0)
+            {
+                string extraRadius;
+                if (pd.Extra.TryGetValue("MaxBendRadiusIn", out extraRadius))
+                    double.TryParse(extraRadius, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out maxRadiusIn);
+            }
             if (maxRadiusIn > 2.0)
             {
                 var f325Calc = new F325Calculator();

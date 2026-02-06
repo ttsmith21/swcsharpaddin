@@ -40,6 +40,23 @@ namespace NM.Core.Tests
         }
 
         [Fact]
+        public void SheetMetal_WithLargeBendRadius_ReturnsRoll()
+        {
+            var pd = new PartData
+            {
+                Classification = PartType.SheetMetal,
+                Material = "304L"
+            };
+            pd.Sheet.IsSheetMetal = true;
+            pd.Sheet.BendCount = 1;
+            pd.Extra["MaxBendRadiusIn"] = "12.5000";
+
+            string result = DescriptionGenerator.Generate(pd);
+
+            Assert.Equal("304L ROLL", result);
+        }
+
+        [Fact]
         public void SheetMetal_Flat_NoBends_ReturnsPlate()
         {
             var pd = new PartData

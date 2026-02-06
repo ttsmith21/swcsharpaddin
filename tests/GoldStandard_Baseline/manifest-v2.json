@@ -121,6 +121,10 @@
 
                                                                              },
                                                           "knownDeviations":  {
+                                                                                  "rawWeight": {
+                                                                                      "status": "BUG",
+                                                                                      "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                                  }
                                                                               },
                                                           "_note":  "Model thickness is 0.073 (nominal 14ga is 0.0747)"
                                                       },
@@ -156,6 +160,10 @@
 
                                                                                },
                                                             "knownDeviations":  {
+                                                                                    "rawWeight": {
+                                                                                        "status": "BUG",
+                                                                                        "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                                    }
                                                                                 },
                                                             "_note":  "Model thickness is 0.075"
                                                         },
@@ -190,6 +198,10 @@
 
                                                                               },
                                                            "knownDeviations":  {
+                                                                                   "rawWeight": {
+                                                                                       "status": "BUG",
+                                                                                       "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                                   }
                                                                                },
                                                            "_note":  "Model thickness is 0.076 (not nominal 16ga)"
                                                        },
@@ -636,6 +648,10 @@
 
                                                                       },
                                                    "knownDeviations":  {
+                                                                           "rawWeight":  {
+                                                                                             "reason":  "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only",
+                                                                                             "status":  "BUG"
+                                                                                         },
                                                                            "optiMaterial":  {
                                                                                                 "reason":  "Thick plate (1in) classified as Generic; static service only handles SheetMetal/Tube",
                                                                                                 "status":  "NOT_IMPLEMENTED"
@@ -673,6 +689,10 @@
 
                                                                 },
                                              "knownDeviations":  {
+                                                                     "rawWeight": {
+                                                                         "status": "BUG",
+                                                                         "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                     }
                                                                  }
                                          },
                   "E3_TaperedWall.sldprt":  {
@@ -700,6 +720,10 @@
 
                                                                    },
                                                 "knownDeviations":  {
+                                                                        "rawWeight":  {
+                                                                                          "reason":  "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only",
+                                                                                          "status":  "BUG"
+                                                                                      },
                                                                         "optiMaterial":  {
                                                                                              "reason":  "Tapered wall classified as Generic; static service only handles SheetMetal/Tube",
                                                                                              "status":  "NOT_IMPLEMENTED"
@@ -783,6 +807,10 @@
 
                                                                 },
                                              "knownDeviations":  {
+                                                                     "rawWeight": {
+                                                                         "status": "BUG",
+                                                                         "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                     }
                                                                  },
                                              "_note":  "100m part - test units handling",
                                              "_status":  "PLACEHOLDER - file not yet created"

@@ -57,8 +57,20 @@ namespace NM.Core.Processing
         private static string GetSheetMetalSuffix(PartData pd)
         {
             // Roll forming takes precedence over bends
+            // Check F325 price (if costs already computed) OR max bend radius > 2" (roll forming threshold)
             if (pd.Cost != null && pd.Cost.F325_Price > 0)
                 return "ROLL";
+            if (pd.Extra != null)
+            {
+                string radiusStr;
+                if (pd.Extra.TryGetValue("MaxBendRadiusIn", out radiusStr))
+                {
+                    double radius;
+                    if (double.TryParse(radiusStr, System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out radius) && radius > 2.0)
+                        return "ROLL";
+                }
+            }
 
             if (pd.Sheet != null && pd.Sheet.BendCount > 0)
                 return "BENT";

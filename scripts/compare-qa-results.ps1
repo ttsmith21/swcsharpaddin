@@ -193,8 +193,7 @@ $fieldMappings = @(
     @("F115_Run", "routing.N120.run", $true),
     @("F140_Setup", "routing.N140.setup", $true),
     @("F140_Run", "routing.N140.run", $true),
-    @("F210_Setup", "routing.N140.setup", $true),
-    @("F210_Run", "routing.N140.run", $true),
+    # F210 (debur) omitted — no baseline routing data for debur in manifest
     @("F220_Setup", "routing.N220.setup", $true),
     @("F220_Run", "routing.N220.run", $true),
     @("F325_Setup", "routing.F325.setup", $true),
