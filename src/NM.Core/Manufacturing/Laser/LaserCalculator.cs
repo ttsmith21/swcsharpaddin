@@ -46,22 +46,18 @@ namespace NM.Core.Manufacturing.Laser
             double rho = Rates.GetDensityLbPerIn3(m.MaterialCode);
             double sheetWeightLb = m.ThicknessIn * 60.0 * 120.0 * rho;
 
-            // Setup time
-            double setupMinutes = 0.0;
+            // Setup time: fixed only (VBA adds proportional term to run, not setup)
+            double setupMinutes = isWaterjet ? WATERJET_SETUP_TIME_MIN : LASER_SETUP_TIME_MIN;
+            double setupHours = Math.Max(MIN_SETUP_HOURS, setupMinutes / 60.0);
+
+            // Run time: pierce + cut + proportional sheet-loading time
+            double proportionalMinutes = 0.0;
             if (sheetWeightLb > 0 && rawWeightLb > 0)
             {
-                if (isWaterjet)
-                {
-                    setupMinutes = WATERJET_SETUP_TIME_MIN + (rawWeightLb / sheetWeightLb) * WATERJET_SETUP_RATE_MIN;
-                }
-                else
-                {
-                    setupMinutes = LASER_SETUP_TIME_MIN + (rawWeightLb / sheetWeightLb) * LASER_SETUP_RATE_MIN;
-                }
+                double rate = isWaterjet ? WATERJET_SETUP_RATE_MIN : LASER_SETUP_RATE_MIN;
+                proportionalMinutes = (rawWeightLb / sheetWeightLb) * rate;
             }
-
-            double setupHours = Math.Max(MIN_SETUP_HOURS, setupMinutes / 60.0);
-            double runHours = (totalPierceSeconds / 3600.0) + (cutMinutes / 60.0);
+            double runHours = (totalPierceSeconds / 3600.0) + ((cutMinutes + proportionalMinutes) / 60.0);
 
             res.SetupHours = setupHours;
             res.RunHours = runHours;

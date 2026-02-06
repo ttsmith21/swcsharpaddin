@@ -56,10 +56,27 @@ namespace NM.Core.DataModel
         public double? BendCost { get; set; }
         public double? TapCost { get; set; }
         public double? DeburCost { get; set; }
+        public double? RollCost { get; set; }
         public double? TotalCost { get; set; }
 
         // Cost breakdown by work center (for detailed comparison)
         public Dictionary<string, double> CostBreakdown { get; set; }
+
+        // Per-workcenter setup/run times (hours) for routing comparison
+        public double? F115_Setup { get; set; }
+        public double? F115_Run { get; set; }
+        public double? F140_Setup { get; set; }
+        public double? F140_Run { get; set; }
+        public double? F210_Setup { get; set; }
+        public double? F210_Run { get; set; }
+        public double? F220_Setup { get; set; }
+        public double? F220_Run { get; set; }
+        public double? F325_Setup { get; set; }
+        public double? F325_Run { get; set; }
+
+        // ERP fields (for Import.prn comparison)
+        public string OptiMaterial { get; set; }
+        public string Description { get; set; }
 
         // Timing
         public double ElapsedMs { get; set; }
@@ -142,6 +159,10 @@ namespace NM.Core.DataModel
             if (pd.Cost.TotalCost > 0)
                 result.TotalCost = pd.Cost.TotalCost;
 
+            // Roll forming cost
+            if (pd.Cost.F325_Price > 0)
+                result.RollCost = pd.Cost.F325_Price;
+
             // Cost breakdown dictionary
             result.CostBreakdown = new Dictionary<string, double>();
             if (pd.Cost.F115_Price > 0) result.CostBreakdown["F115_Laser"] = pd.Cost.F115_Price;
@@ -149,6 +170,24 @@ namespace NM.Core.DataModel
             if (pd.Cost.F210_Price > 0) result.CostBreakdown["F210_Debur"] = pd.Cost.F210_Price;
             if (pd.Cost.F220_Price > 0) result.CostBreakdown["F220_Tap"] = pd.Cost.F220_Price;
             if (pd.Cost.F325_Price > 0) result.CostBreakdown["F325_Roll"] = pd.Cost.F325_Price;
+
+            // Per-workcenter setup/run times (minutes -> hours for routing comparison)
+            if (pd.Cost.OP20_S_min > 0) result.F115_Setup = pd.Cost.OP20_S_min / 60.0;
+            if (pd.Cost.OP20_R_min > 0) result.F115_Run = pd.Cost.OP20_R_min / 60.0;
+            if (pd.Cost.F140_S_min > 0) result.F140_Setup = pd.Cost.F140_S_min / 60.0;
+            if (pd.Cost.F140_R_min > 0) result.F140_Run = pd.Cost.F140_R_min / 60.0;
+            if (pd.Cost.F210_S_min > 0) result.F210_Setup = pd.Cost.F210_S_min / 60.0;
+            if (pd.Cost.F210_R_min > 0) result.F210_Run = pd.Cost.F210_R_min / 60.0;
+            if (pd.Cost.F220_S_min > 0) result.F220_Setup = pd.Cost.F220_S_min / 60.0;
+            if (pd.Cost.F220_R_min > 0) result.F220_Run = pd.Cost.F220_R_min / 60.0;
+            if (pd.Cost.F325_S_min > 0) result.F325_Setup = pd.Cost.F325_S_min / 60.0;
+            if (pd.Cost.F325_R_min > 0) result.F325_Run = pd.Cost.F325_R_min / 60.0;
+
+            // ERP fields
+            result.OptiMaterial = pd.OptiMaterial;
+            string desc;
+            if (pd.Extra.TryGetValue("Description", out desc))
+                result.Description = desc;
 
             return result;
         }
@@ -162,6 +201,12 @@ namespace NM.Core.DataModel
         public string InputPath { get; set; }
         public string OutputPath { get; set; }
         public string BaselinePath { get; set; }  // Optional: path to baseline manifest.json
+        public string Mode { get; set; }  // "Normal" (default) or "ReadPropertiesOnly"
+
+        public bool IsReadPropertiesOnly
+        {
+            get { return !string.IsNullOrEmpty(Mode) && Mode.Equals("ReadPropertiesOnly", StringComparison.OrdinalIgnoreCase); }
+        }
     }
 
     /// <summary>
@@ -178,6 +223,11 @@ namespace NM.Core.DataModel
         public int Errors { get; set; }
         public double TotalElapsedMs { get; set; }
         public List<QATestResult> Results { get; set; } = new List<QATestResult>();
+
+        /// <summary>
+        /// Retained PartData for ERP export (Import.prn generation).
+        /// </summary>
+        public List<PartData> PartDataCollection { get; set; } = new List<PartData>();
 
         /// <summary>
         /// Performance timing summary by operation category.

@@ -1,0 +1,904 @@
+﻿{
+    "version":  "2.0",
+    "description":  "Gold Standard expected outcomes with VBA baseline data from Import.prn",
+    "generatedAt":  "2026-02-06T15:07:27.5876354-05:00",
+    "defaultTolerances":  {
+                              "thickness":  0.001,
+                              "mass":  0.01,
+                              "dimensions":  0.001,
+                              "cost":  0.05,
+                              "routing":  0.01,
+                              "flatArea":  0.02
+                          },
+    "files":  {
+                  "A1_EmptyFile.sldprt":  {
+                                              "shouldPass":  false,
+                                              "expectedFailureReason":  "No solid body",
+                                              "vbaBaseline":  {
+                                                                  "rawWeight":  0.0001,
+                                                                  "bomQty":  2
+                                                              },
+                                              "csharpExpected":  {
+
+                                                                 }
+                                          },
+                  "A2_SurfaceBodiesOnly.sldprt":  {
+                                                      "shouldPass":  false,
+                                                      "expectedFailureReason":  "No solid body",
+                                                      "csharpExpected":  {
+
+                                                                         }
+                                                  },
+                  "A3_MultiBody.sldprt":  {
+                                              "shouldPass":  false,
+                                              "expectedFailureReason":  "Multi-body",
+                                              "vbaBaseline":  {
+                                                                  "rawWeight":  0.0001,
+                                                                  "bomQty":  1
+                                                              },
+                                              "csharpExpected":  {
+
+                                                                 }
+                                          },
+                  "A4_SuppressedBody.sldprt":  {
+                                                   "shouldPass":  false,
+                                                   "expectedFailureReason":  "suppressed",
+                                                   "vbaBaseline":  {
+                                                                       "rawWeight":  0.0001,
+                                                                       "bomQty":  2
+                                                                   },
+                                                   "csharpExpected":  {
+
+                                                                      }
+                                               },
+                  "A5_NoMaterial.sldprt":  {
+                                               "shouldPass":  false,
+                                               "expectedFailureReason":  "material",
+                                               "vbaBaseline":  {
+                                                                   "description":  "304L BENT",
+                                                                   "optiMaterial":  "S.304L.187IN",
+                                                                   "rawWeight":  57.1922,
+                                                                   "bomQty":  1,
+                                                                   "routing":  {
+                                                                                   "O120":  {
+                                                                                                "op":  10,
+                                                                                                "setup":  0,
+                                                                                                "run":  0
+                                                                                            },
+                                                                                   "N120":  {
+                                                                                                "op":  20,
+                                                                                                "setup":  0.01,
+                                                                                                "run":  0.0212
+                                                                                            },
+                                                                                   "N140":  {
+                                                                                                "op":  40,
+                                                                                                "setup":  0.36,
+                                                                                                "run":  0.0556
+                                                                                            }
+                                                                               }
+                                                               },
+                                               "csharpExpected":  {
+
+                                                                  }
+                                           },
+                  "A6_ZeroThickness.sldprt":  {
+                                                  "shouldPass":  true,
+                                                  "expectedClassification":  "Generic",
+                                                  "csharpExpected":  {
+
+                                                                     },
+                                                  "_note":  "Wedge shape (1/8 to knife edge) - valid solid, not sheet metal"
+                                              },
+                  "B1_NativeBracket_14ga_CS.sldprt":  {
+                                                          "shouldPass":  true,
+                                                          "expectedClassification":  "SheetMetal",
+                                                          "expectedThickness_in":  0.073,
+                                                          "expectedBendCount":  1,
+                                                          "vbaBaseline":  {
+                                                                              "description":  "304L BENT",
+                                                                              "optiMaterial":  "S.304L14GA",
+                                                                              "rawWeight":  12.4348,
+                                                                              "bomQty":  1,
+                                                                              "routing":  {
+                                                                                              "O120":  {
+                                                                                                           "op":  10,
+                                                                                                           "setup":  0,
+                                                                                                           "run":  0
+                                                                                                       },
+                                                                                              "N120":  {
+                                                                                                           "op":  20,
+                                                                                                           "setup":  0.01,
+                                                                                                           "run":  0.008
+                                                                                                       },
+                                                                                              "N140":  {
+                                                                                                           "op":  40,
+                                                                                                           "setup":  0.18,
+                                                                                                           "run":  0.0125
+                                                                                                       }
+                                                                                          }
+                                                                          },
+                                                          "csharpExpected":  {
+
+                                                                             },
+                                                          "knownDeviations":  {
+                                                                                  "rawWeight": {
+                                                                                      "status": "BUG",
+                                                                                      "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                                  },
+                                                                                  "routing.N120.run": {
+                                                                                      "status": "BUG",
+                                                                                      "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                                  },
+                                                                                  "routing.N140.setup": {
+                                                                                      "status": "BUG",
+                                                                                      "reason": "BendAnalyzer uses bend radius proxy for longest bend; VBA uses actual bend edge length from sketch"
+                                                                                  }
+                                                                              },
+                                                          "_note":  "Model thickness is 0.073 (nominal 14ga is 0.0747)"
+                                                      },
+                  "B2_ImportedBracket_14ga_CS.sldprt":  {
+                                                            "shouldPass":  true,
+                                                            "expectedClassification":  "SheetMetal",
+                                                            "expectedThickness_in":  0.075,
+                                                            "expectedBendCount":  1,
+                                                            "vbaBaseline":  {
+                                                                                "description":  "304L BENT",
+                                                                                "optiMaterial":  "S.304L14GA",
+                                                                                "rawWeight":  15.8578,
+                                                                                "bomQty":  1,
+                                                                                "routing":  {
+                                                                                                "O120":  {
+                                                                                                             "op":  10,
+                                                                                                             "setup":  0,
+                                                                                                             "run":  0
+                                                                                                         },
+                                                                                                "N120":  {
+                                                                                                             "op":  20,
+                                                                                                             "setup":  0.01,
+                                                                                                             "run":  0.0099
+                                                                                                         },
+                                                                                                "N140":  {
+                                                                                                             "op":  40,
+                                                                                                             "setup":  0.18,
+                                                                                                             "run":  0.0125
+                                                                                                         }
+                                                                                            }
+                                                                            },
+                                                            "csharpExpected":  {
+
+                                                                               },
+                                                            "knownDeviations":  {
+                                                                                    "rawWeight": {
+                                                                                        "status": "BUG",
+                                                                                        "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                                    },
+                                                                                    "routing.N120.run": {
+                                                                                        "status": "BUG",
+                                                                                        "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                                    },
+                                                                                    "routing.N140.setup": {
+                                                                                        "status": "BUG",
+                                                                                        "reason": "BendAnalyzer uses bend radius proxy for longest bend; VBA uses actual bend edge length from sketch"
+                                                                                    }
+                                                                                },
+                                                            "_note":  "Model thickness is 0.075"
+                                                        },
+                  "B3_RolledCylinder_16ga_SS.sldprt":  {
+                                                           "shouldPass":  true,
+                                                           "expectedClassification":  "SheetMetal",
+                                                           "expectedThickness_in":  0.076,
+                                                           "vbaBaseline":  {
+                                                                               "description":  "304L ROLL",
+                                                                               "optiMaterial":  "S.304L14GA",
+                                                                               "rawWeight":  105.3358,
+                                                                               "bomQty":  1,
+                                                                               "routing":  {
+                                                                                               "O120":  {
+                                                                                                            "op":  10,
+                                                                                                            "setup":  0,
+                                                                                                            "run":  0
+                                                                                                        },
+                                                                                               "N120":  {
+                                                                                                            "op":  20,
+                                                                                                            "setup":  0.01,
+                                                                                                            "run":  0.0594
+                                                                                                        },
+                                                                                               "N325":  {
+                                                                                                            "op":  50,
+                                                                                                            "setup":  0.375,
+                                                                                                            "run":  0.2
+                                                                                                        }
+                                                                                           }
+                                                                           },
+                                                           "csharpExpected":  {
+
+                                                                              },
+                                                           "knownDeviations":  {
+                                                                                   "rawWeight": {
+                                                                                       "status": "BUG",
+                                                                                       "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                                   },
+                                                                                   "routing.N120.run": {
+                                                                                       "status": "BUG",
+                                                                                       "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                                   }
+                                                                               },
+                                                           "_note":  "Model thickness is 0.076 (not nominal 16ga)"
+                                                       },
+                  "B4_ComplexUBracket_11ga_CS.sldprt":  {
+                                                            "shouldPass":  true,
+                                                            "expectedClassification":  "SheetMetal",
+                                                            "expectedThickness_in":  0.1196,
+                                                            "expectedBendCount":  4,
+                                                            "csharpExpected":  {
+
+                                                                               }
+                                                        },
+                  "B5_BracketWithHoles_14ga_CS.sldprt":  {
+                                                             "shouldPass":  true,
+                                                             "expectedClassification":  "SheetMetal",
+                                                             "expectedThickness_in":  0.0747,
+                                                             "csharpExpected":  {
+
+                                                                                }
+                                                         },
+                  "B6_TinyFlange_10ga_CS.sldprt":  {
+                                                       "shouldPass":  true,
+                                                       "expectedClassification":  "SheetMetal",
+                                                       "expectedThickness_in":  0.1345,
+                                                       "csharpExpected":  {
+
+                                                                          }
+                                                   },
+                  "C1_RoundTube_2OD_SCH40.sldprt":  {
+                                                        "shouldPass":  true,
+                                                        "expectedClassification":  "Tube",
+                                                        "expectedTubeOD_in":  12.75,
+                                                        "expectedTubeWall_in":  0.375,
+                                                        "expectedTubeID_in":  12.0,
+                                                        "expectedTubeLength_in":  6.0,
+                                                        "vbaBaseline":  {
+                                                                            "description":  "304L PIPE",
+                                                                            "optiMaterial":  "P.304L12\"SCH40S",
+                                                                            "rawWeight":  1,
+                                                                            "f300Length":  6,
+                                                                            "bomQty":  1,
+                                                                            "routing":  {
+                                                                                            "N145":  {
+                                                                                                         "op":  20,
+                                                                                                         "setup":  0.25,
+                                                                                                         "run":  0.0952
+                                                                                                     }
+                                                                                        }
+                                                                        },
+                                                        "csharpExpected":  {
+
+                                                                           },
+                                                        "knownDeviations":  {
+                                                                                "rawWeight":  {
+                                                                                                  "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                                  "status":  "INTENTIONAL"
+                                                                                              },
+                                                                                "routing":  {
+                                                                                                "reason":  "Tube routing uses N145 work center not compared by standard mappings",
+                                                                                                "status":  "NOT_IMPLEMENTED"
+                                                                                            }
+                                                                            },
+                                                        "_note":  "Actual model is 12-3/4 OD Schedule 40S (NPS 12). File name is misleading."
+                                                    },
+                  "C2_RectTube_2x1.sldprt":  {
+                                                 "shouldPass":  true,
+                                                 "expectedClassification":  "Tube",
+                                                 "expectedTubeWall_in":  0.060,
+                                                 "expectedTubeLength_in":  6.0,
+                                                 "vbaBaseline":  {
+                                                                     "description":  "304L TUBE",
+                                                                     "optiMaterial":  "T.304L2\"X1\"X.060\"",
+                                                                     "rawWeight":  1,
+                                                                     "f300Length":  6,
+                                                                     "bomQty":  1,
+                                                                     "routing":  {
+                                                                                     "F110":  {
+                                                                                                  "op":  20,
+                                                                                                  "setup":  0.15,
+                                                                                                  "run":  0.004
+                                                                                              }
+                                                                                 }
+                                                                 },
+                                                 "csharpExpected":  {
+
+                                                                    },
+                                                 "knownDeviations":  {
+                                                                         "classification":  {
+                                                                                                "reason":  "TubeGeometryExtractor handles rectangular tubes. VBA classified as Generic.",
+                                                                                                "status":  "INTENTIONAL"
+                                                                                            },
+                                                                         "rawWeight":  {
+                                                                                           "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                           "status":  "INTENTIONAL"
+                                                                                       },
+                                                                         "description":  {
+                                                                                             "reason":  "C# generates 'RECT TUBE'; VBA used generic 'TUBE' for all tube shapes",
+                                                                                             "status":  "INTENTIONAL"
+                                                                                         },
+                                                                         "routing":  {
+                                                                                         "reason":  "Tube routing uses F110 work center not compared by standard mappings",
+                                                                                         "status":  "NOT_IMPLEMENTED"
+                                                                                     }
+                                                                     },
+                                                 "_note":  "TubeGeometryExtractor handles rectangular tubes. DEVIATION from VBA which classified as Generic."
+                                             },
+                  "C3_SquareTube_2x2.sldprt":  {
+                                                   "shouldPass":  true,
+                                                   "expectedClassification":  "Tube",
+                                                   "expectedTubeWall_in":  0.250,
+                                                   "expectedTubeLength_in":  6.0,
+                                                   "vbaBaseline":  {
+                                                                       "description":  "304L TUBE",
+                                                                       "optiMaterial":  "T.304L2\"SQX.250\"",
+                                                                       "rawWeight":  1,
+                                                                       "f300Length":  6,
+                                                                       "bomQty":  1,
+                                                                       "routing":  {
+                                                                                       "F110":  {
+                                                                                                    "op":  20,
+                                                                                                    "setup":  0.15,
+                                                                                                    "run":  0.0118
+                                                                                                }
+                                                                                   }
+                                                                   },
+                                                   "csharpExpected":  {
+
+                                                                      },
+                                                   "knownDeviations":  {
+                                                                           "classification":  {
+                                                                                                  "reason":  "TubeGeometryExtractor handles square tubes. VBA classified as Generic.",
+                                                                                                  "status":  "INTENTIONAL"
+                                                                                              },
+                                                                           "rawWeight":  {
+                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                             "status":  "INTENTIONAL"
+                                                                                         },
+                                                                           "description":  {
+                                                                                               "reason":  "C# generates 'SQ TUBE'; VBA used generic 'TUBE' for all tube shapes",
+                                                                                               "status":  "INTENTIONAL"
+                                                                                           },
+                                                                           "routing":  {
+                                                                                           "reason":  "Tube routing uses F110 work center not compared by standard mappings",
+                                                                                           "status":  "NOT_IMPLEMENTED"
+                                                                                       }
+                                                                       },
+                                                   "_note":  "TubeGeometryExtractor handles square tubes. DEVIATION from VBA."
+                                               },
+                  "C4_AngleIron_2x2.sldprt":  {
+                                                  "shouldPass":  true,
+                                                  "expectedClassification":  "Tube",
+                                                  "expectedTubeWall_in":  0.125,
+                                                  "expectedTubeLength_in":  6.0,
+                                                  "vbaBaseline":  {
+                                                                      "description":  "304L ANGLE",
+                                                                      "optiMaterial":  "A.304L2\"X2\"X.125\"",
+                                                                      "rawWeight":  1,
+                                                                      "f300Length":  6,
+                                                                      "bomQty":  1,
+                                                                      "routing":  {
+                                                                                      "F110":  {
+                                                                                                   "op":  20,
+                                                                                                   "setup":  0.25,
+                                                                                                   "run":  0.0138
+                                                                                               }
+                                                                                  }
+                                                                  },
+                                                  "csharpExpected":  {
+
+                                                                     },
+                                                  "knownDeviations":  {
+                                                                          "classification":  {
+                                                                                                 "reason":  "TubeGeometryExtractor handles angle profiles. VBA classified as Generic.",
+                                                                                                 "status":  "INTENTIONAL"
+                                                                                             },
+                                                                          "rawWeight":  {
+                                                                                            "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        },
+                                                                          "description":  {
+                                                                                            "reason":  "C4 classified as Generic (not Tube), so no ANGLE suffix; requires tube geometry extraction",
+                                                                                            "status":  "BUG"
+                                                                                        },
+                                                                          "routing":  {
+                                                                                          "reason":  "Tube routing uses F110 work center not compared by standard mappings",
+                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                      }
+                                                                      },
+                                                  "_note":  "TubeGeometryExtractor handles angle profiles. DEVIATION from VBA."
+                                              },
+                  "C5_CChannel.sldprt":  {
+                                             "shouldPass":  true,
+                                             "expectedClassification":  "Tube",
+                                             "expectedTubeWall_in":  0.316,
+                                             "expectedTubeLength_in":  6.0,
+                                             "vbaBaseline":  {
+                                                                 "rawWeight":  0.0001,
+                                                                 "bomQty":  1
+                                                             },
+                                             "csharpExpected":  {
+
+                                                                },
+                                             "knownDeviations":  {
+                                                                     "classification":  {
+                                                                                            "reason":  "TubeGeometryExtractor handles C-channel. VBA classified as Generic.",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        },
+                                                                     "rawWeight":  {
+                                                                                       "reason":  "VBA used placeholder weight=0.0001; C# computes actual mass from SolidWorks",
+                                                                                       "status":  "INTENTIONAL"
+                                                                                   }
+                                                                 },
+                                             "_note":  "TubeGeometryExtractor handles C-channel. DEVIATION from VBA."
+                                         },
+                  "C6_IBeam.sldprt":  {
+                                          "shouldPass":  true,
+                                          "expectedClassification":  "Tube",
+                                          "expectedTubeWall_in":  0.170,
+                                          "expectedTubeLength_in":  6.0,
+                                          "vbaBaseline":  {
+                                                              "description":  "304L TUBE",
+                                                              "optiMaterial":  "T.304L5.9\"X3.94\"X.170\"",
+                                                              "rawWeight":  1,
+                                                              "f300Length":  6,
+                                                              "bomQty":  1,
+                                                              "routing":  {
+                                                                              "F110":  {
+                                                                                           "op":  20,
+                                                                                           "setup":  0.15,
+                                                                                           "run":  0.0234
+                                                                                       }
+                                                                          }
+                                                          },
+                                          "csharpExpected":  {
+
+                                                             },
+                                          "knownDeviations":  {
+                                                                  "classification":  {
+                                                                                         "reason":  "TubeGeometryExtractor handles I-beam. VBA classified as Generic.",
+                                                                                         "status":  "INTENTIONAL"
+                                                                                     },
+                                                                  "rawWeight":  {
+                                                                                    "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                    "status":  "INTENTIONAL"
+                                                                                },
+                                                                  "description":  {
+                                                                                      "reason":  "C# generates PIPE for I-beam default; VBA used TUBE",
+                                                                                      "status":  "INTENTIONAL"
+                                                                                  },
+                                                                  "routing":  {
+                                                                                  "reason":  "Tube routing uses F110 work center not compared by standard mappings",
+                                                                                  "status":  "NOT_IMPLEMENTED"
+                                                                              }
+                                                              },
+                                          "_note":  "TubeGeometryExtractor handles I-beam. DEVIATION from VBA."
+                                      },
+                  "C7_RoundBar_1dia.sldprt":  {
+                                                  "shouldPass":  true,
+                                                  "expectedClassification":  "Generic",
+                                                  "vbaBaseline":  {
+                                                                      "description":  "304L ROUND",
+                                                                      "optiMaterial":  "R.304L1\"",
+                                                                      "rawWeight":  1,
+                                                                      "f300Length":  12,
+                                                                      "bomQty":  1,
+                                                                      "routing":  {
+                                                                                      "F300":  {
+                                                                                                   "op":  20,
+                                                                                                   "setup":  0.2603,
+                                                                                                   "run":  0.0103
+                                                                                               }
+                                                                                  }
+                                                                  },
+                                                  "csharpExpected":  {
+
+                                                                     },
+                                                  "knownDeviations":  {
+                                                                          "rawWeight":  {
+                                                                                            "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        },
+                                                                          "optiMaterial":  {
+                                                                                               "reason":  "Round bar OptiMaterial requires special logic not in static service",
+                                                                                               "status":  "NOT_IMPLEMENTED"
+                                                                                           },
+                                                                          "description":  {
+                                                                                              "reason":  "C# classifies as Generic (no suffix); VBA generated 'ROUND'",
+                                                                                              "status":  "INTENTIONAL"
+                                                                                          },
+                                                                          "routing":  {
+                                                                                          "reason":  "Bar routing uses F300 work center not compared by standard mappings",
+                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                      }
+                                                                      },
+                                                  "_note":  "Solid cylinder - no wall thickness, correctly falls back to Generic"
+                                              },
+                  "D1_MachinedBlock.sldprt":  {
+                                                  "shouldPass":  true,
+                                                  "expectedClassification":  "Generic",
+                                                  "vbaBaseline":  {
+                                                                      "description":  "304L ANGLE",
+                                                                      "optiMaterial":  "C.304L6\"X2\"X.5\"",
+                                                                      "rawWeight":  1,
+                                                                      "f300Length":  9.265,
+                                                                      "bomQty":  1,
+                                                                      "routing":  {
+                                                                                      "F110":  {
+                                                                                                   "op":  20,
+                                                                                                   "setup":  0.25,
+                                                                                                   "run":  0.5352
+                                                                                               }
+                                                                                  }
+                                                                  },
+                                                  "csharpExpected":  {
+
+                                                                     },
+                                                  "knownDeviations":  {
+                                                                          "rawWeight":  {
+                                                                                            "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        },
+                                                                          "optiMaterial":  {
+                                                                                               "reason":  "Custom shaped part; OptiMaterial from VBA uses special prefix C.",
+                                                                                               "status":  "NOT_IMPLEMENTED"
+                                                                                           },
+                                                                          "description":  {
+                                                                                              "reason":  "VBA generated 'ANGLE' for this block; C# classifies as Generic (material only)",
+                                                                                              "status":  "INTENTIONAL"
+                                                                                          },
+                                                                          "routing":  {
+                                                                                          "reason":  "Uses F110 work center not compared by standard mappings",
+                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                      }
+                                                                      }
+                                              },
+                  "D2_ElbowFitting.sldprt":  {
+                                                 "shouldPass":  true,
+                                                 "expectedClassification":  "Generic",
+                                                 "vbaBaseline":  {
+                                                                     "description":  "4\" SCH 10 WELD ELBOW 90 DEG",
+                                                                     "optiMaterial":  "WELDELBOW904\"SCH10T304LR",
+                                                                     "rawWeight":  1,
+                                                                     "bomQty":  1,
+                                                                     "routing":  {
+                                                                                     "NPUR":  {
+                                                                                                  "op":  20,
+                                                                                                  "setup":  0,
+                                                                                                  "run":  0
+                                                                                              }
+                                                                                 }
+                                                                 },
+                                                 "csharpExpected":  {
+
+                                                                    },
+                                                 "knownDeviations":  {
+                                                                         "rawWeight":  {
+                                                                                           "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                           "status":  "INTENTIONAL"
+                                                                                       },
+                                                                         "optiMaterial":  {
+                                                                                              "reason":  "Purchased part; VBA used custom WELDELBOW code",
+                                                                                              "status":  "NOT_IMPLEMENTED"
+                                                                                          },
+                                                                         "description":  {
+                                                                                             "reason":  "Purchased part; VBA used custom description from properties",
+                                                                                             "status":  "INTENTIONAL"
+                                                                                         },
+                                                                         "routing":  {
+                                                                                         "reason":  "Purchased part uses NPUR work center",
+                                                                                         "status":  "NOT_IMPLEMENTED"
+                                                                                     }
+                                                                     }
+                                             },
+                  "D3_Motor.sldprt":  {
+                                          "shouldPass":  false,
+                                          "expectedFailureReason":  "Multi-body part (15 bodies)",
+                                          "vbaBaseline":  {
+                                                              "description":  "MOTOR, ELECTRIC",
+                                                              "optiMaterial":  "CUST-294303026",
+                                                              "rawWeight":  1,
+                                                              "bomQty":  1,
+                                                              "routing":  {
+                                                                              "CUST":  {
+                                                                                           "op":  20,
+                                                                                           "setup":  0,
+                                                                                           "run":  0
+                                                                                       }
+                                                                          }
+                                                          },
+                                          "csharpExpected":  {
+
+                                                             },
+                                          "knownDeviations":  {
+                                                                  "rawWeight":  {
+                                                                                    "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                    "status":  "INTENTIONAL"
+                                                                                },
+                                                                  "optiMaterial":  {
+                                                                                       "reason":  "Purchased part; VBA used customer part number as OptiMaterial",
+                                                                                       "status":  "NOT_IMPLEMENTED"
+                                                                                   },
+                                                                  "description":  {
+                                                                                      "reason":  "Purchased part; VBA used custom 'MOTOR, ELECTRIC' description",
+                                                                                      "status":  "INTENTIONAL"
+                                                                                  },
+                                                                  "routing":  {
+                                                                                  "reason":  "Purchased part uses CUST work center",
+                                                                                  "status":  "NOT_IMPLEMENTED"
+                                                                              }
+                                                              }
+                                      },
+                  "D4_Fastener.sldprt":  {
+                                             "shouldPass":  true,
+                                             "expectedClassification":  "Generic",
+                                             "csharpExpected":  {
+
+                                                                }
+                                         },
+                  "D5_Casting.sldprt":  {
+                                            "shouldPass":  true,
+                                            "expectedClassification":  "Generic",
+                                            "csharpExpected":  {
+
+                                                               }
+                                        },
+                  "E1_ThickPlate_1in.sldprt":  {
+                                                   "shouldPass":  true,
+                                                   "expectedClassification":  "Generic",
+                                                   "vbaBaseline":  {
+                                                                       "description":  "304L PLATE",
+                                                                       "optiMaterial":  "S.304L1IN",
+                                                                       "rawWeight":  232.0758,
+                                                                       "bomQty":  1,
+                                                                       "routing":  {
+                                                                                       "O120":  {
+                                                                                                    "op":  10,
+                                                                                                    "setup":  0,
+                                                                                                    "run":  0
+                                                                                                },
+                                                                                       "N120":  {
+                                                                                                    "op":  20,
+                                                                                                    "setup":  0.01,
+                                                                                                    "run":  0.0964
+                                                                                                }
+                                                                                   }
+                                                                   },
+                                                   "csharpExpected":  {
+
+                                                                      },
+                                                   "knownDeviations":  {
+                                                                           "rawWeight":  {
+                                                                                             "reason":  "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only",
+                                                                                             "status":  "BUG"
+                                                                                         },
+                                                                           "routing.N120.run": {
+                                                                                             "reason":  "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time",
+                                                                                             "status":  "BUG"
+                                                                                         },
+                                                                           "optiMaterial":  {
+                                                                                                "reason":  "Thick plate (1in) classified as Generic; static service only handles SheetMetal/Tube",
+                                                                                                "status":  "NOT_IMPLEMENTED"
+                                                                                            },
+                                                                           "description":  {
+                                                                                               "reason":  "C# classifies as Generic (material only); VBA generated 'PLATE'",
+                                                                                               "status":  "INTENTIONAL"
+                                                                                           }
+                                                                       },
+                                                   "_note":  "1 inch exceeds MaxSheetThickness"
+                                               },
+                  "E2_Foil_005.sldprt":  {
+                                             "shouldPass":  true,
+                                             "expectedClassification":  "SheetMetal",
+                                             "expectedThickness_in":  0.005,
+                                             "vbaBaseline":  {
+                                                                 "description":  "304L PLATE",
+                                                                 "optiMaterial":  "S.304L22GA",
+                                                                 "rawWeight":  0.0877,
+                                                                 "bomQty":  1,
+                                                                 "routing":  {
+                                                                                 "O120":  {
+                                                                                              "op":  10,
+                                                                                              "setup":  0,
+                                                                                              "run":  0
+                                                                                          },
+                                                                                 "N120":  {
+                                                                                              "op":  20,
+                                                                                              "setup":  0.01,
+                                                                                              "run":  0.0005
+                                                                                          }
+                                                                             }
+                                                             },
+                                             "csharpExpected":  {
+
+                                                                },
+                                             "knownDeviations":  {
+                                                                     "rawWeight": {
+                                                                         "status": "BUG",
+                                                                         "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                     },
+                                                                     "routing.N120.run": {
+                                                                         "status": "BUG",
+                                                                         "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                     },
+                                                                     "optiMaterial": {
+                                                                         "status": "BUG",
+                                                                         "reason": "Static gauge table maps 0.005in foil to 30GA (nearest match); VBA Excel lookup returns 22GA"
+                                                                     }
+                                                                 }
+                                         },
+                  "E3_TaperedWall.sldprt":  {
+                                                "shouldPass":  true,
+                                                "expectedClassification":  "Generic",
+                                                "vbaBaseline":  {
+                                                                    "description":  "304L PLATE",
+                                                                    "optiMaterial":  "S.304L.5IN",
+                                                                    "rawWeight":  132.1343,
+                                                                    "bomQty":  1,
+                                                                    "routing":  {
+                                                                                    "O120":  {
+                                                                                                 "op":  10,
+                                                                                                 "setup":  0,
+                                                                                                 "run":  0
+                                                                                             },
+                                                                                    "N120":  {
+                                                                                                 "op":  20,
+                                                                                                 "setup":  0.01,
+                                                                                                 "run":  0.0266
+                                                                                             }
+                                                                                }
+                                                                },
+                                                "csharpExpected":  {
+
+                                                                   },
+                                                "knownDeviations":  {
+                                                                        "rawWeight":  {
+                                                                                          "reason":  "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only",
+                                                                                          "status":  "BUG"
+                                                                                      },
+                                                                        "routing.N120.run": {
+                                                                                          "reason":  "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time",
+                                                                                          "status":  "BUG"
+                                                                                      },
+                                                                        "optiMaterial":  {
+                                                                                             "reason":  "Tapered wall classified as Generic; static service only handles SheetMetal/Tube",
+                                                                                             "status":  "NOT_IMPLEMENTED"
+                                                                                         },
+                                                                        "description":  {
+                                                                                            "reason":  "C# classifies as Generic (material only); VBA generated 'PLATE'",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        }
+                                                                    },
+                                                "_note":  "Non-constant thickness"
+                                            },
+                  "E4_EccentricTube.sldprt":  {
+                                                  "shouldPass":  true,
+                                                  "expectedClassification":  "Generic",
+                                                  "vbaBaseline":  {
+                                                                      "description":  "304L TUBE",
+                                                                      "optiMaterial":  "T.304L6\"ODX.293\"",
+                                                                      "rawWeight":  1,
+                                                                      "f300Length":  12,
+                                                                      "bomQty":  1,
+                                                                      "routing":  {
+                                                                                      "F110":  {
+                                                                                                   "op":  20,
+                                                                                                   "setup":  0.15,
+                                                                                                   "run":  0.034
+                                                                                               }
+                                                                                  }
+                                                                  },
+                                                  "csharpExpected":  {
+
+                                                                     },
+                                                  "knownDeviations":  {
+                                                                          "rawWeight":  {
+                                                                                            "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        },
+                                                                          "optiMaterial":  {
+                                                                                               "reason":  "Eccentric tube classified as Generic; static service only handles standard tubes",
+                                                                                               "status":  "NOT_IMPLEMENTED"
+                                                                                           },
+                                                                          "description":  {
+                                                                                              "reason":  "C# classifies as Generic (material only); VBA generated 'TUBE'",
+                                                                                              "status":  "INTENTIONAL"
+                                                                                          },
+                                                                          "routing":  {
+                                                                                          "reason":  "Uses F110 work center not compared by standard mappings",
+                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                      }
+                                                                      },
+                                                  "_note":  "Concentricity check fails"
+                                              },
+                  "E5_NonPlanarFace.sldprt":  {
+                                                  "shouldPass":  false,
+                                                  "expectedFailureReason":  "unfold",
+                                                  "csharpExpected":  {
+
+                                                                     },
+                                                  "_note":  "Cannot unfold without flat reference"
+                                              },
+                  "E6_HugePart.sldprt":  {
+                                             "shouldPass":  true,
+                                             "vbaBaseline":  {
+                                                                 "description":  "304L PLATE",
+                                                                 "optiMaterial":  "S.304L.25IN",
+                                                                 "rawWeight":  473401.4848,
+                                                                 "bomQty":  1,
+                                                                 "routing":  {
+                                                                                 "O120":  {
+                                                                                              "op":  10,
+                                                                                              "setup":  0,
+                                                                                              "run":  0
+                                                                                          },
+                                                                                 "N120":  {
+                                                                                              "op":  20,
+                                                                                              "setup":  0.01,
+                                                                                              "run":  76.3957
+                                                                                          }
+                                                                             }
+                                                             },
+                                             "csharpExpected":  {
+
+                                                                },
+                                             "knownDeviations":  {
+                                                                     "rawWeight": {
+                                                                         "status": "BUG",
+                                                                         "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
+                                                                     },
+                                                                     "routing.N120.run": {
+                                                                         "status": "BUG",
+                                                                         "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                     }
+                                                                 },
+                                             "_note":  "100m part - test units handling",
+                                             "_status":  "PLACEHOLDER - file not yet created"
+                                         },
+                  "F1_SimpleAssy.sldasm":  {
+                                               "shouldPass":  true,
+                                               "csharpExpected":  {
+
+                                                                  },
+                                               "_note":  "Simple assembly with 3 unique parts - basic traversal",
+                                               "_status":  "PLACEHOLDER - file not yet created"
+                                           },
+                  "F2_MultiLevelAssy.sldasm":  {
+                                                   "shouldPass":  true,
+                                                   "csharpExpected":  {
+
+                                                                      },
+                                                   "_note":  "Assembly containing sub-assemblies - recursion depth test",
+                                                   "_status":  "PLACEHOLDER - file not yet created"
+                                               },
+                  "G1_MultiConfig.sldprt":  {
+                                                "shouldPass":  true,
+                                                "csharpExpected":  {
+
+                                                                   },
+                                                "_note":  "Part with Long and Short configs - only process active",
+                                                "_status":  "PLACEHOLDER - file not yet created"
+                                            },
+                  "G2_GaugeConfigs.sldprt":  {
+                                                 "shouldPass":  true,
+                                                 "expectedClassification":  "SheetMetal",
+                                                 "csharpExpected":  {
+
+                                                                    },
+                                                 "_note":  "Config A = 10ga, Config B = 14ga - material/gauge update",
+                                                 "_status":  "PLACEHOLDER - file not yet created"
+                                             },
+                  "H1_StepImport.step":  {
+                                             "shouldPass":  true,
+                                             "csharpExpected":  {
+
+                                                                },
+                                             "_note":  "Standard STEP exchange format - Load -\u003e Heal -\u003e Detect",
+                                             "_status":  "PLACEHOLDER - file not yet created"
+                                         }
+              }
+}

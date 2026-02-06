@@ -2,8 +2,12 @@ using System;
 using NM.Core;
 using NM.Core.DataModel;
 using NM.Core.Manufacturing;
+using NM.Core.Manufacturing.Laser;
+using NM.Core.Materials;
 using NM.Core.Processing;
 using NM.Core.Tubes;
+using NM.SwAddin.Geometry;
+using NM.SwAddin.Manufacturing;
 using NM.SwAddin.Processing;
 using NM.SwAddin.SheetMetal;
 using SolidWorks.Interop.sldworks;
@@ -368,6 +372,22 @@ namespace NM.SwAddin.Pipeline
                 var mass = SolidWorksApiWrapper.GetModelMass(doc);
                 if (mass >= 0) pd.Mass_kg = mass;
 
+                // Bounding box (inches -> meters)
+                try
+                {
+                    var bboxExtractor = new BoundingBoxExtractor();
+                    var blankSize = bboxExtractor.GetBlankSize(doc);
+                    if (blankSize.length > 0)
+                    {
+                        pd.BBoxLength_m = blankSize.length / 39.3701;
+                        pd.BBoxWidth_m = blankSize.width / 39.3701;
+                    }
+                }
+                catch (Exception bboxEx)
+                {
+                    ErrorHandler.HandleError("MainRunner", "BBox extraction failed", bboxEx, ErrorHandler.LogLevel.Warning);
+                }
+
                 // Thickness (inches) to meters if present in cache
                 var thicknessIn = info.CustomProperties.Thickness; // inches
                 if (thicknessIn > 0)
@@ -378,11 +398,55 @@ namespace NM.SwAddin.Pipeline
                 // Sheet percent if written by processors
                 pd.SheetPercent = info.CustomProperties.SheetPercent;
 
-                // Read sheet metal data from custom properties if available
-                if (info.CustomProperties.BendCount > 0)
+                // Extract bend data directly from the model feature tree
+                // (custom properties may not have BendCount after InsertBends2)
+                // Note: countSuppressed=true because the model is flattened at this point,
+                // so bend features are suppressed but still valid.
+                if (isSheetMetal)
+                {
+                    var bends = BendAnalyzer.AnalyzeBends(doc, countSuppressed: true);
+                    if (bends != null && bends.Count > 0)
+                    {
+                        pd.Sheet.IsSheetMetal = true;
+                        pd.Sheet.BendCount = bends.Count;
+                        pd.Sheet.BendsBothDirections = bends.NeedsFlip;
+                        // Store bend geometry for F325/F140 calculations
+                        if (bends.MaxRadiusIn > 0)
+                            pd.Extra["MaxBendRadiusIn"] = bends.MaxRadiusIn.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+                        if (bends.LongestBendIn > 0)
+                            pd.Extra["LongestBendIn"] = bends.LongestBendIn.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+                    }
+                }
+                else if (info.CustomProperties.BendCount > 0)
                 {
                     pd.Sheet.IsSheetMetal = true;
                     pd.Sheet.BendCount = info.CustomProperties.BendCount;
+                }
+
+                // Extract flat pattern metrics (cut lengths, pierce count) for sheet metal
+                if (isSheetMetal)
+                {
+                    try
+                    {
+                        var faceAnalyzer = new FaceAnalyzer();
+                        var flatFace = faceAnalyzer.GetProcessingFace(doc);
+                        if (flatFace != null)
+                        {
+                            var cutMetrics = FlatPatternAnalyzer.Extract(doc, flatFace);
+                            if (cutMetrics != null && cutMetrics.TotalCutLengthIn > 0)
+                            {
+                                pd.Sheet.TotalCutLength_m = cutMetrics.TotalCutLengthIn / 39.3701;
+                                pd.Extra["CutMetrics_PerimeterIn"] = cutMetrics.PerimeterLengthIn.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                pd.Extra["CutMetrics_InternalIn"] = cutMetrics.InternalCutLengthIn.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                pd.Extra["CutMetrics_PierceCount"] = cutMetrics.PierceCount.ToString();
+                                pd.Extra["CutMetrics_HoleCount"] = cutMetrics.HoleCount.ToString();
+                            }
+                        }
+                    }
+                    catch (Exception flatEx)
+                    {
+                        ErrorHandler.HandleError("MainRunner", "FlatPattern extraction failed", flatEx, ErrorHandler.LogLevel.Warning);
+                    }
                 }
 
                 // ====== COPY ERP-RELEVANT CUSTOM PROPERTIES ======
@@ -395,6 +459,20 @@ namespace NM.SwAddin.Pipeline
                     var val = info.CustomProperties.GetPropertyValue(prop);
                     if (val != null && !string.IsNullOrEmpty(val.ToString()))
                         pd.Extra[prop] = val.ToString();
+                }
+
+                // ====== DESCRIPTION GENERATION ======
+                var description = DescriptionGenerator.Generate(pd);
+                if (!string.IsNullOrEmpty(description))
+                    pd.Extra["Description"] = description;
+
+                // ====== OPTIMATERIAL RESOLUTION ======
+                // Use static service as fallback when Excel data unavailable
+                if (string.IsNullOrEmpty(pd.OptiMaterial))
+                {
+                    var optiCode = StaticOptiMaterialService.Resolve(pd);
+                    if (!string.IsNullOrEmpty(optiCode))
+                        pd.OptiMaterial = optiCode;
                 }
 
                 // ====== COST CALCULATIONS ======
@@ -542,6 +620,37 @@ namespace NM.SwAddin.Pipeline
         {
             const double M_TO_IN = 39.3701;
 
+            // F115 Laser Cutting - based on cut length and pierce count
+            if (pd.Sheet.TotalCutLength_m > 0 && pd.Thickness_m > 0)
+            {
+                try
+                {
+                    int pierceCount = 0;
+                    string pcStr;
+                    if (pd.Extra.TryGetValue("CutMetrics_PierceCount", out pcStr))
+                        int.TryParse(pcStr, out pierceCount);
+
+                    var partMetrics = new PartMetrics
+                    {
+                        ApproxCutLengthIn = pd.Sheet.TotalCutLength_m * M_TO_IN,
+                        PierceCount = pierceCount,
+                        ThicknessIn = pd.Thickness_m * M_TO_IN,
+                        MaterialCode = pd.Material ?? "304L",
+                        MassKg = pd.Mass_kg
+                    };
+                    ILaserSpeedProvider speedProvider = new StaticLaserSpeedProvider();
+                    var laserResult = LaserCalculator.Compute(partMetrics, speedProvider, isWaterjet: false, rawWeightLb: rawWeightLb);
+                    pd.Cost.OP20_S_min = laserResult.SetupHours * 60.0;
+                    pd.Cost.OP20_R_min = laserResult.RunHours * 60.0;
+                    pd.Cost.OP20_WorkCenter = "F115";
+                    pd.Cost.F115_Price = laserResult.Cost;
+                }
+                catch (Exception laserEx)
+                {
+                    ErrorHandler.HandleError("MainRunner", "F115 laser calc failed", laserEx, ErrorHandler.LogLevel.Warning);
+                }
+            }
+
             // F210 Deburr - based on cut perimeter
             if (pd.Sheet.TotalCutLength_m > 0)
             {
@@ -554,12 +663,21 @@ namespace NM.SwAddin.Pipeline
             // F140 Press Brake - based on bend info
             if (pd.Sheet.BendCount > 0)
             {
+                double longestBendIn = info.CustomProperties.LongestBendIn;
+                // Fallback: use BendAnalyzer result stored in Extra
+                if (longestBendIn <= 0)
+                {
+                    string extraBend;
+                    if (pd.Extra.TryGetValue("LongestBendIn", out extraBend))
+                        double.TryParse(extraBend, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out longestBendIn);
+                }
+                if (longestBendIn <= 0)
+                    longestBendIn = pd.BBoxWidth_m * M_TO_IN; // Estimate from bounding box
+
                 var bendInfo = new BendInfo
                 {
                     Count = pd.Sheet.BendCount,
-                    LongestBendIn = info.CustomProperties.LongestBendIn > 0
-                        ? info.CustomProperties.LongestBendIn
-                        : pd.BBoxWidth_m * M_TO_IN, // Estimate from bounding box
+                    LongestBendIn = longestBendIn,
                     NeedsFlip = pd.Sheet.BendsBothDirections
                 };
 
@@ -583,6 +701,13 @@ namespace NM.SwAddin.Pipeline
 
             // F325 Roll Forming - based on max bend radius (only if radius > 2 inches)
             double maxRadiusIn = info.CustomProperties.MaxBendRadiusIn;
+            // Fallback: use BendAnalyzer result stored in Extra
+            if (maxRadiusIn <= 0)
+            {
+                string extraRadius;
+                if (pd.Extra.TryGetValue("MaxBendRadiusIn", out extraRadius))
+                    double.TryParse(extraRadius, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out maxRadiusIn);
+            }
             if (maxRadiusIn > 2.0)
             {
                 var f325Calc = new F325Calculator();

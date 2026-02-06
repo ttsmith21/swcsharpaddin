@@ -176,12 +176,19 @@
     <Compile Include="src\NM.SwAddin\Validation\BatchValidator.cs" />
     <Compile Include="src\NM.SwAddin\Processing\ClassificationPipeline.cs" />
     <Compile Include="src\NM.Core\DataModel\QATestResult.cs" />
+    <Compile Include="src\NM.Core\Testing\ComparisonResult.cs" />
+    <Compile Include="src\NM.Core\Testing\GoldStandardComparator.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\QARunner.cs" />
     <Compile Include="src\NM.BatchRunner\Program.cs" />
     <Compile Include="src\NM.BatchRunner\SolidWorksLauncher.cs" />
     <Compile Include="src\NM.SwAddin\SheetMetal\BendAllowanceValidator.cs" />
     <Compile Include="src\NM.Core\DataModel\TimingBaseline.cs" />
     <Compile Include="src\NM.SwAddin\Utils\BatchPerformanceScope.cs" />
+    <Compile Include="src\NM.Core\Export\ImportPrnParser.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\Laser\StaticLaserSpeedProvider.cs" />
+    <Compile Include="src\NM.Core\Processing\DescriptionGenerator.cs" />
+    <Compile Include="src\NM.Core\Materials\MaterialCodeMapper.cs" />
+    <Compile Include="src\NM.Core\Materials\StaticOptiMaterialService.cs" />
     <Compile Include="src\NM.SwAddin\UI\ProblemWizardForm.cs">
       <SubType>Form</SubType>
     </Compile>
