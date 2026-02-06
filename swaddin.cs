@@ -22,8 +22,8 @@ namespace swcsharpaddin
     /// </summary>
     [Guid("d5355548-9569-4381-9939-5d14252a3e47"), ComVisible(true)]
     [SwAddin(
-        Description = "swcsharpaddin description",
-        Title = "swcsharpaddin",
+        Description = "NM AutoPilot - Automated sheet metal and tube processing",
+        Title = "NM AutoPilot",
         LoadAtStartup = true
         )]
     public class SwAddin : ISwAddin
@@ -33,13 +33,15 @@ namespace swcsharpaddin
         ICommandManager iCmdMgr = null;
         int addinID = 0;
         BitmapHandler iBmp;
+        IconResourceHelper _iconHelper;
 
         public const int mainCmdGroupID = 5;
         public const int mainItemID1 = 0;
         public const int mainItemID2 = 1;
-        public const int mainItemID3 = 2;
-        public const int mainItemID4 = 3;
-        public const int mainItemID5 = 4;  // QA Runner command
+        public const int mainItemID3 = 2;   // Smoke Tests (DEBUG)
+        public const int mainItemID4 = 3;   // Run Pipeline
+        public const int mainItemID5 = 4;   // QA Runner (DEBUG)
+        public const int mainItemID6 = 5;   // Review Problems
 
         #region Event Handler Variables
         Hashtable openDocs = new Hashtable();
@@ -193,104 +195,138 @@ namespace swcsharpaddin
         public void AddCommandMgr()
         {
             ICommandGroup cmdGroup;
-            if(iBmp == null)
+            if (iBmp == null)
                 iBmp = new BitmapHandler();
-            Assembly thisAssembly;
-            int cmdIndex2 = -1;
-            string Title = "C# Addin", ToolTip = "C# Addin";
+            if (_iconHelper == null)
+                _iconHelper = new IconResourceHelper();
 
+            Assembly thisAssembly = System.Reflection.Assembly.GetAssembly(this.GetType());
 
-            int[] docTypes = new int[]{(int)swDocumentTypes_e.swDocASSEMBLY,
-                                       (int)swDocumentTypes_e.swDocDRAWING,
-                                       (int)swDocumentTypes_e.swDocPART};
+            string Title = "NM AutoPilot", ToolTip = "NM AutoPilot - Northern Manufacturing";
 
-            thisAssembly = System.Reflection.Assembly.GetAssembly(this.GetType());
-
+            int[] docTypes = new int[] {
+                (int)swDocumentTypes_e.swDocASSEMBLY,
+                (int)swDocumentTypes_e.swDocDRAWING,
+                (int)swDocumentTypes_e.swDocPART
+            };
 
             int cmdGroupErr = 0;
             bool ignorePrevious = false;
 
             object registryIDs;
-            //get the ID information stored in the registry
             bool getDataResult = iCmdMgr.GetGroupDataFromRegistry(mainCmdGroupID, out registryIDs);
 
-            int[] knownIDs = new int[3] { mainItemID3, mainItemID4, mainItemID5};  // Must match command IDs actually registered
-            
+            // All command IDs that will be registered - must match exactly
+#if DEBUG
+            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID5, mainItemID3 };
+#else
+            int[] knownIDs = new int[] { mainItemID4, mainItemID6 };
+#endif
+
             if (getDataResult)
             {
-                if (!CompareIDs((int[])registryIDs, knownIDs)) //if the IDs don't match, reset the commandGroup
-            {
+                if (!CompareIDs((int[])registryIDs, knownIDs))
+                {
                     ignorePrevious = true;
                 }
             }
 
             cmdGroup = iCmdMgr.CreateCommandGroup2(mainCmdGroupID, Title, ToolTip, "", -1, ignorePrevious, ref cmdGroupErr);
-            cmdGroup.LargeIconList = iBmp.CreateFileFromResourceBitmap("swcsharpaddin.ToolbarLarge.bmp", thisAssembly);
-            cmdGroup.SmallIconList = iBmp.CreateFileFromResourceBitmap("swcsharpaddin.ToolbarSmall.bmp", thisAssembly);
-            cmdGroup.LargeMainIcon = iBmp.CreateFileFromResourceBitmap("swcsharpaddin.MainIconLarge.bmp", thisAssembly);
-            cmdGroup.SmallMainIcon = iBmp.CreateFileFromResourceBitmap("swcsharpaddin.MainIconSmall.bmp", thisAssembly);
+
+            // Modern PNG icon API (SolidWorks 2022+)
+            try
+            {
+                cmdGroup.IconList = _iconHelper.GetToolbarIconList(thisAssembly);
+                cmdGroup.MainIconList = _iconHelper.GetMainIconList(thisAssembly);
+            }
+            catch (Exception ex)
+            {
+                // Fallback to legacy BMP if PNG extraction fails
+                NM.Core.ErrorHandler.DebugLog("[Icons] PNG icon load failed, falling back to BMP: " + ex.Message);
+                cmdGroup.LargeIconList = iBmp.CreateFileFromResourceBitmap("swcsharpaddin.ToolbarLarge.bmp", thisAssembly);
+                cmdGroup.SmallIconList = iBmp.CreateFileFromResourceBitmap("swcsharpaddin.ToolbarSmall.bmp", thisAssembly);
+                cmdGroup.LargeMainIcon = iBmp.CreateFileFromResourceBitmap("swcsharpaddin.MainIconLarge.bmp", thisAssembly);
+                cmdGroup.SmallMainIcon = iBmp.CreateFileFromResourceBitmap("swcsharpaddin.MainIconSmall.bmp", thisAssembly);
+            }
 
             int menuToolbarOption = (int)(swCommandItemType_e.swMenuItem | swCommandItemType_e.swToolbarItem);
-            cmdGroup.AddCommandItem2("Run Pipeline", -1, "Run unified processing pipeline", "Run Pipeline", 1, "RunPipeline", "", mainItemID4, menuToolbarOption);
-            cmdGroup.AddCommandItem2("Run QA", -1, "Run Gold Standard QA tests", "Run QA", 2, "RunQA", "", mainItemID5, menuToolbarOption);
+
+            // Icon strip index: 0=RunPipeline, 1=ReviewProblems, 2=RunQA, 3=RunSmokeTests
+            int cmdIndexPipeline = cmdGroup.AddCommandItem2("Run Pipeline", -1,
+                "Run unified processing pipeline on active document", "Run Pipeline",
+                0, "RunPipeline", "", mainItemID4, menuToolbarOption);
+
+            int cmdIndexReview = cmdGroup.AddCommandItem2("Review Problems", -1,
+                "Review and fix problem parts from the last pipeline run", "Review Problems",
+                1, "ReviewProblems", "ReviewProblemsEnable", mainItemID6, menuToolbarOption);
+
 #if DEBUG
-            cmdIndex2 = cmdGroup.AddCommandItem2("Run Smoke Tests", -1, "Run automated smoke tests", "Run Tests", 3, "RunSmokeTests", "", mainItemID3, menuToolbarOption);
+            int cmdIndexQA = cmdGroup.AddCommandItem2("Run QA", -1,
+                "Run Gold Standard QA tests", "Run QA",
+                2, "RunQA", "", mainItemID5, menuToolbarOption);
+
+            int cmdIndexSmoke = cmdGroup.AddCommandItem2("Run Smoke Tests", -1,
+                "Run automated smoke tests", "Run Tests",
+                3, "RunSmokeTests", "", mainItemID3, menuToolbarOption);
 #endif
 
-                cmdGroup.HasToolbar = true;
-                cmdGroup.HasMenu = true;
-                cmdGroup.Activate();
+            cmdGroup.HasToolbar = true;
+            cmdGroup.HasMenu = true;
+            cmdGroup.Activate();
 
-                bool bResult;
-            
-            
-                foreach (int type in docTypes)
+            // Set up the command tab for each document type
+            foreach (int type in docTypes)
+            {
+                CommandTab cmdTab = iCmdMgr.GetCommandTab(type, Title);
+
+                if (cmdTab != null && (!getDataResult || ignorePrevious))
                 {
-                    CommandTab cmdTab;
-
-                    cmdTab = iCmdMgr.GetCommandTab(type, Title);
-
-                if (cmdTab != null & !getDataResult | ignorePrevious)//if tab exists, but we have ignored the registry info (or changed command group ID), re-create the tab.  Otherwise the ids won't matchup and the tab will be blank
-                {
-                    bool res = iCmdMgr.RemoveCommandTab(cmdTab);
+                    iCmdMgr.RemoveCommandTab(cmdTab);
                     cmdTab = null;
                 }
 
-                //if cmdTab is null, must be first load (possibly after reset), add the commands to the tabs
-                    if (cmdTab == null)
-                    {
-                        cmdTab = iCmdMgr.AddCommandTab(type, Title);
-
-                        CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
+                if (cmdTab == null)
+                {
+                    cmdTab = iCmdMgr.AddCommandTab(type, Title);
+                    CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
 
 #if DEBUG
-                        int[] cmdIDs = new int[2];
-                        int[] TextType = new int[2];
+                    int[] cmdIDs = new int[4];
+                    int[] TextType = new int[4];
 
-                        cmdIDs[0] = cmdGroup.ToolbarId;
-                        TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+                    cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
+                    TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                        cmdIDs[1] = cmdGroup.get_CommandID(cmdIndex2);
-                        TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+                    cmdIDs[1] = cmdGroup.get_CommandID(cmdIndexReview);
+                    TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[2] = cmdGroup.get_CommandID(cmdIndexQA);
+                    TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #else
-                        int[] cmdIDs = new int[1];
-                        int[] TextType = new int[1];
+                    int[] cmdIDs = new int[2];
+                    int[] TextType = new int[2];
 
-                        cmdIDs[0] = cmdGroup.ToolbarId;
-                        TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+                    cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
+                    TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[1] = cmdGroup.get_CommandID(cmdIndexReview);
+                    TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #endif
 
-                        bResult = cmdBox.AddCommands(cmdIDs, TextType);
-                    }
-
+                    cmdBox.AddCommands(cmdIDs, TextType);
                 }
-                thisAssembly = null;
-              
             }
+
+            thisAssembly = null;
+        }
 
         public void RemoveCommandMgr()
         {
             iBmp.Dispose();
+            _iconHelper?.Dispose();
             iCmdMgr.RemoveCommandGroup(mainCmdGroupID);
         }
 
@@ -519,6 +555,82 @@ namespace swcsharpaddin
             finally
             {
                 NM.Core.ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Opens the Review Problems UI to review and fix problem parts from the last pipeline run.
+        /// Called by SolidWorks when user clicks "Review Problems" button.
+        /// </summary>
+        public void ReviewProblems()
+        {
+            NM.Core.ErrorHandler.PushCallStack("ReviewProblems");
+            try
+            {
+                var problems = NM.Core.ProblemParts.ProblemPartManager.Instance.GetProblemParts();
+
+                if (problems.Count == 0)
+                {
+                    System.Windows.Forms.MessageBox.Show(
+                        "No problems to review.\n\nRun the pipeline first, and any problem parts will appear here for review.",
+                        "NM AutoPilot - Review Problems",
+                        System.Windows.Forms.MessageBoxButtons.OK,
+                        System.Windows.Forms.MessageBoxIcon.Information);
+                    return;
+                }
+
+                // Open the wizard form (non-modal so user can interact with SolidWorks)
+                var wizard = new ProblemWizardForm(problems, iSwApp, 0);
+                wizard.Show();
+
+                while (wizard.Visible)
+                {
+                    System.Windows.Forms.Application.DoEvents();
+                    System.Threading.Thread.Sleep(50);
+                }
+
+                int fixedCount = wizard.FixedProblems.Count;
+                NM.Core.ErrorHandler.DebugLog($"[ReviewProblems] Wizard closed. Fixed: {fixedCount}, Action: {wizard.SelectedAction}");
+
+                if (fixedCount > 0)
+                {
+                    System.Windows.Forms.MessageBox.Show(
+                        $"Fixed {fixedCount} problem part(s).\n\n" +
+                        $"Remaining problems: {NM.Core.ProblemParts.ProblemPartManager.Instance.GetProblemParts().Count}",
+                        "Review Complete",
+                        System.Windows.Forms.MessageBoxButtons.OK,
+                        System.Windows.Forms.MessageBoxIcon.Information);
+                }
+
+                wizard.Dispose();
+            }
+            catch (System.Exception ex)
+            {
+                NM.Core.ErrorHandler.HandleError("ReviewProblems", ex.Message, ex, NM.Core.ErrorHandler.LogLevel.Error);
+                System.Windows.Forms.MessageBox.Show($"Review Problems error: {ex.Message}", "Error");
+            }
+            finally
+            {
+                NM.Core.ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Enable callback for Review Problems button.
+        /// SolidWorks calls this to determine if the button should be grayed out.
+        /// </summary>
+        /// <returns>1 = enabled, 0 = disabled (grayed out)</returns>
+        public int ReviewProblemsEnable()
+        {
+            try
+            {
+                bool hasProblems = NM.Core.ProblemParts.ProblemPartManager.Instance
+                    .GetProblemParts().Count > 0;
+                return hasProblems ? 1 : 0;
+            }
+            catch
+            {
+                return 1; // On error, keep enabled so user can click and see a message
             }
         }
 
