@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using NM.Core;
 using NM.Core.DataModel;
+using NM.Core.Export;
 using NM.SwAddin.AssemblyProcessing;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
@@ -110,7 +111,7 @@ namespace NM.SwAddin.Pipeline
 
                 foreach (var filePath in partFiles)
                 {
-                    var result = ProcessSingleFile(filePath, options);
+                    var result = ProcessSingleFile(filePath, options, summary.PartDataCollection);
                     summary.Results.Add(result);
 
                     switch (result.Status)
@@ -163,6 +164,25 @@ namespace NM.SwAddin.Pipeline
                     WriteResults(summary, config.OutputPath);
                 }
 
+                // 4d. Generate C# Import.prn for comparison with VBA baseline
+                if (summary.PartDataCollection.Count > 0 && !string.IsNullOrWhiteSpace(config.OutputPath))
+                {
+                    try
+                    {
+                        var outputDir = Path.GetDirectoryName(config.OutputPath);
+                        var exportData = ErpExportDataBuilder.FromPartDataCollection(
+                            summary.PartDataCollection, "GOLD_STANDARD_ASM_CLEAN", "", "GOLD STANDARD TEST");
+                        var exporter = new ErpExportFormat();
+                        var prnPath = Path.Combine(outputDir, "Import_CSharp.prn");
+                        exporter.ExportToImportPrn(exportData, prnPath);
+                        QALog($"[{proc}] Generated Import_CSharp.prn at {prnPath}");
+                    }
+                    catch (Exception prnEx)
+                    {
+                        QALog($"[{proc}] WARNING: Import.prn generation failed: {prnEx.Message}");
+                    }
+                }
+
                 QALog($"");
                 QALog($"========== QA Run Complete ==========");
                 QALog($"[{proc}] Passed: {summary.Passed}, Failed: {summary.Failed}, Errors: {summary.Errors}");
@@ -186,7 +206,7 @@ namespace NM.SwAddin.Pipeline
             }
         }
 
-        private QATestResult ProcessSingleFile(string filePath, ProcessingOptions options)
+        private QATestResult ProcessSingleFile(string filePath, ProcessingOptions options, List<PartData> partDataOut = null)
         {
             const string proc = nameof(QARunner) + ".ProcessSingleFile";
             var fileName = Path.GetFileName(filePath);
@@ -228,6 +248,10 @@ namespace NM.SwAddin.Pipeline
                     // Process using MainRunner
                     var partData = MainRunner.RunSinglePartData(_swApp, doc, options);
                     sw.Stop();
+
+                    // Retain PartData for ERP export generation
+                    if (partDataOut != null && partData != null)
+                        partDataOut.Add(partData);
 
                     // Convert to QATestResult
                     var result = QATestResult.FromPartData(partData, sw.Elapsed.TotalMilliseconds);

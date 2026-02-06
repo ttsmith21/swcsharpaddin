@@ -219,6 +219,11 @@ namespace NM.Core.DataModel
         public List<QATestResult> Results { get; set; } = new List<QATestResult>();
 
         /// <summary>
+        /// Retained PartData for ERP export (Import.prn generation).
+        /// </summary>
+        public List<PartData> PartDataCollection { get; set; } = new List<PartData>();
+
+        /// <summary>
         /// Performance timing summary by operation category.
         /// Keys are timer names (e.g., "InsertBends2_Probe", "TryFlatten_Final").
         /// </summary>

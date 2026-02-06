@@ -2,8 +2,11 @@ using System;
 using NM.Core;
 using NM.Core.DataModel;
 using NM.Core.Manufacturing;
+using NM.Core.Manufacturing.Laser;
 using NM.Core.Processing;
 using NM.Core.Tubes;
+using NM.SwAddin.Geometry;
+using NM.SwAddin.Manufacturing;
 using NM.SwAddin.Processing;
 using NM.SwAddin.SheetMetal;
 using SolidWorks.Interop.sldworks;
@@ -368,6 +371,22 @@ namespace NM.SwAddin.Pipeline
                 var mass = SolidWorksApiWrapper.GetModelMass(doc);
                 if (mass >= 0) pd.Mass_kg = mass;
 
+                // Bounding box (inches -> meters)
+                try
+                {
+                    var bboxExtractor = new BoundingBoxExtractor();
+                    var blankSize = bboxExtractor.GetBlankSize(doc);
+                    if (blankSize.length > 0)
+                    {
+                        pd.BBoxLength_m = blankSize.length / 39.3701;
+                        pd.BBoxWidth_m = blankSize.width / 39.3701;
+                    }
+                }
+                catch (Exception bboxEx)
+                {
+                    ErrorHandler.HandleError("MainRunner", "BBox extraction failed", bboxEx, ErrorHandler.LogLevel.Warning);
+                }
+
                 // Thickness (inches) to meters if present in cache
                 var thicknessIn = info.CustomProperties.Thickness; // inches
                 if (thicknessIn > 0)
@@ -385,6 +404,32 @@ namespace NM.SwAddin.Pipeline
                     pd.Sheet.BendCount = info.CustomProperties.BendCount;
                 }
 
+                // Extract flat pattern metrics (cut lengths, pierce count) for sheet metal
+                if (isSheetMetal)
+                {
+                    try
+                    {
+                        var faceAnalyzer = new FaceAnalyzer();
+                        var flatFace = faceAnalyzer.GetProcessingFace(doc);
+                        if (flatFace != null)
+                        {
+                            var cutMetrics = FlatPatternAnalyzer.Extract(doc, flatFace);
+                            if (cutMetrics != null && cutMetrics.TotalCutLengthIn > 0)
+                            {
+                                pd.Sheet.TotalCutLength_m = cutMetrics.TotalCutLengthIn / 39.3701;
+                                pd.Extra["CutMetrics_PerimeterIn"] = cutMetrics.PerimeterLengthIn.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                pd.Extra["CutMetrics_InternalIn"] = cutMetrics.InternalCutLengthIn.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                pd.Extra["CutMetrics_PierceCount"] = cutMetrics.PierceCount.ToString();
+                                pd.Extra["CutMetrics_HoleCount"] = cutMetrics.HoleCount.ToString();
+                            }
+                        }
+                    }
+                    catch (Exception flatEx)
+                    {
+                        ErrorHandler.HandleError("MainRunner", "FlatPattern extraction failed", flatEx, ErrorHandler.LogLevel.Warning);
+                    }
+                }
+
                 // ====== COPY ERP-RELEVANT CUSTOM PROPERTIES ======
                 // These properties are used by ErpExportDataBuilder for VBA-parity export
                 string[] erpProps = { "rbPartType", "rbPartTypeSub", "OS_WC", "OS_WC_A",
@@ -396,6 +441,11 @@ namespace NM.SwAddin.Pipeline
                     if (val != null && !string.IsNullOrEmpty(val.ToString()))
                         pd.Extra[prop] = val.ToString();
                 }
+
+                // ====== DESCRIPTION GENERATION ======
+                var description = DescriptionGenerator.Generate(pd);
+                if (!string.IsNullOrEmpty(description))
+                    pd.Extra["Description"] = description;
 
                 // ====== COST CALCULATIONS ======
                 PerformanceTracker.Instance.StartTimer("CostCalculation");
@@ -541,6 +591,37 @@ namespace NM.SwAddin.Pipeline
         private static void CalculateSheetMetalCosts(PartData pd, ModelInfo info, double rawWeightLb, int quantity)
         {
             const double M_TO_IN = 39.3701;
+
+            // F115 Laser Cutting - based on cut length and pierce count
+            if (pd.Sheet.TotalCutLength_m > 0 && pd.Thickness_m > 0)
+            {
+                try
+                {
+                    int pierceCount = 0;
+                    string pcStr;
+                    if (pd.Extra.TryGetValue("CutMetrics_PierceCount", out pcStr))
+                        int.TryParse(pcStr, out pierceCount);
+
+                    var partMetrics = new PartMetrics
+                    {
+                        ApproxCutLengthIn = pd.Sheet.TotalCutLength_m * M_TO_IN,
+                        PierceCount = pierceCount,
+                        ThicknessIn = pd.Thickness_m * M_TO_IN,
+                        MaterialCode = pd.Material ?? "304L",
+                        MassKg = pd.Mass_kg
+                    };
+                    ILaserSpeedProvider speedProvider = new StaticLaserSpeedProvider();
+                    var laserResult = LaserCalculator.Compute(partMetrics, speedProvider, isWaterjet: false, rawWeightLb: rawWeightLb);
+                    pd.Cost.OP20_S_min = laserResult.SetupHours * 60.0;
+                    pd.Cost.OP20_R_min = laserResult.RunHours * 60.0;
+                    pd.Cost.OP20_WorkCenter = "F115";
+                    pd.Cost.F115_Price = laserResult.Cost;
+                }
+                catch (Exception laserEx)
+                {
+                    ErrorHandler.HandleError("MainRunner", "F115 laser calc failed", laserEx, ErrorHandler.LogLevel.Warning);
+                }
+            }
 
             // F210 Deburr - based on cut perimeter
             if (pd.Sheet.TotalCutLength_m > 0)

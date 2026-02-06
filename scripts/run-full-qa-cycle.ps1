@@ -29,7 +29,7 @@ Write-Host ""
 $overallStart = Get-Date
 
 # --- Step 1: Kill SolidWorks if running ---
-Write-Host "[1/5] Checking for SolidWorks..." -ForegroundColor Yellow
+Write-Host "[1/7] Checking for SolidWorks..." -ForegroundColor Yellow
 $swProcess = Get-Process -Name SLDWORKS -ErrorAction SilentlyContinue
 if ($swProcess) {
     Write-Host "  SolidWorks is running. Stopping..." -ForegroundColor Red
@@ -43,7 +43,7 @@ if ($swProcess) {
 # --- Step 2: Build ---
 if (-not $SkipBuild) {
     Write-Host ""
-    Write-Host "[2/5] Building..." -ForegroundColor Yellow
+    Write-Host "[2/7] Building..." -ForegroundColor Yellow
 
     # Build main project
     & "$PSScriptRoot\build-and-test.ps1" -SkipClean -SkipTests
@@ -76,13 +76,13 @@ if (-not $SkipBuild) {
     }
 } else {
     Write-Host ""
-    Write-Host "[2/5] Skipping build (--SkipBuild)" -ForegroundColor DarkGray
+    Write-Host "[2/7] Skipping build (--SkipBuild)" -ForegroundColor DarkGray
 }
 
 # --- Step 3: Run QA ---
 if (-not $SkipQA) {
     Write-Host ""
-    Write-Host "[3/5] Running QA tests..." -ForegroundColor Yellow
+    Write-Host "[3/7] Running QA tests..." -ForegroundColor Yellow
     $batchRunner = "$projectRoot\src\NM.BatchRunner\bin\Debug\NM.BatchRunner.exe"
     if (-not (Test-Path $batchRunner)) {
         Write-Host "  ERROR: NM.BatchRunner.exe not found at: $batchRunner" -ForegroundColor Red
@@ -102,12 +102,12 @@ if (-not $SkipQA) {
     }
 } else {
     Write-Host ""
-    Write-Host "[3/5] Skipping QA run (--SkipQA)" -ForegroundColor DarkGray
+    Write-Host "[3/7] Skipping QA run (--SkipQA)" -ForegroundColor DarkGray
 }
 
 # --- Step 4: Find latest results ---
 Write-Host ""
-Write-Host "[4/5] Finding results..." -ForegroundColor Yellow
+Write-Host "[4/7] Finding results..." -ForegroundColor Yellow
 $runsDir = "$projectRoot\tests"
 $latestRun = Get-ChildItem $runsDir -Directory -Filter "Run_*" -ErrorAction SilentlyContinue |
     Sort-Object Name -Descending |
@@ -135,7 +135,7 @@ Write-Host "  Results: $resultsFile" -ForegroundColor Green
 
 # --- Step 5: Compare against manifest-v2 ---
 Write-Host ""
-Write-Host "[5/5] Comparing results against manifest-v2..." -ForegroundColor Yellow
+Write-Host "[5/7] Comparing results against manifest-v2..." -ForegroundColor Yellow
 
 if (-not (Test-Path $ManifestV2)) {
     Write-Host "  manifest-v2.json not found at: $ManifestV2" -ForegroundColor Red
@@ -150,6 +150,31 @@ if (Test-Path $compareScript) {
     & $compareScript
 } else {
     Write-Host "  compare-qa-results.ps1 not found, showing basic results summary" -ForegroundColor Yellow
+}
+
+# --- Step 6: Import.prn diff ---
+Write-Host ""
+Write-Host "[6/7] Import.prn diff..." -ForegroundColor Yellow
+$diffScript = "$PSScriptRoot\diff-import-prn.ps1"
+if (Test-Path $diffScript) {
+    $csharpPrn = Join-Path (Split-Path $resultsFile) "Import_CSharp.prn"
+    if (Test-Path $csharpPrn) {
+        & $diffScript
+    } else {
+        Write-Host "  No Import_CSharp.prn found, skipping diff" -ForegroundColor DarkGray
+    }
+} else {
+    Write-Host "  diff-import-prn.ps1 not found" -ForegroundColor DarkGray
+}
+
+# --- Step 7: Track coverage ---
+Write-Host ""
+Write-Host "[7/7] Tracking coverage..." -ForegroundColor Yellow
+$trackScript = "$PSScriptRoot\track-coverage.ps1"
+if (Test-Path $trackScript) {
+    & $trackScript
+} else {
+    Write-Host "  track-coverage.ps1 not found" -ForegroundColor DarkGray
 }
 
 # Parse results.json for a quick summary
