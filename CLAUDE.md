@@ -693,6 +693,38 @@ A change is complete when:
 4. New .cs files added to .csproj via `sync-csproj.ps1`
 5. Code follows existing patterns in the codebase
 
+## Execution Strategy
+
+When planning implementation, recommend one of these approaches:
+
+| Strategy | When to Use | Examples |
+|----------|-------------|---------|
+| **Sequential** (default) | Single-file fixes, dependent chains, COM debugging | Bug fix, validation→processing pipeline |
+| **Worktrees** (`/worktree-start`) | Independent features, long-running work, side-by-side comparison | UI form + manufacturing calc in parallel |
+| **Sub-agents** (Task tool) | Parallel codebase exploration, independent file edits, research + code simultaneously | Read VBA reference while writing C# port |
+
+### When to suggest worktrees
+- Features that don't share files (e.g., `src/NM.Core/Manufacturing/` vs `src/NM.SwAddin/UI/`)
+- Work that takes multiple sessions and should stay off `main` until ready
+- Comparing two implementation approaches
+
+### When to suggest sub-agents
+- Exploring unfamiliar parts of the codebase during planning phase
+- Making independent edits across 3+ unrelated files
+- One agent researches (reads docs/VBA reference) while another writes code
+
+### Codebase-specific constraints
+- **SolidWorks locks the DLL** — only one worktree can have SW open at a time
+- **Only one `/qa` at a time** — QA launches SolidWorks, so worktrees can't test in parallel
+- **Old-style csproj** — every worktree needs `sync-csproj.ps1` after adding files
+- **Each worktree builds independently** — but they share the same MSBuild toolchain
+
+### Plan output format
+When presenting a plan, include an **Execution** line:
+- `Execution: Sequential` — just do it step by step
+- `Execution: Worktree recommended` — suggest `/worktree-start <name>` with rationale
+- `Execution: Sub-agents for exploration, then sequential` — use agents to research, then implement
+
 ## Debugging
 
 ```csharp
