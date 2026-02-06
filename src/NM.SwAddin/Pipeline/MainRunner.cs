@@ -398,8 +398,21 @@ namespace NM.SwAddin.Pipeline
                 // Sheet percent if written by processors
                 pd.SheetPercent = info.CustomProperties.SheetPercent;
 
-                // Read sheet metal data from custom properties if available
-                if (info.CustomProperties.BendCount > 0)
+                // Extract bend data directly from the model feature tree
+                // (custom properties may not have BendCount after InsertBends2)
+                // Note: countSuppressed=true because the model is flattened at this point,
+                // so bend features are suppressed but still valid.
+                if (isSheetMetal)
+                {
+                    var bends = BendAnalyzer.AnalyzeBends(doc, countSuppressed: true);
+                    if (bends != null && bends.Count > 0)
+                    {
+                        pd.Sheet.IsSheetMetal = true;
+                        pd.Sheet.BendCount = bends.Count;
+                        pd.Sheet.BendsBothDirections = bends.NeedsFlip;
+                    }
+                }
+                else if (info.CustomProperties.BendCount > 0)
                 {
                     pd.Sheet.IsSheetMetal = true;
                     pd.Sheet.BendCount = info.CustomProperties.BendCount;

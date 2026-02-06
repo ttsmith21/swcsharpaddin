@@ -560,8 +560,8 @@
                                                                      }
                                              },
                   "D3_Motor.sldprt":  {
-                                          "shouldPass":  true,
-                                          "expectedClassification":  "Generic",
+                                          "shouldPass":  false,
+                                          "expectedFailureReason":  "Multi-body part (15 bodies)",
                                           "vbaBaseline":  {
                                                               "description":  "MOTOR, ELECTRIC",
                                                               "optiMaterial":  "CUST-294303026",
