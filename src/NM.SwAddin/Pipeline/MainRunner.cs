@@ -3,6 +3,7 @@ using NM.Core;
 using NM.Core.DataModel;
 using NM.Core.Manufacturing;
 using NM.Core.Manufacturing.Laser;
+using NM.Core.Materials;
 using NM.Core.Processing;
 using NM.Core.Tubes;
 using NM.SwAddin.Geometry;
@@ -446,6 +447,15 @@ namespace NM.SwAddin.Pipeline
                 var description = DescriptionGenerator.Generate(pd);
                 if (!string.IsNullOrEmpty(description))
                     pd.Extra["Description"] = description;
+
+                // ====== OPTIMATERIAL RESOLUTION ======
+                // Use static service as fallback when Excel data unavailable
+                if (string.IsNullOrEmpty(pd.OptiMaterial))
+                {
+                    var optiCode = StaticOptiMaterialService.Resolve(pd);
+                    if (!string.IsNullOrEmpty(optiCode))
+                        pd.OptiMaterial = optiCode;
+                }
 
                 // ====== COST CALCULATIONS ======
                 PerformanceTracker.Instance.StartTimer("CostCalculation");

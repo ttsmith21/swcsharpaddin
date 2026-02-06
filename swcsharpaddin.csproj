@@ -186,6 +186,8 @@
     <Compile Include="src\NM.Core\Export\ImportPrnParser.cs" />
     <Compile Include="src\NM.Core\Manufacturing\Laser\StaticLaserSpeedProvider.cs" />
     <Compile Include="src\NM.Core\Processing\DescriptionGenerator.cs" />
+    <Compile Include="src\NM.Core\Materials\MaterialCodeMapper.cs" />
+    <Compile Include="src\NM.Core\Materials\StaticOptiMaterialService.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="ToolbarLarge.bmp" />

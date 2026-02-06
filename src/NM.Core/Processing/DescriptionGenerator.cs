@@ -1,5 +1,6 @@
 using System;
 using NM.Core.DataModel;
+using NM.Core.Materials;
 
 namespace NM.Core.Processing
 {
@@ -18,7 +19,21 @@ namespace NM.Core.Processing
             if (pd == null) return null;
             if (string.IsNullOrWhiteSpace(pd.Material)) return null;
 
-            string material = pd.Material.Trim().ToUpperInvariant();
+            // Priority: user-form MaterialCode in Extra > MaterialCodeMapper > raw material
+            string material;
+            string materialCode;
+            if (pd.Extra.TryGetValue("MaterialCode", out materialCode) &&
+                !string.IsNullOrWhiteSpace(materialCode))
+            {
+                material = materialCode.Trim().ToUpperInvariant();
+            }
+            else
+            {
+                material = MaterialCodeMapper.ToShortCode(pd.Material);
+            }
+
+            if (string.IsNullOrWhiteSpace(material)) return null;
+
             string suffix = GetSuffix(pd);
 
             if (string.IsNullOrEmpty(suffix))

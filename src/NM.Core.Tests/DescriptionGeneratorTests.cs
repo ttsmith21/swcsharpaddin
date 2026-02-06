@@ -198,5 +198,84 @@ namespace NM.Core.Tests
 
             Assert.Equal("A36", result);
         }
+
+        [Fact]
+        public void SwMaterialName_AISI304_MapsTo304L()
+        {
+            var pd = new PartData
+            {
+                Classification = PartType.SheetMetal,
+                Material = "AISI 304"
+            };
+            pd.Sheet.IsSheetMetal = true;
+            pd.Sheet.BendCount = 2;
+
+            string result = DescriptionGenerator.Generate(pd);
+
+            Assert.Equal("304L BENT", result);
+        }
+
+        [Fact]
+        public void SwMaterialName_AISI316_MapsTo316L()
+        {
+            var pd = new PartData
+            {
+                Classification = PartType.Tube,
+                Material = "AISI 316"
+            };
+            pd.Tube.IsTube = true;
+            pd.Tube.TubeShape = "Round";
+
+            string result = DescriptionGenerator.Generate(pd);
+
+            Assert.Equal("316L PIPE", result);
+        }
+
+        [Fact]
+        public void SwMaterialName_PlainCarbonSteel_MapsToCS()
+        {
+            var pd = new PartData
+            {
+                Classification = PartType.SheetMetal,
+                Material = "Plain Carbon Steel"
+            };
+            pd.Sheet.IsSheetMetal = true;
+            pd.Sheet.BendCount = 0;
+
+            string result = DescriptionGenerator.Generate(pd);
+
+            Assert.Equal("CS PLATE", result);
+        }
+
+        [Fact]
+        public void ExtraMaterialCode_TakesPriorityOverSwName()
+        {
+            var pd = new PartData
+            {
+                Classification = PartType.SheetMetal,
+                Material = "AISI 304"
+            };
+            pd.Sheet.IsSheetMetal = true;
+            pd.Sheet.BendCount = 1;
+            pd.Extra["MaterialCode"] = "304L";
+
+            string result = DescriptionGenerator.Generate(pd);
+
+            Assert.Equal("304L BENT", result);
+        }
+
+        [Fact]
+        public void UnknownSwMaterial_PassesThroughUppercased()
+        {
+            var pd = new PartData
+            {
+                Classification = PartType.Generic,
+                Material = "Inconel 625"
+            };
+
+            string result = DescriptionGenerator.Generate(pd);
+
+            Assert.Equal("INCONEL 625", result);
+        }
     }
 }

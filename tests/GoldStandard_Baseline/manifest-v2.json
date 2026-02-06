@@ -121,18 +121,6 @@
 
                                                                              },
                                                           "knownDeviations":  {
-                                                                                  "optiMaterial":  {
-                                                                                                       "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
-                                                                                                       "status":  "NOT_IMPLEMENTED"
-                                                                                                   },
-                                                                                  "description":  {
-                                                                                                      "reason":  "Description generation not yet implemented in C#",
-                                                                                                      "status":  "NOT_IMPLEMENTED"
-                                                                                                  },
-                                                                                  "routing":  {
-                                                                                                  "reason":  "Routing not yet generated in QA results",
-                                                                                                  "status":  "NOT_IMPLEMENTED"
-                                                                                              }
                                                                               },
                                                           "_note":  "Model thickness is 0.073 (nominal 14ga is 0.0747)"
                                                       },
@@ -168,18 +156,6 @@
 
                                                                                },
                                                             "knownDeviations":  {
-                                                                                    "optiMaterial":  {
-                                                                                                         "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
-                                                                                                         "status":  "NOT_IMPLEMENTED"
-                                                                                                     },
-                                                                                    "description":  {
-                                                                                                        "reason":  "Description generation not yet implemented in C#",
-                                                                                                        "status":  "NOT_IMPLEMENTED"
-                                                                                                    },
-                                                                                    "routing":  {
-                                                                                                    "reason":  "Routing not yet generated in QA results",
-                                                                                                    "status":  "NOT_IMPLEMENTED"
-                                                                                                }
                                                                                 },
                                                             "_note":  "Model thickness is 0.075"
                                                         },
@@ -214,18 +190,6 @@
 
                                                                               },
                                                            "knownDeviations":  {
-                                                                                   "optiMaterial":  {
-                                                                                                        "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
-                                                                                                        "status":  "NOT_IMPLEMENTED"
-                                                                                                    },
-                                                                                   "description":  {
-                                                                                                       "reason":  "Description generation not yet implemented in C#",
-                                                                                                       "status":  "NOT_IMPLEMENTED"
-                                                                                                   },
-                                                                                   "routing":  {
-                                                                                                   "reason":  "Routing not yet generated in QA results",
-                                                                                                   "status":  "NOT_IMPLEMENTED"
-                                                                                               }
                                                                                },
                                                            "_note":  "Model thickness is 0.076 (not nominal 16ga)"
                                                        },
@@ -279,16 +243,12 @@
 
                                                                            },
                                                         "knownDeviations":  {
-                                                                                "optiMaterial":  {
-                                                                                                     "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
-                                                                                                     "status":  "NOT_IMPLEMENTED"
-                                                                                                 },
-                                                                                "description":  {
-                                                                                                    "reason":  "Description generation not yet implemented in C#",
-                                                                                                    "status":  "NOT_IMPLEMENTED"
-                                                                                                },
+                                                                                "rawWeight":  {
+                                                                                                  "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                                  "status":  "INTENTIONAL"
+                                                                                              },
                                                                                 "routing":  {
-                                                                                                "reason":  "Routing not yet generated in QA results",
+                                                                                                "reason":  "Tube routing uses N145 work center not compared by standard mappings",
                                                                                                 "status":  "NOT_IMPLEMENTED"
                                                                                             }
                                                                             },
@@ -321,16 +281,16 @@
                                                                                                 "reason":  "TubeGeometryExtractor handles rectangular tubes. VBA classified as Generic.",
                                                                                                 "status":  "INTENTIONAL"
                                                                                             },
-                                                                         "optiMaterial":  {
-                                                                                              "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
-                                                                                              "status":  "NOT_IMPLEMENTED"
-                                                                                          },
+                                                                         "rawWeight":  {
+                                                                                           "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                           "status":  "INTENTIONAL"
+                                                                                       },
                                                                          "description":  {
-                                                                                             "reason":  "Description generation not yet implemented in C#",
-                                                                                             "status":  "NOT_IMPLEMENTED"
+                                                                                             "reason":  "C# generates 'RECT TUBE'; VBA used generic 'TUBE' for all tube shapes",
+                                                                                             "status":  "INTENTIONAL"
                                                                                          },
                                                                          "routing":  {
-                                                                                         "reason":  "Routing not yet generated in QA results",
+                                                                                         "reason":  "Tube routing uses F110 work center not compared by standard mappings",
                                                                                          "status":  "NOT_IMPLEMENTED"
                                                                                      }
                                                                      },
@@ -363,16 +323,16 @@
                                                                                                   "reason":  "TubeGeometryExtractor handles square tubes. VBA classified as Generic.",
                                                                                                   "status":  "INTENTIONAL"
                                                                                               },
-                                                                           "optiMaterial":  {
-                                                                                                "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
-                                                                                                "status":  "NOT_IMPLEMENTED"
-                                                                                            },
+                                                                           "rawWeight":  {
+                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                             "status":  "INTENTIONAL"
+                                                                                         },
                                                                            "description":  {
-                                                                                               "reason":  "Description generation not yet implemented in C#",
-                                                                                               "status":  "NOT_IMPLEMENTED"
+                                                                                               "reason":  "C# generates 'SQ TUBE'; VBA used generic 'TUBE' for all tube shapes",
+                                                                                               "status":  "INTENTIONAL"
                                                                                            },
                                                                            "routing":  {
-                                                                                           "reason":  "Routing not yet generated in QA results",
+                                                                                           "reason":  "Tube routing uses F110 work center not compared by standard mappings",
                                                                                            "status":  "NOT_IMPLEMENTED"
                                                                                        }
                                                                        },
@@ -405,16 +365,12 @@
                                                                                                  "reason":  "TubeGeometryExtractor handles angle profiles. VBA classified as Generic.",
                                                                                                  "status":  "INTENTIONAL"
                                                                                              },
-                                                                          "optiMaterial":  {
-                                                                                               "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
-                                                                                               "status":  "NOT_IMPLEMENTED"
-                                                                                           },
-                                                                          "description":  {
-                                                                                              "reason":  "Description generation not yet implemented in C#",
-                                                                                              "status":  "NOT_IMPLEMENTED"
-                                                                                          },
+                                                                          "rawWeight":  {
+                                                                                            "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        },
                                                                           "routing":  {
-                                                                                          "reason":  "Routing not yet generated in QA results",
+                                                                                          "reason":  "Tube routing uses F110 work center not compared by standard mappings",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       },
@@ -436,7 +392,11 @@
                                                                      "classification":  {
                                                                                             "reason":  "TubeGeometryExtractor handles C-channel. VBA classified as Generic.",
                                                                                             "status":  "INTENTIONAL"
-                                                                                        }
+                                                                                        },
+                                                                     "rawWeight":  {
+                                                                                       "reason":  "VBA used placeholder weight=0.0001; C# computes actual mass from SolidWorks",
+                                                                                       "status":  "INTENTIONAL"
+                                                                                   }
                                                                  },
                                              "_note":  "TubeGeometryExtractor handles C-channel. DEVIATION from VBA."
                                          },
@@ -467,16 +427,16 @@
                                                                                          "reason":  "TubeGeometryExtractor handles I-beam. VBA classified as Generic.",
                                                                                          "status":  "INTENTIONAL"
                                                                                      },
-                                                                  "optiMaterial":  {
-                                                                                       "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
-                                                                                       "status":  "NOT_IMPLEMENTED"
-                                                                                   },
+                                                                  "rawWeight":  {
+                                                                                    "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                    "status":  "INTENTIONAL"
+                                                                                },
                                                                   "description":  {
-                                                                                      "reason":  "Description generation not yet implemented in C#",
-                                                                                      "status":  "NOT_IMPLEMENTED"
+                                                                                      "reason":  "C# generates PIPE for I-beam default; VBA used TUBE",
+                                                                                      "status":  "INTENTIONAL"
                                                                                   },
                                                                   "routing":  {
-                                                                                  "reason":  "Routing not yet generated in QA results",
+                                                                                  "reason":  "Tube routing uses F110 work center not compared by standard mappings",
                                                                                   "status":  "NOT_IMPLEMENTED"
                                                                               }
                                                               },
@@ -503,16 +463,20 @@
 
                                                                      },
                                                   "knownDeviations":  {
+                                                                          "rawWeight":  {
+                                                                                            "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        },
                                                                           "optiMaterial":  {
-                                                                                               "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
+                                                                                               "reason":  "Round bar OptiMaterial requires special logic not in static service",
                                                                                                "status":  "NOT_IMPLEMENTED"
                                                                                            },
                                                                           "description":  {
-                                                                                              "reason":  "Description generation not yet implemented in C#",
-                                                                                              "status":  "NOT_IMPLEMENTED"
+                                                                                              "reason":  "C# classifies as Generic (no suffix); VBA generated 'ROUND'",
+                                                                                              "status":  "INTENTIONAL"
                                                                                           },
                                                                           "routing":  {
-                                                                                          "reason":  "Routing not yet generated in QA results",
+                                                                                          "reason":  "Bar routing uses F300 work center not compared by standard mappings",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       },
@@ -539,16 +503,20 @@
 
                                                                      },
                                                   "knownDeviations":  {
+                                                                          "rawWeight":  {
+                                                                                            "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        },
                                                                           "optiMaterial":  {
-                                                                                               "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
+                                                                                               "reason":  "Custom shaped part; OptiMaterial from VBA uses special prefix C.",
                                                                                                "status":  "NOT_IMPLEMENTED"
                                                                                            },
                                                                           "description":  {
-                                                                                              "reason":  "Description generation not yet implemented in C#",
-                                                                                              "status":  "NOT_IMPLEMENTED"
+                                                                                              "reason":  "VBA generated 'ANGLE' for this block; C# classifies as Generic (material only)",
+                                                                                              "status":  "INTENTIONAL"
                                                                                           },
                                                                           "routing":  {
-                                                                                          "reason":  "Routing not yet generated in QA results",
+                                                                                          "reason":  "Uses F110 work center not compared by standard mappings",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       }
@@ -573,16 +541,20 @@
 
                                                                     },
                                                  "knownDeviations":  {
+                                                                         "rawWeight":  {
+                                                                                           "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                           "status":  "INTENTIONAL"
+                                                                                       },
                                                                          "optiMaterial":  {
-                                                                                              "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
+                                                                                              "reason":  "Purchased part; VBA used custom WELDELBOW code",
                                                                                               "status":  "NOT_IMPLEMENTED"
                                                                                           },
                                                                          "description":  {
-                                                                                             "reason":  "Description generation not yet implemented in C#",
-                                                                                             "status":  "NOT_IMPLEMENTED"
+                                                                                             "reason":  "Purchased part; VBA used custom description from properties",
+                                                                                             "status":  "INTENTIONAL"
                                                                                          },
                                                                          "routing":  {
-                                                                                         "reason":  "Routing not yet generated in QA results",
+                                                                                         "reason":  "Purchased part uses NPUR work center",
                                                                                          "status":  "NOT_IMPLEMENTED"
                                                                                      }
                                                                      }
@@ -607,16 +579,20 @@
 
                                                              },
                                           "knownDeviations":  {
+                                                                  "rawWeight":  {
+                                                                                    "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                    "status":  "INTENTIONAL"
+                                                                                },
                                                                   "optiMaterial":  {
-                                                                                       "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
+                                                                                       "reason":  "Purchased part; VBA used customer part number as OptiMaterial",
                                                                                        "status":  "NOT_IMPLEMENTED"
                                                                                    },
                                                                   "description":  {
-                                                                                      "reason":  "Description generation not yet implemented in C#",
-                                                                                      "status":  "NOT_IMPLEMENTED"
+                                                                                      "reason":  "Purchased part; VBA used custom 'MOTOR, ELECTRIC' description",
+                                                                                      "status":  "INTENTIONAL"
                                                                                   },
                                                                   "routing":  {
-                                                                                  "reason":  "Routing not yet generated in QA results",
+                                                                                  "reason":  "Purchased part uses CUST work center",
                                                                                   "status":  "NOT_IMPLEMENTED"
                                                                               }
                                                               }
@@ -661,17 +637,13 @@
                                                                       },
                                                    "knownDeviations":  {
                                                                            "optiMaterial":  {
-                                                                                                "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
+                                                                                                "reason":  "Thick plate (1in) classified as Generic; static service only handles SheetMetal/Tube",
                                                                                                 "status":  "NOT_IMPLEMENTED"
                                                                                             },
                                                                            "description":  {
-                                                                                               "reason":  "Description generation not yet implemented in C#",
-                                                                                               "status":  "NOT_IMPLEMENTED"
-                                                                                           },
-                                                                           "routing":  {
-                                                                                           "reason":  "Routing not yet generated in QA results",
-                                                                                           "status":  "NOT_IMPLEMENTED"
-                                                                                       }
+                                                                                               "reason":  "C# classifies as Generic (material only); VBA generated 'PLATE'",
+                                                                                               "status":  "INTENTIONAL"
+                                                                                           }
                                                                        },
                                                    "_note":  "1 inch exceeds MaxSheetThickness"
                                                },
@@ -701,18 +673,6 @@
 
                                                                 },
                                              "knownDeviations":  {
-                                                                     "optiMaterial":  {
-                                                                                          "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
-                                                                                          "status":  "NOT_IMPLEMENTED"
-                                                                                      },
-                                                                     "description":  {
-                                                                                         "reason":  "Description generation not yet implemented in C#",
-                                                                                         "status":  "NOT_IMPLEMENTED"
-                                                                                     },
-                                                                     "routing":  {
-                                                                                     "reason":  "Routing not yet generated in QA results",
-                                                                                     "status":  "NOT_IMPLEMENTED"
-                                                                                 }
                                                                  }
                                          },
                   "E3_TaperedWall.sldprt":  {
@@ -741,17 +701,13 @@
                                                                    },
                                                 "knownDeviations":  {
                                                                         "optiMaterial":  {
-                                                                                             "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
+                                                                                             "reason":  "Tapered wall classified as Generic; static service only handles SheetMetal/Tube",
                                                                                              "status":  "NOT_IMPLEMENTED"
                                                                                          },
                                                                         "description":  {
-                                                                                            "reason":  "Description generation not yet implemented in C#",
-                                                                                            "status":  "NOT_IMPLEMENTED"
-                                                                                        },
-                                                                        "routing":  {
-                                                                                        "reason":  "Routing not yet generated in QA results",
-                                                                                        "status":  "NOT_IMPLEMENTED"
-                                                                                    }
+                                                                                            "reason":  "C# classifies as Generic (material only); VBA generated 'PLATE'",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        }
                                                                     },
                                                 "_note":  "Non-constant thickness"
                                             },
@@ -776,16 +732,20 @@
 
                                                                      },
                                                   "knownDeviations":  {
+                                                                          "rawWeight":  {
+                                                                                            "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                            "status":  "INTENTIONAL"
+                                                                                        },
                                                                           "optiMaterial":  {
-                                                                                               "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
+                                                                                               "reason":  "Eccentric tube classified as Generic; static service only handles standard tubes",
                                                                                                "status":  "NOT_IMPLEMENTED"
                                                                                            },
                                                                           "description":  {
-                                                                                              "reason":  "Description generation not yet implemented in C#",
-                                                                                              "status":  "NOT_IMPLEMENTED"
+                                                                                              "reason":  "C# classifies as Generic (material only); VBA generated 'TUBE'",
+                                                                                              "status":  "INTENTIONAL"
                                                                                           },
                                                                           "routing":  {
-                                                                                          "reason":  "Routing not yet generated in QA results",
+                                                                                          "reason":  "Uses F110 work center not compared by standard mappings",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       },
@@ -823,18 +783,6 @@
 
                                                                 },
                                              "knownDeviations":  {
-                                                                     "optiMaterial":  {
-                                                                                          "reason":  "OptiMaterial resolution not yet wired in C# pipeline",
-                                                                                          "status":  "NOT_IMPLEMENTED"
-                                                                                      },
-                                                                     "description":  {
-                                                                                         "reason":  "Description generation not yet implemented in C#",
-                                                                                         "status":  "NOT_IMPLEMENTED"
-                                                                                     },
-                                                                     "routing":  {
-                                                                                     "reason":  "Routing not yet generated in QA results",
-                                                                                     "status":  "NOT_IMPLEMENTED"
-                                                                                 }
                                                                  },
                                              "_note":  "100m part - test units handling",
                                              "_status":  "PLACEHOLDER - file not yet created"
