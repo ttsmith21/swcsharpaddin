@@ -201,6 +201,12 @@ namespace NM.Core.DataModel
         public string InputPath { get; set; }
         public string OutputPath { get; set; }
         public string BaselinePath { get; set; }  // Optional: path to baseline manifest.json
+        public string Mode { get; set; }  // "Normal" (default) or "ReadPropertiesOnly"
+
+        public bool IsReadPropertiesOnly
+        {
+            get { return !string.IsNullOrEmpty(Mode) && Mode.Equals("ReadPropertiesOnly", StringComparison.OrdinalIgnoreCase); }
+        }
     }
 
     /// <summary>

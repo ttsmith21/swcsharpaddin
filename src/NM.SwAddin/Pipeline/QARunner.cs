@@ -101,6 +101,50 @@ namespace NM.SwAddin.Pipeline
 
                 QALog($"[{proc}] Found {partFiles.Length} part files and {assyFiles.Length} assembly files in {config.InputPath}");
 
+                // 2b. ReadPropertiesOnly mode: dump VBA custom properties without processing
+                if (config.IsReadPropertiesOnly)
+                {
+                    QALog($"[{proc}] Mode: ReadPropertiesOnly - extracting custom properties only");
+                    var propsMap = new Dictionary<string, Dictionary<string, string>>();
+                    var swProps = Stopwatch.StartNew();
+
+                    foreach (var filePath in partFiles)
+                    {
+                        var props = ReadPropertiesFromFile(filePath);
+                        if (props != null)
+                            propsMap[Path.GetFileName(filePath)] = props;
+                    }
+                    foreach (var filePath in assyFiles)
+                    {
+                        var props = ReadPropertiesFromFile(filePath);
+                        if (props != null)
+                            propsMap[Path.GetFileName(filePath)] = props;
+                    }
+
+                    swProps.Stop();
+                    summary.TotalElapsedMs = swProps.Elapsed.TotalMilliseconds;
+                    summary.CompletedAt = DateTime.UtcNow;
+                    summary.Passed = propsMap.Count;
+                    summary.TotalFiles = partFiles.Length + assyFiles.Length;
+
+                    // Write vba_properties.json
+                    if (!string.IsNullOrWhiteSpace(config.OutputPath))
+                    {
+                        var outputDir = Path.GetDirectoryName(config.OutputPath);
+                        if (!string.IsNullOrEmpty(outputDir))
+                        {
+                            if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
+                            var propsPath = Path.Combine(outputDir, "vba_properties.json");
+                            WritePropertiesJson(propsMap, propsPath);
+                            QALog($"[{proc}] Wrote vba_properties.json with {propsMap.Count} files to {propsPath}");
+                        }
+                    }
+
+                    QALog($"[{proc}] ReadPropertiesOnly complete: {propsMap.Count} files in {swProps.Elapsed.TotalSeconds:F1}s");
+                    ErrorHandler.AdditionalDebugLogPath = null;
+                    return summary;
+                }
+
                 // 3. Process each file
                 // IMPORTANT: Disable saving to preserve golden input files
                 var options = new ProcessingOptions
@@ -429,6 +473,116 @@ namespace NM.SwAddin.Pipeline
             }
         }
 
+        /// <summary>
+        /// Opens a file and reads ALL custom properties without running the processing pipeline.
+        /// Returns a dictionary of property name -> value, or null on failure.
+        /// </summary>
+        private Dictionary<string, string> ReadPropertiesFromFile(string filePath)
+        {
+            const string proc = nameof(QARunner) + ".ReadPropertiesFromFile";
+            var fileName = Path.GetFileName(filePath);
+
+            try
+            {
+                QALog($"[{proc}] Reading properties from: {fileName}");
+
+                // Determine document type
+                var ext = Path.GetExtension(filePath).ToUpperInvariant();
+                int docType = ext == ".SLDASM" ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
+
+                // Open the file
+                int errors = 0, warnings = 0;
+                var doc = _swApp.OpenDoc6(filePath, docType,
+                    (int)swOpenDocOptions_e.swOpenDocOptions_Silent | (int)swOpenDocOptions_e.swOpenDocOptions_ReadOnly,
+                    "", ref errors, ref warnings);
+
+                if (doc == null)
+                {
+                    QALog($"[{proc}] Failed to open: {fileName} (errors={errors})");
+                    return null;
+                }
+
+                try
+                {
+                    var props = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                    // Read global (file-level) properties
+                    string[] names, values;
+                    int[] types;
+                    if (SolidWorksApiWrapper.GetCustomProperties(doc, "", out names, out types, out values))
+                    {
+                        for (int i = 0; i < names.Length; i++)
+                        {
+                            if (!string.IsNullOrEmpty(names[i]))
+                                props[names[i]] = values[i] ?? "";
+                        }
+                    }
+
+                    // Also read config-level properties (may override globals)
+                    string cfg = "";
+                    try { cfg = doc.ConfigurationManager?.ActiveConfiguration?.Name ?? ""; } catch { }
+                    if (!string.IsNullOrEmpty(cfg))
+                    {
+                        if (SolidWorksApiWrapper.GetCustomProperties(doc, cfg, out names, out types, out values))
+                        {
+                            for (int i = 0; i < names.Length; i++)
+                            {
+                                if (!string.IsNullOrEmpty(names[i]))
+                                    props[names[i]] = values[i] ?? "";
+                            }
+                        }
+                    }
+
+                    QALog($"[{proc}] Read {props.Count} properties from {fileName}");
+                    return props;
+                }
+                finally
+                {
+                    CloseDocument(doc);
+                }
+            }
+            catch (Exception ex)
+            {
+                QALog($"[{proc}] Exception reading {fileName}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Writes the properties map to a JSON file using SimpleJsonWriter pattern.
+        /// </summary>
+        private static void WritePropertiesJson(Dictionary<string, Dictionary<string, string>> propsMap, string outputPath)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine("  \"files\": {");
+
+            int fileIndex = 0;
+            foreach (var kvp in propsMap)
+            {
+                var fileName = kvp.Key;
+                var props = kvp.Value;
+                sb.AppendLine($"    \"{SimpleJsonWriter.EscapeString(fileName)}\": {{");
+
+                int propIndex = 0;
+                foreach (var prop in props)
+                {
+                    var comma = (propIndex < props.Count - 1) ? "," : "";
+                    sb.AppendLine($"      \"{SimpleJsonWriter.EscapeString(prop.Key)}\": \"{SimpleJsonWriter.EscapeString(prop.Value)}\"{comma}");
+                    propIndex++;
+                }
+
+                var fileComma = (fileIndex < propsMap.Count - 1) ? "," : "";
+                sb.AppendLine($"    }}{fileComma}");
+                fileIndex++;
+            }
+
+            sb.AppendLine("  }");
+            sb.AppendLine("}");
+
+            File.WriteAllText(outputPath, sb.ToString(), Encoding.UTF8);
+        }
+
         private QAConfig ReadConfig(string configPath)
         {
             try
@@ -629,6 +783,9 @@ namespace NM.SwAddin.Pipeline
                         break;
                     case "BaselinePath":
                         config.BaselinePath = value;
+                        break;
+                    case "Mode":
+                        config.Mode = value;
                         break;
                 }
             }
@@ -880,6 +1037,11 @@ namespace NM.SwAddin.Pipeline
         }
 
         private static string Escape(string value)
+        {
+            return EscapeString(value);
+        }
+
+        internal static string EscapeString(string value)
         {
             if (string.IsNullOrEmpty(value)) return "";
             return value
