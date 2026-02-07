@@ -121,13 +121,9 @@
 
                                                                              },
                                                           "knownDeviations":  {
-                                                                                  "rawWeight": {
-                                                                                      "status": "BUG",
-                                                                                      "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
-                                                                                  },
                                                                                   "routing.N120.run": {
                                                                                       "status": "BUG",
-                                                                                      "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                                      "reason": "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs"
                                                                                   },
                                                                                   "routing.N140.setup": {
                                                                                       "status": "BUG",
@@ -168,13 +164,9 @@
 
                                                                                },
                                                             "knownDeviations":  {
-                                                                                    "rawWeight": {
-                                                                                        "status": "BUG",
-                                                                                        "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
-                                                                                    },
                                                                                     "routing.N120.run": {
                                                                                         "status": "BUG",
-                                                                                        "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                                        "reason": "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs"
                                                                                     },
                                                                                     "routing.N140.setup": {
                                                                                         "status": "BUG",
@@ -214,13 +206,9 @@
 
                                                                               },
                                                            "knownDeviations":  {
-                                                                                   "rawWeight": {
-                                                                                       "status": "BUG",
-                                                                                       "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
-                                                                                   },
                                                                                    "routing.N120.run": {
                                                                                        "status": "BUG",
-                                                                                       "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                                       "reason": "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs"
                                                                                    }
                                                                                },
                                                            "_note":  "Model thickness is 0.076 (not nominal 16ga)"
@@ -672,12 +660,8 @@
 
                                                                       },
                                                    "knownDeviations":  {
-                                                                           "rawWeight":  {
-                                                                                             "reason":  "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only",
-                                                                                             "status":  "BUG"
-                                                                                         },
                                                                            "routing.N120.run": {
-                                                                                             "reason":  "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time",
+                                                                                             "reason":  "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs",
                                                                                              "status":  "BUG"
                                                                                          },
                                                                            "optiMaterial":  {
@@ -717,13 +701,9 @@
 
                                                                 },
                                              "knownDeviations":  {
-                                                                     "rawWeight": {
-                                                                         "status": "BUG",
-                                                                         "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
-                                                                     },
                                                                      "routing.N120.run": {
                                                                          "status": "BUG",
-                                                                         "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                         "reason": "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs"
                                                                      },
                                                                      "optiMaterial": {
                                                                          "status": "BUG",
@@ -756,12 +736,8 @@
 
                                                                    },
                                                 "knownDeviations":  {
-                                                                        "rawWeight":  {
-                                                                                          "reason":  "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only",
-                                                                                          "status":  "BUG"
-                                                                                      },
                                                                         "routing.N120.run": {
-                                                                                          "reason":  "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time",
+                                                                                          "reason":  "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs",
                                                                                           "status":  "BUG"
                                                                                       },
                                                                         "optiMaterial":  {
@@ -847,13 +823,9 @@
 
                                                                 },
                                              "knownDeviations":  {
-                                                                     "rawWeight": {
-                                                                         "status": "BUG",
-                                                                         "reason": "VBA rawWeight is raw blank weight (part mass / nest efficiency * multiplier); C# Mass_lb is finished part mass only"
-                                                                     },
                                                                      "routing.N120.run": {
                                                                          "status": "BUG",
-                                                                         "reason": "C# uses finished part mass as rawWeight; VBA uses raw blank weight (larger) in proportional sheet-loading time"
+                                                                         "reason": "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs"
                                                                      }
                                                                  },
                                              "_note":  "100m part - test units handling",

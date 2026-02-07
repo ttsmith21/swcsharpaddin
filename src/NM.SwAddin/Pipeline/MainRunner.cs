@@ -475,6 +475,29 @@ namespace NM.SwAddin.Pipeline
                         pd.OptiMaterial = optiCode;
                 }
 
+                // ====== RAW WEIGHT CALCULATION ======
+                // Use ManufacturingCalculator with custom properties (rbWeightCalc, NestEfficiency, Length, Width)
+                // to compute raw blank weight with nest efficiency and thickness scrap multiplier
+                try
+                {
+                    var partMetrics = MetricsExtractor.FromModel(doc, info);
+                    // Override with our already-computed values (more reliable than re-reading)
+                    if (pd.Mass_kg > 0) partMetrics.MassKg = pd.Mass_kg;
+                    if (pd.Thickness_m > 0) partMetrics.ThicknessIn = pd.Thickness_m * 39.3701;
+                    if (!string.IsNullOrEmpty(pd.Material)) partMetrics.MaterialCode = pd.Material;
+
+                    var calcResult = ManufacturingCalculator.Compute(partMetrics, new CalcOptions());
+                    if (calcResult.RawWeightLb > 0)
+                    {
+                        pd.Cost.MaterialWeight_lb = calcResult.RawWeightLb;
+                        pd.SheetPercent = calcResult.SheetPercent;
+                    }
+                }
+                catch (Exception mfgEx)
+                {
+                    ErrorHandler.HandleError("MainRunner", "Raw weight calculation failed", mfgEx, ErrorHandler.LogLevel.Warning);
+                }
+
                 // ====== COST CALCULATIONS ======
                 PerformanceTracker.Instance.StartTimer("CostCalculation");
                 CalculateCosts(pd, info, options ?? new ProcessingOptions());
@@ -532,8 +555,10 @@ namespace NM.SwAddin.Pipeline
 
             try
             {
-                double rawWeightLb = pd.Mass_kg * KG_TO_LB;
-                pd.Cost.MaterialWeight_lb = rawWeightLb;
+                // Use ManufacturingCalculator-computed rawWeight if available, else fall back to finished mass
+                double rawWeightLb = pd.Cost.MaterialWeight_lb > 0
+                    ? pd.Cost.MaterialWeight_lb
+                    : pd.Mass_kg * KG_TO_LB;
                 int quantity = Math.Max(1, options.Quantity > 0 ? options.Quantity : pd.QuoteQty);
 
                 // Route to appropriate cost calculator based on part type

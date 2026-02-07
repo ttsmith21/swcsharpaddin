@@ -110,7 +110,10 @@ namespace NM.Core.DataModel
             // Geometry conversions (only if non-zero)
             if (pd.Thickness_m > 0)
                 result.Thickness_in = pd.Thickness_m * M_TO_IN;
-            if (pd.Mass_kg > 0)
+            // Report rawWeight (blank weight with nest efficiency + thickness multiplier) for VBA parity
+            if (pd.Cost.MaterialWeight_lb > 0)
+                result.Mass_lb = pd.Cost.MaterialWeight_lb;
+            else if (pd.Mass_kg > 0)
                 result.Mass_lb = pd.Mass_kg * KG_TO_LB;
             if (pd.BBoxLength_m > 0)
                 result.BBoxLength_in = pd.BBoxLength_m * M_TO_IN;
