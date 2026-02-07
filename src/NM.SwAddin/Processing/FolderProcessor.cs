@@ -96,11 +96,14 @@ namespace NM.SwAddin.Processing
 
                 // Batch performance optimization: disable graphics updates during file processing loop
                 using (new BatchPerformanceScope(_swApp, null))
+                using (var swProgress = new SwProgressBar(_swApp, files.Count, "NM Folder Processing"))
                 foreach (var file in files)
                 {
-                    if (progress.IsCanceled) break;
+                    if (progress.IsCanceled || swProgress.UserCanceled) break;
                     step++;
-                    progress.SetStep(step, Path.GetFileName(file));
+                    var fileName = Path.GetFileName(file);
+                    progress.SetStep(step, fileName);
+                    swProgress.Update(step, $"Processing {step}/{files.Count}: {fileName}");
                     Application.DoEvents();
 
                     var ext = (Path.GetExtension(file) ?? string.Empty).ToLowerInvariant();

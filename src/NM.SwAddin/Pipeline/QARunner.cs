@@ -152,9 +152,16 @@ namespace NM.SwAddin.Pipeline
                     SaveChanges = false
                 };
                 var sw = Stopwatch.StartNew();
+                int totalFiles = partFiles.Length + assyFiles.Length;
+                int fileIndex = 0;
 
+                using (var swProgress = new Utils.SwProgressBar(_swApp, totalFiles, "NM QA Run"))
+                {
                 foreach (var filePath in partFiles)
                 {
+                    fileIndex++;
+                    swProgress.Update(fileIndex, $"QA {fileIndex}/{totalFiles}: {Path.GetFileName(filePath)}");
+
                     var result = ProcessSingleFile(filePath, options, summary.PartDataCollection);
                     summary.Results.Add(result);
 
@@ -175,6 +182,9 @@ namespace NM.SwAddin.Pipeline
                 // 4. Process assembly files
                 foreach (var filePath in assyFiles)
                 {
+                    fileIndex++;
+                    swProgress.Update(fileIndex, $"QA {fileIndex}/{totalFiles}: {Path.GetFileName(filePath)}");
+
                     var result = ProcessAssemblyFile(filePath);
                     summary.Results.Add(result);
 
@@ -191,6 +201,7 @@ namespace NM.SwAddin.Pipeline
                             break;
                     }
                 }
+                } // SwProgressBar
 
                 sw.Stop();
                 summary.TotalElapsedMs = sw.Elapsed.TotalMilliseconds;

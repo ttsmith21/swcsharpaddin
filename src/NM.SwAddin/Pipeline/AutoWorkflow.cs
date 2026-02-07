@@ -109,14 +109,17 @@ namespace NM.SwAddin.Pipeline
                     int step = 0;
 
                 // Batch performance optimization: disable graphics updates during component loop
+                var compCount = prep.ComponentsToProcess.Count;
                 using (new BatchPerformanceScope(swApp, asmModel))
+                using (var swProgress = new SwProgressBar(swApp, compCount, "NM Assembly Processing"))
                 foreach (var mi in prep.ComponentsToProcess)
                 {
                     step++;
                     progressForm.SetStep(step, $"Processing: {mi.FileName}");
+                    swProgress.Update(step, $"Component {step}/{compCount}: {mi.FileName}");
                     System.Windows.Forms.Application.DoEvents();
 
-                    if (progressForm.IsCanceled) break;
+                    if (progressForm.IsCanceled || swProgress.UserCanceled) break;
 
                     // Get quantity from BOM
                     string key = AssemblyComponentQuantifier.BuildKey(mi.FilePath, mi.Configuration);
