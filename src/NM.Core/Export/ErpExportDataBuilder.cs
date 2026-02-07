@@ -89,7 +89,9 @@ namespace NM.Core.Export
                 Quantity = Math.Max(1, pd.QuoteQty),
                 IsAssembly = pd.Classification == PartType.Assembly,
                 OptiMaterial = pd.OptiMaterial ?? pd.Material ?? "",
-                RawWeight = pd.Mass_kg * KG_TO_LB
+                RawWeight = pd.Cost.MaterialWeight_lb > 0
+                    ? pd.Cost.MaterialWeight_lb
+                    : pd.Mass_kg * KG_TO_LB
             };
 
             // Determine material type from classification
