@@ -173,6 +173,7 @@
     <Compile Include="src\NM.Core\Processing\TubeProfile.cs" />
     <Compile Include="src\NM.SwAddin\Geometry\FaceWrapper.cs" />
     <Compile Include="src\NM.SwAddin\Geometry\TubeGeometryExtractor.cs" />
+    <Compile Include="src\NM.SwAddin\Processing\MultiBodySplitter.cs" />
     <Compile Include="src\NM.SwAddin\Processing\SheetMetalPartProcessor.cs" />
     <Compile Include="src\NM.Core\Export\ErpExportDataBuilder.cs" />
     <Compile Include="src\NM.SwAddin\Drawing\DrawingReferenceExtractor.cs" />

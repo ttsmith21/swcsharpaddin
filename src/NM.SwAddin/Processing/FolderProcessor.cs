@@ -192,10 +192,22 @@ namespace NM.SwAddin.Processing
                 if (type == swDocumentTypes_e.swDocPART)
                 {
                     var pd = MainRunner.RunSinglePartData(_swApp, model, options: null);
-                    res.Parts.Add(pd);
 
-                    if (pd.Status == ProcessingStatus.Success) res.Processed++;
-                    else if (pd.Status == ProcessingStatus.Failed) res.Errors.Add(pd.FailureReason ?? "Processing failed");
+                    if (pd.Status == ProcessingStatus.Success)
+                    {
+                        res.Parts.Add(pd);
+                        res.Processed++;
+                    }
+                    else if (pd.FailureReason != null && pd.FailureReason.StartsWith("Multi-body"))
+                    {
+                        // Multi-body part: split into sub-parts and process each
+                        HandleMultiBodyInFolder(model, res);
+                    }
+                    else
+                    {
+                        res.Parts.Add(pd);
+                        res.Errors.Add(pd.FailureReason ?? "Processing failed");
+                    }
                 }
                 else if (type == swDocumentTypes_e.swDocASSEMBLY)
                 {
@@ -210,6 +222,55 @@ namespace NM.SwAddin.Processing
             {
                 ErrorHandler.HandleError(proc, ex.Message, ex, ErrorHandler.LogLevel.Warning, path);
                 res.FailedOpen++;
+            }
+        }
+
+        private void HandleMultiBodyInFolder(IModelDoc2 model, FolderRunResult res)
+        {
+            try
+            {
+                var splitter = new MultiBodySplitter(_swApp);
+                var splitResult = splitter.SplitToAssembly(model);
+                if (!splitResult.Success)
+                {
+                    res.Errors.Add($"Multi-body split failed: {splitResult.ErrorMessage}");
+                    return;
+                }
+
+                // Process each sub-part through the normal pipeline
+                string sourcePath = model.GetPathName();
+                for (int i = 0; i < splitResult.PartPaths.Length; i++)
+                {
+                    var subPartPath = splitResult.PartPaths[i];
+                    IModelDoc2 subDoc = null;
+                    try
+                    {
+                        subDoc = _fileOps.OpenSWDocument(subPartPath, silent: true, readOnly: false);
+                        if (subDoc == null)
+                        {
+                            res.Errors.Add($"Failed to open sub-part: {subPartPath}");
+                            continue;
+                        }
+
+                        var subPd = MainRunner.RunSinglePartData(_swApp, subDoc, options: null);
+                        subPd.ParentAssembly = splitResult.AssemblyPath;
+                        subPd.SplitFromParent = sourcePath;
+                        subPd.SplitBodyIndex = i;
+                        subPd.SplitAssemblyPath = splitResult.AssemblyPath;
+                        res.Parts.Add(subPd);
+
+                        if (subPd.Status == ProcessingStatus.Success) res.Processed++;
+                        else res.Errors.Add(subPd.FailureReason ?? "Sub-part processing failed");
+                    }
+                    finally
+                    {
+                        try { if (subDoc != null) _fileOps.CloseSWDocument(subDoc); } catch { }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                res.Errors.Add($"Multi-body handling error: {ex.Message}");
             }
         }
 

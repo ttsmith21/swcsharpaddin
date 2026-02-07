@@ -45,6 +45,14 @@ namespace NM.Core.DataModel
         // Work centers and costing
         public CostingData Cost { get; } = new CostingData();
 
+        // Multi-body split tracking
+        /// <summary>If this part was created by splitting a multi-body part, the original part path.</summary>
+        public string SplitFromParent { get; set; }
+        /// <summary>Body index within the parent part (0-based). -1 if not a split part.</summary>
+        public int SplitBodyIndex { get; set; } = -1;
+        /// <summary>Path to the sub-assembly created from the split (set on parent PartData).</summary>
+        public string SplitAssemblyPath { get; set; }
+
         // Commercials
         public int QuoteQty { get; set; }
         public double TotalPrice { get; set; }

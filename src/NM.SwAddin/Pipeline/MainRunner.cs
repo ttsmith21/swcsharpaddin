@@ -513,6 +513,48 @@ namespace NM.SwAddin.Pipeline
                     }
                 }
 
+                // ====== OVERSIZE VALIDATION ======
+                // Parts exceeding maximum material stock are flagged as problems.
+                // Sheet: 60" x 240" max blank size. Cylinder: 24" OD max.
+                const double MAX_SHEET_WIDTH_IN = 60.0;
+                const double MAX_SHEET_LENGTH_IN = 240.0;
+                const double MAX_CYLINDER_OD_IN = 24.0;
+
+                if (isSheetMetal && pd.BBoxLength_m > 0 && pd.BBoxWidth_m > 0)
+                {
+                    double blankLengthIn = pd.BBoxLength_m * MetersToInches;
+                    double blankWidthIn = pd.BBoxWidth_m * MetersToInches;
+                    if (blankLengthIn > MAX_SHEET_LENGTH_IN || blankWidthIn > MAX_SHEET_WIDTH_IN)
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = $"Oversize sheet ({blankLengthIn:F1}\" x {blankWidthIn:F1}\" exceeds {MAX_SHEET_LENGTH_IN}\" x {MAX_SHEET_WIDTH_IN}\" max)";
+                        ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
+                        goto ErpPropertyCopy;
+                    }
+                }
+
+                if (isTube && pd.Tube.OD_m > 0)
+                {
+                    double odIn = pd.Tube.OD_m * MetersToInches;
+                    double tubeLengthIn = pd.Tube.Length_m * MetersToInches;
+
+                    if (odIn > MAX_CYLINDER_OD_IN)
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = $"Oversize cylinder ({odIn:F2}\" OD exceeds {MAX_CYLINDER_OD_IN}\" max)";
+                        ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
+                        goto ErpPropertyCopy;
+                    }
+
+                    if (tubeLengthIn > MAX_SHEET_LENGTH_IN)
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = $"Oversize tube/bar ({tubeLengthIn:F1}\" long exceeds {MAX_SHEET_LENGTH_IN}\" max)";
+                        ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
+                        goto ErpPropertyCopy;
+                    }
+                }
+
                 ErpPropertyCopy:
                 // ====== COPY ERP-RELEVANT CUSTOM PROPERTIES ======
                 // These properties are used by ErpExportDataBuilder for VBA-parity export

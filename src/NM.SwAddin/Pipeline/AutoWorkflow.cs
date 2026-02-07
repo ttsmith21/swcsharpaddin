@@ -150,6 +150,16 @@ namespace NM.SwAddin.Pipeline
                                 grandTotal += cost.TotalCost * qty;
                             }
                         }
+                        else if (partData?.FailureReason != null && partData.FailureReason.StartsWith("Multi-body"))
+                        {
+                            // Multi-body part: split into individual parts + sub-assembly
+                            var splitResults = HandleMultiBodySplit(swApp, compDoc, fileOps, qty);
+                            ok += splitResults.Item1;
+                            fail += splitResults.Item2;
+                            totalMaterial += splitResults.Item3;
+                            totalProcessing += splitResults.Item4;
+                            grandTotal += splitResults.Item5;
+                        }
                         else
                         {
                             fail++;
@@ -235,6 +245,92 @@ namespace NM.SwAddin.Pipeline
             {
                 MessageBox.Show("Folder processing error: " + ex.Message);
             }
+        }
+
+        /// <summary>
+        /// Splits a multi-body part into individual sub-parts, processes each one,
+        /// and returns aggregate results as (ok, fail, material, processing, total).
+        /// </summary>
+        private static Tuple<int, int, double, double, double> HandleMultiBodySplit(
+            ISldWorks swApp, IModelDoc2 compDoc, SolidWorksFileOperations fileOps, int qty)
+        {
+            int ok = 0, fail = 0;
+            double totalMat = 0, totalProc = 0, totalCost = 0;
+
+            try
+            {
+                var splitter = new MultiBodySplitter(swApp);
+                var splitResult = splitter.SplitToAssembly(compDoc);
+
+                if (!splitResult.Success)
+                {
+                    ErrorHandler.DebugLog($"[SPLIT] Split failed: {splitResult.ErrorMessage}");
+                    fail++;
+                    ProblemPartManager.Instance.AddProblemPart(
+                        new NM.Core.ModelInfo(),
+                        $"Multi-body split failed: {splitResult.ErrorMessage}",
+                        ProblemPartManager.ProblemCategory.Fatal);
+                    return Tuple.Create(ok, fail, totalMat, totalProc, totalCost);
+                }
+
+                ErrorHandler.DebugLog($"[SPLIT] Split succeeded: {splitResult.BodyCount} bodies -> {splitResult.PartPaths.Length} parts");
+
+                // Process each sub-part through the normal pipeline
+                string sourcePath = compDoc.GetPathName();
+                for (int i = 0; i < splitResult.PartPaths.Length; i++)
+                {
+                    var subPartPath = splitResult.PartPaths[i];
+                    IModelDoc2 subDoc = null;
+                    try
+                    {
+                        subDoc = fileOps.OpenSWDocument(subPartPath, silent: true, readOnly: false);
+                        if (subDoc == null)
+                        {
+                            fail++;
+                            ErrorHandler.DebugLog($"[SPLIT] Failed to open sub-part: {subPartPath}");
+                            continue;
+                        }
+
+                        var subPd = MainRunner.RunSinglePartData(swApp, subDoc, options: null);
+                        if (subPd?.Status == ProcessingStatus.Success)
+                        {
+                            ok++;
+                            subPd.ParentAssembly = splitResult.AssemblyPath;
+                            subPd.SplitFromParent = sourcePath;
+                            subPd.SplitBodyIndex = i;
+                            subPd.SplitAssemblyPath = splitResult.AssemblyPath;
+                            var cost = subPd.Cost;
+                            if (cost != null)
+                            {
+                                totalMat += cost.TotalMaterialCost * qty;
+                                totalProc += cost.TotalProcessingCost * qty;
+                                totalCost += cost.TotalCost * qty;
+                            }
+                        }
+                        else
+                        {
+                            fail++;
+                            ErrorHandler.DebugLog($"[SPLIT] Sub-part processing failed: {subPd?.FailureReason}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        fail++;
+                        ErrorHandler.DebugLog($"[SPLIT] Sub-part exception: {ex.Message}");
+                    }
+                    finally
+                    {
+                        try { if (subDoc != null) fileOps.CloseSWDocument(subDoc); } catch { }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                fail++;
+                ErrorHandler.DebugLog($"[SPLIT] HandleMultiBodySplit exception: {ex.Message}");
+            }
+
+            return Tuple.Create(ok, fail, totalMat, totalProc, totalCost);
         }
 
         private static void TryShowProblemPartsUI()
