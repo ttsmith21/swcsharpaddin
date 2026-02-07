@@ -402,15 +402,16 @@ namespace NM.Core.Processing
             }
 
             // Round pipe/tube routing based on OD thresholds
-            if (outerDiameterIn <= 6.0)
+            // Small epsilon (0.05") handles floating point from metric-to-imperial conversion
+            if (outerDiameterIn <= 6.05)
             {
                 return ("F110 - TUBE LASER", 0.15);
             }
-            else if (outerDiameterIn <= 10.0)
+            else if (outerDiameterIn <= 10.05)
             {
                 return ("F110 - TUBE LASER", 0.5);
             }
-            else if (outerDiameterIn <= 10.75)
+            else if (outerDiameterIn <= 10.80)
             {
                 return ("F110 - TUBE LASER", 1.0);
             }

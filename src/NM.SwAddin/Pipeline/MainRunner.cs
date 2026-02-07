@@ -647,9 +647,11 @@ namespace NM.SwAddin.Pipeline
                 string shape = pd.Tube.TubeShape ?? "Round";
                 if (shape == "Round")
                 {
-                    if (odIn > 10.75)      { pd.Cost.OP20_WorkCenter = "N145"; pd.Cost.OP20_S_min = 0.25 * 60; }
-                    else if (odIn > 10.0)   { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 1.0 * 60; }
-                    else if (odIn > 6.0)    { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 0.5 * 60; }
+                    // OD thresholds use small epsilon (0.05") to handle floating point
+                    // from metric-to-imperial conversion (e.g., 6.0" stores as 6.000039")
+                    if (odIn > 10.80)       { pd.Cost.OP20_WorkCenter = "N145"; pd.Cost.OP20_S_min = 0.25 * 60; }
+                    else if (odIn > 10.05)  { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 1.0 * 60; }
+                    else if (odIn > 6.05)   { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 0.5 * 60; }
                     else                    { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 0.15 * 60; }
                 }
                 else if (shape == "Angle" || shape == "Channel")
