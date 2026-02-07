@@ -5,6 +5,7 @@ using NM.Core;
 using NM.Core.Manufacturing;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.SwAddin.Manufacturing
 {
@@ -14,7 +15,6 @@ namespace NM.SwAddin.Manufacturing
     /// </summary>
     public static class TappedHoleAnalyzer
     {
-        private const double M_TO_IN = 39.37007874015748;
 
         // Regex patterns for detecting tapped holes by feature name
         private static readonly Regex TapPattern = new Regex(
@@ -127,7 +127,7 @@ namespace NM.SwAddin.Manufacturing
                 var defObj = feat.GetDefinition();
                 if (defObj is IWizardHoleFeatureData2 data)
                 {
-                    double diaIn = data.HoleDiameter * M_TO_IN;
+                    double diaIn = data.HoleDiameter * MetersToInches;
                     int holeType = data.Type;
                     int holeCount = 1;
 
@@ -194,7 +194,7 @@ namespace NM.SwAddin.Manufacturing
             try
             {
                 // Get hole diameter and try to match to standard sizes
-                double diaIn = data.HoleDiameter * M_TO_IN;
+                double diaIn = data.HoleDiameter * MetersToInches;
                 // Return diameter as string for size identification
                 return $"{diaIn:0.###}";
             }

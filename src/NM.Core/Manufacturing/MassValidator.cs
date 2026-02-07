@@ -1,4 +1,5 @@
 using System;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.Core.Manufacturing
 {
@@ -98,11 +99,11 @@ namespace NM.Core.Manufacturing
         /// <summary>
         /// Converts kilograms to pounds.
         /// </summary>
-        public static double KgToLb(double kg) => kg * 2.20462;
+        public static double KgToLb(double kg) => kg * KgToLbs;
 
         /// <summary>
         /// Converts pounds to kilograms.
         /// </summary>
-        public static double LbToKg(double lb) => lb / 2.20462;
+        public static double LbToKg(double lb) => lb * LbsToKg;
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NM.Core.DataModel;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.Core.Export
 {
@@ -12,9 +13,6 @@ namespace NM.Core.Export
     /// </summary>
     public static class ErpExportDataBuilder
     {
-        private const double KG_TO_LB = 2.20462;
-        private const double M_TO_IN = 39.3701;
-
         /// <summary>
         /// Creates ErpExportData from a collection of processed PartData objects.
         /// </summary>
@@ -91,7 +89,7 @@ namespace NM.Core.Export
                 OptiMaterial = pd.OptiMaterial ?? pd.Material ?? "",
                 RawWeight = pd.Cost.MaterialWeight_lb > 0
                     ? pd.Cost.MaterialWeight_lb
-                    : pd.Mass_kg * KG_TO_LB
+                    : pd.Mass_kg * KgToLbs
             };
 
             // Determine material type from classification
@@ -99,11 +97,11 @@ namespace NM.Core.Export
             {
                 case PartType.SheetMetal:
                     erpPart.MaterialType = MaterialType.SheetMetal;
-                    erpPart.F300Length = pd.BBoxLength_m > 0 ? pd.BBoxLength_m * M_TO_IN : 0;
+                    erpPart.F300Length = pd.BBoxLength_m > 0 ? pd.BBoxLength_m * MetersToInches : 0;
                     break;
                 case PartType.Tube:
                     erpPart.MaterialType = MaterialType.Tube;
-                    erpPart.F300Length = pd.Tube.Length_m > 0 ? pd.Tube.Length_m * M_TO_IN : 0;
+                    erpPart.F300Length = pd.Tube.Length_m > 0 ? pd.Tube.Length_m * MetersToInches : 0;
                     break;
                 default:
                     erpPart.MaterialType = MaterialType.Generic;

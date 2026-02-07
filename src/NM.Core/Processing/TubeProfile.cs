@@ -1,4 +1,5 @@
 using System;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.Core.Processing
 {
@@ -85,27 +86,27 @@ namespace NM.Core.Processing
         /// <summary>
         /// Wall thickness in inches.
         /// </summary>
-        public double WallThicknessInches => WallThicknessMeters * 39.3701;
+        public double WallThicknessInches => WallThicknessMeters * MetersToInches;
 
         /// <summary>
         /// Material length in inches.
         /// </summary>
-        public double MaterialLengthInches => MaterialLengthMeters * 39.3701;
+        public double MaterialLengthInches => MaterialLengthMeters * MetersToInches;
 
         /// <summary>
         /// Cut length in inches.
         /// </summary>
-        public double CutLengthInches => CutLengthMeters * 39.3701;
+        public double CutLengthInches => CutLengthMeters * MetersToInches;
 
         /// <summary>
         /// Outer diameter in inches (for round tubes).
         /// </summary>
-        public double OuterDiameterInches => OuterDiameterMeters * 39.3701;
+        public double OuterDiameterInches => OuterDiameterMeters * MetersToInches;
 
         /// <summary>
         /// Inner diameter in inches (for round tubes).
         /// </summary>
-        public double InnerDiameterInches => InnerDiameterMeters * 39.3701;
+        public double InnerDiameterInches => InnerDiameterMeters * MetersToInches;
 
         /// <summary>
         /// Shape name as string.
