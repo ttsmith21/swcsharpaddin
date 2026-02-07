@@ -69,7 +69,8 @@ namespace NM.Core.Tests
         public void F140Calculator_ComputesSetupFromBendLength()
         {
             var bend = new BendInfo { LongestBendIn = 24, Count = 4 };
-            var result = F140Calculator.Compute(bend, 10, 1);
+            // partLengthIn=10 (doesn't affect setup calculation)
+            var result = F140Calculator.Compute(bend, 10, 10, 1);
 
             // Setup = (24/12) * 1.25 + 10 = 12.5 minutes = 0.208 hours
             Assert.True(result.SetupHours > 0.2 && result.SetupHours < 0.22);
@@ -83,7 +84,8 @@ namespace NM.Core.Tests
         public void F140Calculator_SelectsCorrectRateByWeight(double weightLb, int expectedRate)
         {
             var bend = new BendInfo { LongestBendIn = 12, Count = 1 };
-            var result = F140Calculator.Compute(bend, weightLb, 1);
+            // partLengthIn=10 (below Rate1Length=12, so rate is purely weight-driven)
+            var result = F140Calculator.Compute(bend, weightLb, 10, 1);
 
             // RunHours = (1 bend * rate) / 3600
             double expectedRunHours = expectedRate / 3600.0;

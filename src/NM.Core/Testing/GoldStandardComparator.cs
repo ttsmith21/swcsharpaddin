@@ -225,8 +225,10 @@ namespace NM.Core.Testing
             if (expectedRouting == null)
                 return;
 
-            // Get actual routing
+            // Get actual routing — try nested dict first, then build from flat QATestResult fields
             var actualRouting = GetDict(actual, "Routing");
+            if (actualRouting == null || actualRouting.Count == 0)
+                actualRouting = BuildRoutingFromFlat(actual);
 
             if (actualRouting == null || actualRouting.Count == 0)
             {
@@ -314,6 +316,43 @@ namespace NM.Core.Testing
             }
 
             result.Fields.Add(comparison);
+        }
+
+        /// <summary>
+        /// Build a routing dictionary from flat QATestResult fields (F115_Setup, F140_Run, etc.)
+        /// Maps calculator names to ERP work center names used in the manifest.
+        /// </summary>
+        private static Dictionary<string, object> BuildRoutingFromFlat(Dictionary<string, object> actual)
+        {
+            var routing = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+
+            // F115 (Laser) → N120 workcenter
+            AddRoutingFromFlat(routing, "N120", actual, "F115_Setup", "F115_Run");
+            // F140 (Press Brake) → N140 workcenter
+            AddRoutingFromFlat(routing, "N140", actual, "F140_Setup", "F140_Run");
+            // F210 (Deburr) → N210 workcenter
+            AddRoutingFromFlat(routing, "N210", actual, "F210_Setup", "F210_Run");
+            // F220 (Tap) → N220 workcenter
+            AddRoutingFromFlat(routing, "N220", actual, "F220_Setup", "F220_Run");
+            // F325 (Roll Forming) → N325 workcenter
+            AddRoutingFromFlat(routing, "N325", actual, "F325_Setup", "F325_Run");
+
+            return routing.Count > 0 ? routing : null;
+        }
+
+        private static void AddRoutingFromFlat(
+            Dictionary<string, object> routing, string wcKey,
+            Dictionary<string, object> actual, string setupField, string runField)
+        {
+            var setup = GetValue(actual, setupField);
+            var run = GetValue(actual, runField);
+            if (setup != null || run != null)
+            {
+                var wc = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+                if (setup != null) wc["setup"] = setup;
+                if (run != null) wc["run"] = run;
+                routing[wcKey] = wc;
+            }
         }
 
         private static void CompareNumeric(
