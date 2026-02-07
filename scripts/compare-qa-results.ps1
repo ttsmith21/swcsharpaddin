@@ -219,7 +219,9 @@ $fieldMappings = @(
     @("TubeID_in", "expectedTubeID_in", $true),
     @("TubeLength_in", "expectedTubeLength_in", $true),
     # Stock bar length (VBA F300 metadata, equals tube length for tube parts)
-    @("TubeLength_in", "f300Length", $true)
+    @("TubeLength_in", "f300Length", $true),
+    # BOM quantity (from assembly traversal)
+    @("BomQty", "bomQty", $true)
 )
 
 # Totals

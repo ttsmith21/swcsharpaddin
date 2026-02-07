@@ -196,19 +196,31 @@ namespace NM.SwAddin.Pipeline
                 summary.TotalElapsedMs = sw.Elapsed.TotalMilliseconds;
                 summary.CompletedAt = DateTime.UtcNow;
 
-                // 4a. Export timing data and populate summary
+                // 4a. Stamp BomQty from assembly component quantities onto part results
+                foreach (var assyResult in summary.Results)
+                {
+                    if (assyResult.IsAssembly != true || assyResult.ComponentQuantities == null) continue;
+                    foreach (var partResult in summary.Results)
+                    {
+                        if (partResult.IsAssembly == true) continue;
+                        if (assyResult.ComponentQuantities.TryGetValue(partResult.FileName, out int qty))
+                            partResult.BomQty = qty;
+                    }
+                }
+
+                // 4b. Export timing data and populate summary
                 ExportTimingData(summary, config.OutputPath);
 
-                // 4b. Check for timing regressions against baseline
+                // 4c. Check for timing regressions against baseline
                 CheckForRegressions(summary, config.OutputPath);
 
-                // 4c. Write results
+                // 4d. Write results
                 if (!string.IsNullOrWhiteSpace(config.OutputPath))
                 {
                     WriteResults(summary, config.OutputPath);
                 }
 
-                // 4d. Generate C# Import.prn for comparison with VBA baseline
+                // 4e. Generate C# Import.prn for comparison with VBA baseline
                 if (summary.PartDataCollection.Count > 0 && !string.IsNullOrWhiteSpace(config.OutputPath))
                 {
                     try
@@ -397,6 +409,15 @@ namespace NM.SwAddin.Pipeline
                         }
                     }
 
+                    // Build per-component quantity map for BomQty stamping
+                    var compQty = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var kvp in components)
+                    {
+                        var compFileName = System.IO.Path.GetFileName(kvp.Value.FilePath);
+                        if (!string.IsNullOrEmpty(compFileName))
+                            compQty[compFileName] = kvp.Value.Quantity;
+                    }
+
                     sw.Stop();
 
                     var result = new QATestResult
@@ -409,6 +430,7 @@ namespace NM.SwAddin.Pipeline
                         TotalComponentCount = totalComponentCount,
                         UniquePartCount = uniquePartCount,
                         SubAssemblyCount = subAssemblyCount,
+                        ComponentQuantities = compQty,
                         ElapsedMs = sw.Elapsed.TotalMilliseconds
                     };
 
@@ -935,6 +957,10 @@ namespace NM.SwAddin.Pipeline
                     sb.AppendLine($"      \"UniquePartCount\": {r.UniquePartCount.Value},");
                 if (r.SubAssemblyCount.HasValue)
                     sb.AppendLine($"      \"SubAssemblyCount\": {r.SubAssemblyCount.Value},");
+
+                // BOM quantity (from assembly traversal)
+                if (r.BomQty.HasValue)
+                    sb.AppendLine($"      \"BomQty\": {r.BomQty.Value},");
 
                 // Material
                 if (!string.IsNullOrEmpty(r.Material))
