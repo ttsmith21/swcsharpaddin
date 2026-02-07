@@ -25,8 +25,22 @@ namespace NM.Core.ProblemParts
             Suppressed,
             Lightweight,
             Imported,
+            MixedBody,
             ProcessingError,
             Fatal
+        }
+
+        /// <summary>
+        /// User-assigned part type override from problem parts review.
+        /// When set to anything other than None, implies rbPartType=1.
+        /// Maps to rbPartTypeSub: Machined=0, Purchased=1, CustomerSupplied=2.
+        /// </summary>
+        public enum PartTypeOverride
+        {
+            None = -1,
+            Machined = 0,
+            Purchased = 1,
+            CustomerSupplied = 2
         }
 
         public sealed class ProblemItem
@@ -42,7 +56,13 @@ namespace NM.Core.ProblemParts
             public DateTime LastAttempted { get; set; }
             public Dictionary<string, object> Metadata { get; set; } = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
 
+            /// <summary>
+            /// User-assigned part type override. When not None, implies rbPartType=1.
+            /// </summary>
+            public PartTypeOverride TypeOverride { get; set; } = PartTypeOverride.None;
+
             public string DisplayName => Path.GetFileName(FilePath ?? string.Empty);
+            public bool HasTypeOverride => TypeOverride != PartTypeOverride.None;
             public bool CanRetry => Category != ProblemCategory.Fatal && RetryCount < 3;
             public string Status => UserReviewed ? "Ready to Retry" : "Pending Review";
         }
@@ -103,6 +123,14 @@ namespace NM.Core.ProblemParts
                 p.UserReviewed = true;
                 ErrorHandler.DebugLog($"[Problems] Marked reviewed: {p.DisplayName}");
             }
+        }
+
+        public void SetTypeOverride(ProblemItem item, PartTypeOverride typeOverride)
+        {
+            if (item == null) return;
+            item.TypeOverride = typeOverride;
+            item.UserReviewed = true;
+            ErrorHandler.DebugLog($"[Problems] Type override: {item.DisplayName} -> {typeOverride}");
         }
 
         public void RemoveResolvedPart(ProblemItem part)

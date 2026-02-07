@@ -103,6 +103,7 @@
     <Compile Include="src\NM.Core\Materials\OptiMaterialService.cs" />
     <Compile Include="src\NM.Core\ProblemParts\ProblemPartManager.cs" />
     <Compile Include="src\NM.Core\Processing\PartDataPropertyMap.cs" />
+    <Compile Include="src\NM.Core\Processing\PurchasedPartHeuristics.cs" />
     <Compile Include="src\NM.Core\Processing\SimpleTubeProcessor.cs" />
     <Compile Include="src\NM.Core\Tubes\PipeScheduleService.cs" />
     <Compile Include="src\NM.Core\Tubes\RoundBarValidator.cs" />

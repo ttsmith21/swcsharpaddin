@@ -633,6 +633,7 @@ namespace NM.SwAddin.Pipeline
             if (r.Contains("imported") || r.Contains("step") || r.Contains("iges")) return ProblemPartManager.ProblemCategory.Imported;
             if (r.Contains("file not found") || r.Contains("not found")) return ProblemPartManager.ProblemCategory.FileAccess;
             if (r.Contains("material")) return ProblemPartManager.ProblemCategory.MaterialMissing;
+            if (r.Contains("mixed-body") || r.Contains("mixed body")) return ProblemPartManager.ProblemCategory.MixedBody;
             if (r.Contains("multi-body") || r.Contains("multibody")) return ProblemPartManager.ProblemCategory.GeometryValidation;
             if (r.Contains("no solid") || r.Contains("no body")) return ProblemPartManager.ProblemCategory.GeometryValidation;
             if (r.Contains("sheet metal") || r.Contains("conversion")) return ProblemPartManager.ProblemCategory.SheetMetalConversion;

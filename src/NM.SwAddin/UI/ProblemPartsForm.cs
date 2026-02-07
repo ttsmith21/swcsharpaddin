@@ -25,6 +25,9 @@ namespace NM.SwAddin.UI
         private Button _btnClose;
         private Button _btnRevalidateAll;
         private Button _btnContinue;
+        private Button _btnMarkPUR;
+        private Button _btnMarkMACH;
+        private Button _btnMarkCUST;
         private Label _lblSummary;
         private Label _lblStatus;
         private Label _lblGoodCount;
@@ -50,7 +53,7 @@ namespace NM.SwAddin.UI
 
             Text = "Problem Parts - Fix parts in SolidWorks, then click Retry";
             Width = 950;
-            Height = 580;
+            Height = 620;
             StartPosition = FormStartPosition.CenterScreen;
             ShowInTaskbar = true;
             MinimizeBox = true;
@@ -119,11 +122,21 @@ namespace NM.SwAddin.UI
             };
 
             _lblGoodCount = new Label { Left = 650, Top = 374, Width = 200, Height = 20, AutoSize = false, ForeColor = Color.DarkGreen };
-            _lblSummary = new Label { Left = 10, Top = 410, Width = 900, Height = 60, AutoSize = false };
-            _lblStatus = new Label { Left = 10, Top = 470, Width = 700, Height = 20, AutoSize = false, Text = "Ready" };
-            _progress = new ProgressBar { Left = 720, Top = 468, Width = 200, Height = 22 };
 
-            Controls.AddRange(new Control[] { _grid, _btnRetry, _btnExport, _btnRevalidateAll, _btnContinue, _btnClose, _lblGoodCount, _lblSummary, _lblStatus, _progress });
+            // Part type classification buttons
+            var lblClassify = new Label { Left = 10, Top = 402, Width = 140, Height = 20, Text = "Classify Selected As:", Font = new Font(Font.FontFamily, 8.5f, FontStyle.Bold) };
+            _btnMarkPUR = new Button { Left = 150, Top = 398, Width = 120, Height = 26, Text = "PUR (Purchased)", BackColor = Color.LightYellow };
+            _btnMarkPUR.Click += OnMarkPUR;
+            _btnMarkMACH = new Button { Left = 280, Top = 398, Width = 120, Height = 26, Text = "MACH (Machined)", BackColor = Color.LightYellow };
+            _btnMarkMACH.Click += OnMarkMACH;
+            _btnMarkCUST = new Button { Left = 410, Top = 398, Width = 140, Height = 26, Text = "CUST (Customer)", BackColor = Color.LightYellow };
+            _btnMarkCUST.Click += OnMarkCUST;
+
+            _lblSummary = new Label { Left = 10, Top = 432, Width = 900, Height = 60, AutoSize = false };
+            _lblStatus = new Label { Left = 10, Top = 492, Width = 700, Height = 20, AutoSize = false, Text = "Ready" };
+            _progress = new ProgressBar { Left = 720, Top = 490, Width = 200, Height = 22 };
+
+            Controls.AddRange(new Control[] { _grid, _btnRetry, _btnExport, _btnRevalidateAll, _btnContinue, _btnClose, _lblGoodCount, lblClassify, _btnMarkPUR, _btnMarkMACH, _btnMarkCUST, _lblSummary, _lblStatus, _progress });
         }
 
         private void OnContinueWithGood(object sender, EventArgs e)
@@ -321,6 +334,62 @@ namespace NM.SwAddin.UI
                 catch { }
             }
             _lblStatus.Text = "Revalidate complete";
+            UpdateSummary();
+        }
+
+        private void OnMarkPUR(object sender, EventArgs e) => MarkSelectedAsPartType(ProblemPartManager.PartTypeOverride.Purchased);
+        private void OnMarkMACH(object sender, EventArgs e) => MarkSelectedAsPartType(ProblemPartManager.PartTypeOverride.Machined);
+        private void OnMarkCUST(object sender, EventArgs e) => MarkSelectedAsPartType(ProblemPartManager.PartTypeOverride.CustomerSupplied);
+
+        private void MarkSelectedAsPartType(ProblemPartManager.PartTypeOverride typeOverride)
+        {
+            var selected = _grid.SelectedRows
+                .OfType<DataGridViewRow>()
+                .Select(r => r.DataBoundItem as ProblemPartManager.ProblemItem)
+                .Where(p => p != null)
+                .ToList();
+
+            if (selected.Count == 0)
+            {
+                MessageBox.Show(this, "Select one or more rows to classify.", "No Selection", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            foreach (var item in selected)
+            {
+                _manager.SetTypeOverride(item, typeOverride);
+
+                // Write custom properties if SolidWorks is available
+                if (_swApp != null)
+                {
+                    try
+                    {
+                        int errs = 0, warns = 0;
+                        int docType = GuessDocType(item.FilePath);
+                        var model = _swApp.OpenDoc6(item.FilePath, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
+                        if (model != null && errs == 0)
+                        {
+                            SolidWorksApiWrapper.AddCustomProperty(model, "rbPartType",
+                                swCustomInfoType_e.swCustomInfoNumber, "1", "");
+                            SolidWorksApiWrapper.AddCustomProperty(model, "rbPartTypeSub",
+                                swCustomInfoType_e.swCustomInfoNumber, ((int)typeOverride).ToString(), "");
+                            SolidWorksApiWrapper.SaveDocument(model);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _lblStatus.Text = $"Property write failed: {ex.Message}";
+                    }
+                }
+
+                _manager.RemoveResolvedPart(item);
+                _items.Remove(item);
+                _goodCount++;
+            }
+
+            _lblGoodCount.Text = $"{_goodCount} valid parts ready to process";
+            _btnContinue.Enabled = _goodCount > 0;
+            _lblStatus.Text = $"Classified {selected.Count} part(s) as {typeOverride}";
             UpdateSummary();
         }
 

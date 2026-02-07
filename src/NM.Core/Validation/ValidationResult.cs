@@ -10,6 +10,17 @@ namespace NM.Core.Validation
         public bool Success { get; }
         public string Summary { get; }
 
+        /// <summary>
+        /// Optional heuristic hint (e.g., "Likely purchased: Low mass; High face count").
+        /// Set by the validation adapter when geometry metrics suggest a purchased part.
+        /// </summary>
+        public string PurchasedHint { get; set; }
+
+        /// <summary>Geometry metrics from preflight for downstream heuristic analysis.</summary>
+        public int FaceCount { get; set; }
+        public int EdgeCount { get; set; }
+        public double MassKg { get; set; }
+
         private ValidationResult(bool success, string summary)
         {
             Success = success;

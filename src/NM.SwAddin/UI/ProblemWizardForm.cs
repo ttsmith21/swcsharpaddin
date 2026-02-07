@@ -43,6 +43,12 @@ namespace NM.SwAddin.UI
         private TextBox _txtError;
         private ListBox _lstSuggestions;
 
+        // Part type classification
+        private GroupBox _grpPartType;
+        private Button _btnMarkPUR;
+        private Button _btnMarkMACH;
+        private Button _btnMarkCUST;
+
         // Tube diagnostics
         private GroupBox _grpTubeDiag;
         private Button _btnShowCutLength;
@@ -76,7 +82,7 @@ namespace NM.SwAddin.UI
 
             Text = "Problem Part Wizard";
             Width = 600;
-            Height = 620;
+            Height = 680;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -127,8 +133,22 @@ namespace NM.SwAddin.UI
             var lblSuggestions = new Label { Left = 20, Top = 205, Width = 150, Text = "Suggestions:", Font = new Font(Font.FontFamily, 9, FontStyle.Bold) };
             _lstSuggestions = new ListBox { Left = 20, Top = 225, Width = 550, Height = 80 };
 
-            // Tube diagnostics group
-            _grpTubeDiag = new GroupBox { Left = 20, Top = 315, Width = 550, Height = 90, Text = "Tube Diagnostics (for tube/structural parts)" };
+            // Part type classification group (PUR/MACH/CUST)
+            _grpPartType = new GroupBox { Left = 20, Top = 310, Width = 550, Height = 55, Text = "Classify As (skips processing)" };
+
+            _btnMarkPUR = new Button { Left = 10, Top = 20, Width = 130, Height = 28, Text = "PUR (Purchased)", BackColor = Color.LightYellow };
+            _btnMarkPUR.Click += (s, e) => MarkAsPartType(ProblemPartManager.PartTypeOverride.Purchased);
+
+            _btnMarkMACH = new Button { Left = 150, Top = 20, Width = 130, Height = 28, Text = "MACH (Machined)", BackColor = Color.LightYellow };
+            _btnMarkMACH.Click += (s, e) => MarkAsPartType(ProblemPartManager.PartTypeOverride.Machined);
+
+            _btnMarkCUST = new Button { Left = 290, Top = 20, Width = 150, Height = 28, Text = "CUST (Customer Supplied)", BackColor = Color.LightYellow };
+            _btnMarkCUST.Click += (s, e) => MarkAsPartType(ProblemPartManager.PartTypeOverride.CustomerSupplied);
+
+            _grpPartType.Controls.AddRange(new Control[] { _btnMarkPUR, _btnMarkMACH, _btnMarkCUST });
+
+            // Tube diagnostics group (shifted down 60px)
+            _grpTubeDiag = new GroupBox { Left = 20, Top = 375, Width = 550, Height = 90, Text = "Tube Diagnostics (for tube/structural parts)" };
 
             _btnShowCutLength = new Button { Left = 10, Top = 22, Width = 80, Height = 26, Text = "Cut Length" };
             _btnShowCutLength.Click += OnShowCutLengthEdges;
@@ -153,26 +173,26 @@ namespace NM.SwAddin.UI
             _grpTubeDiag.Controls.AddRange(new Control[] { _btnShowCutLength, _btnShowHoles, _btnShowBoundary, _btnShowProfile, _btnShowAll, _btnClearSelection, _lblDiagStatus });
 
             // Separator
-            var separator2 = new Label { Left = 20, Top = 415, Width = 550, Height = 2, BorderStyle = BorderStyle.Fixed3D };
+            var separator2 = new Label { Left = 20, Top = 475, Width = 550, Height = 2, BorderStyle = BorderStyle.Fixed3D };
 
             // Action buttons
-            _btnRetry = new Button { Left = 20, Top = 425, Width = 130, Height = 35, Text = "Retry && Validate", BackColor = Color.LightGreen };
+            _btnRetry = new Button { Left = 20, Top = 485, Width = 130, Height = 35, Text = "Retry && Validate", BackColor = Color.LightGreen };
             _btnRetry.Click += OnRetry;
 
-            _btnSkip = new Button { Left = 160, Top = 425, Width = 90, Height = 35, Text = "Skip" };
+            _btnSkip = new Button { Left = 160, Top = 485, Width = 90, Height = 35, Text = "Skip" };
             _btnSkip.Click += OnSkip;
 
-            _btnFinish = new Button { Left = 260, Top = 425, Width = 90, Height = 35, Text = "Finish" };
+            _btnFinish = new Button { Left = 260, Top = 485, Width = 90, Height = 35, Text = "Finish" };
             _btnFinish.Click += OnFinish;
 
-            _btnCancel = new Button { Left = 360, Top = 425, Width = 90, Height = 35, Text = "Cancel" };
+            _btnCancel = new Button { Left = 360, Top = 485, Width = 90, Height = 35, Text = "Cancel" };
             _btnCancel.Click += OnCancel;
 
             // Progress section
-            _progressBar = new ProgressBar { Left = 20, Top = 475, Width = 400, Height = 22 };
-            _lblFixedCount = new Label { Left = 430, Top = 478, Width = 140, Height = 20 };
+            _progressBar = new ProgressBar { Left = 20, Top = 535, Width = 400, Height = 22 };
+            _lblFixedCount = new Label { Left = 430, Top = 538, Width = 140, Height = 20 };
 
-            _lblStatus = new Label { Left = 20, Top = 505, Width = 550, Height = 40, ForeColor = Color.DarkBlue };
+            _lblStatus = new Label { Left = 20, Top = 565, Width = 550, Height = 40, ForeColor = Color.DarkBlue };
 
             // Add all controls
             Controls.AddRange(new Control[]
@@ -180,7 +200,7 @@ namespace NM.SwAddin.UI
                 _lblProgress, _btnPrevious, _btnNext, separator1,
                 _lblFileName, _lblPath, _lblConfig, _lblCategory,
                 lblError, _txtError, lblSuggestions, _lstSuggestions,
-                _grpTubeDiag, separator2,
+                _grpPartType, _grpTubeDiag, separator2,
                 _btnRetry, _btnSkip, _btnFinish, _btnCancel,
                 _progressBar, _lblFixedCount, _lblStatus
             });
@@ -218,6 +238,7 @@ namespace NM.SwAddin.UI
 
             LoadSuggestions(item);
             UpdateNavigationButtons();
+            UpdatePartTypeHint(item);
 
             // Reset tube diagnostics
             _tubeDiagnostics = null;
@@ -295,6 +316,13 @@ namespace NM.SwAddin.UI
                     list.Add("Component is in Lightweight mode");
                     list.Add("Right-click > Set to Resolved");
                     list.Add("Or: Tools > Options > Assemblies > uncheck Lightweight");
+                    break;
+
+                case ProblemPartManager.ProblemCategory.MixedBody:
+                    list.Add("Part has both solid and surface bodies");
+                    list.Add("Delete surface bodies: FeatureManager > right-click Surface Body > Delete");
+                    list.Add("If this is a purchased/catalog part, click PUR button below");
+                    list.Add("Surface bodies can interfere with geometry analysis");
                     break;
 
                 case ProblemPartManager.ProblemCategory.ThicknessExtraction:
@@ -417,6 +445,69 @@ namespace NM.SwAddin.UI
             catch (Exception ex)
             {
                 _lblStatus.Text = $"Open failed: {ex.Message}";
+            }
+        }
+
+        private void UpdatePartTypeHint(ProblemPartManager.ProblemItem item)
+        {
+            // Check for purchased part heuristic hint in metadata
+            object hintObj;
+            if (item.Metadata.TryGetValue("PurchasedHint", out hintObj) && hintObj is string hint && !string.IsNullOrEmpty(hint))
+            {
+                _grpPartType.Text = $"Classify As (HINT: Likely Purchased - {hint})";
+                _grpPartType.ForeColor = Color.DarkOrange;
+                _btnMarkPUR.BackColor = Color.Gold;
+            }
+            else
+            {
+                _grpPartType.Text = "Classify As (skips processing)";
+                _grpPartType.ForeColor = SystemColors.ControlText;
+                _btnMarkPUR.BackColor = Color.LightYellow;
+            }
+            _btnMarkMACH.BackColor = Color.LightYellow;
+            _btnMarkCUST.BackColor = Color.LightYellow;
+        }
+
+        private void MarkAsPartType(ProblemPartManager.PartTypeOverride typeOverride)
+        {
+            if (_problems.Count == 0 || _currentIndex >= _problems.Count) return;
+            var item = _problems[_currentIndex];
+
+            // Set the type override on the problem item
+            ProblemPartManager.Instance.SetTypeOverride(item, typeOverride);
+
+            // Write rbPartType=1 and rbPartTypeSub to the part's custom properties
+            if (_currentDoc != null)
+            {
+                SolidWorksApiWrapper.AddCustomProperty(_currentDoc, "rbPartType",
+                    swCustomInfoType_e.swCustomInfoNumber, "1", "");
+                SolidWorksApiWrapper.AddCustomProperty(_currentDoc, "rbPartTypeSub",
+                    swCustomInfoType_e.swCustomInfoNumber, ((int)typeOverride).ToString(), "");
+                SolidWorksApiWrapper.SaveDocument(_currentDoc);
+            }
+
+            // Mark as resolved - it's classified now
+            _fixedProblems.Add(item);
+            ProblemPartManager.Instance.RemoveResolvedPart(item);
+
+            _lblStatus.Text = $"Classified as {typeOverride}: {item.DisplayName}";
+            _txtError.BackColor = Color.LightGoldenrodYellow;
+            _txtError.Text = $"Classified as {typeOverride} (rbPartType=1, rbPartTypeSub={(int)typeOverride}) - will skip classification pipeline";
+
+            UpdateProgress();
+
+            // Auto-advance
+            if (_currentIndex < _problems.Count - 1)
+            {
+                _lblStatus.Text += " - Moving to next problem...";
+                Application.DoEvents();
+                System.Threading.Thread.Sleep(500);
+                _currentIndex++;
+                LoadCurrentProblem();
+            }
+            else
+            {
+                _lblStatus.Text += " - All problems reviewed!";
             }
         }
 
