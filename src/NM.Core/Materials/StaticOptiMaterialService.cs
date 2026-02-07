@@ -121,11 +121,13 @@ namespace NM.Core.Materials
             if (shape.Equals("Angle", StringComparison.OrdinalIgnoreCase))
             {
                 double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * M_TO_IN : 0;
+                double idIn = pd.Tube.ID_m > 0 ? pd.Tube.ID_m * M_TO_IN : 0;
                 double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * M_TO_IN : 0;
                 if (odIn > 0 && wallIn > 0)
                 {
-                    // VBA format: A.304L2"X2"X.125"
-                    return "A." + materialCode + FormatDim(odIn) + "X" + FormatDim(odIn) + "X" + FormatDim(wallIn);
+                    // VBA format: A.304L2"X2"X.125" (leg1 x leg2 x wall)
+                    string leg2 = idIn > 0 ? FormatDim(idIn) : FormatDim(odIn);
+                    return "A." + materialCode + FormatDim(odIn) + "X" + leg2 + "X" + FormatDim(wallIn);
                 }
             }
 
@@ -175,8 +177,10 @@ namespace NM.Core.Materials
                 double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * M_TO_IN : 0;
                 if (odIn > 0 && wallIn > 0)
                 {
+                    // VBA uses C. prefix for channels, T. for I-beams
+                    string prefix = shape.Equals("Channel", StringComparison.OrdinalIgnoreCase) ? "C." : "T.";
                     string dim2 = idIn > 0 ? FormatDim(idIn) : FormatDim(odIn);
-                    return "T." + materialCode + FormatDim(odIn) + "X" + dim2 + "X" + FormatDim(wallIn);
+                    return prefix + materialCode + FormatDim(odIn) + "X" + dim2 + "X" + FormatDim(wallIn);
                 }
             }
 
@@ -228,9 +232,19 @@ namespace NM.Core.Materials
             if (inches == Math.Floor(inches))
                 return ((int)inches).ToString() + "\"";
 
-            string s = inches.ToString("G4", CultureInfo.InvariantCulture);
-            if (s.StartsWith("0."))
-                s = s.Substring(1); // "0.060" -> ".060"
+            string s;
+            if (inches < 1.0)
+            {
+                // Sub-inch: 3 decimal places to match VBA gauge conventions (.060", .250", .170")
+                s = inches.ToString("F3", CultureInfo.InvariantCulture);
+                if (s.StartsWith("0."))
+                    s = s.Substring(1); // "0.060" -> ".060"
+            }
+            else
+            {
+                // >= 1 inch: significant digits (5.9", 3.94", 12.75")
+                s = inches.ToString("G4", CultureInfo.InvariantCulture);
+            }
             return s + "\"";
         }
     }

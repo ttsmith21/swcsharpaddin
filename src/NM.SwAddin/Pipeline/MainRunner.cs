@@ -269,7 +269,9 @@ namespace NM.SwAddin.Pipeline
                             pd.Classification = PartType.Tube;
                             pd.Tube.OD_m = tube.OuterDiameter * IN_TO_M;
                             pd.Tube.Wall_m = tube.WallThickness * IN_TO_M;
-                            pd.Tube.ID_m = Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
+                            pd.Tube.ID_m = tube.InnerDiameter > 0
+                                ? tube.InnerDiameter * IN_TO_M
+                                : Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
                             pd.Tube.Length_m = tube.Length * IN_TO_M;
                             pd.Tube.TubeShape = tube.ShapeName; // Round, Square, Rectangle, Angle, Channel
                             pd.Tube.CrossSection = tube.CrossSection;

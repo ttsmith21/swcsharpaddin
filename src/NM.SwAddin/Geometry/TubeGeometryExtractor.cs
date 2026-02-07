@@ -359,6 +359,11 @@ namespace NM.SwAddin.Geometry
                 result.CrossSection = $"{dim1:G6}";
             }
 
+            // Store cross-section dimensions for OptiMaterial generation
+            // For non-round profiles: OD = larger dimension, ID = smaller dimension
+            result.OuterDiameterMeters = dim1;
+            result.InnerDiameterMeters = dim2;
+
             // Count holes and calculate cut length
             // VB.NET Audit Resolution: Filter to largest-area faces and use boundary edge detection
             var cutFaces = new List<FaceWrapper>();
