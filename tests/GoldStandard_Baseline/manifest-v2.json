@@ -393,24 +393,16 @@
 
                                                                      },
                                                   "knownDeviations":  {
-                                                                          "classification":  {
-                                                                                                 "reason":  "TubeGeometryExtractor handles angle profiles. VBA classified as Generic.",
-                                                                                                 "status":  "INTENTIONAL"
-                                                                                             },
                                                                           "rawWeight":  {
                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                             "status":  "INTENTIONAL"
-                                                                                        },
-                                                                          "description":  {
-                                                                                            "reason":  "C4 classified as Generic (not Tube), so no ANGLE suffix; requires tube geometry extraction",
-                                                                                            "status":  "BUG"
                                                                                         },
                                                                           "routing":  {
                                                                                           "reason":  "Tube routing uses F110 work center not compared by standard mappings",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       },
-                                                  "_note":  "TubeGeometryExtractor handles angle profiles. DEVIATION from VBA."
+                                                  "_note":  "C# now correctly classifies as Tube (Angle) matching VBA behavior."
                                               },
                   "C5_CChannel.sldprt":  {
                                              "shouldPass":  true,
@@ -425,16 +417,12 @@
 
                                                                 },
                                              "knownDeviations":  {
-                                                                     "classification":  {
-                                                                                            "reason":  "TubeGeometryExtractor handles C-channel. VBA classified as Generic.",
-                                                                                            "status":  "INTENTIONAL"
-                                                                                        },
                                                                      "rawWeight":  {
                                                                                        "reason":  "VBA used placeholder weight=0.0001; C# computes actual mass from SolidWorks",
                                                                                        "status":  "INTENTIONAL"
                                                                                    }
                                                                  },
-                                             "_note":  "TubeGeometryExtractor handles C-channel. DEVIATION from VBA."
+                                             "_note":  "C# now correctly classifies as Tube (Channel) matching VBA behavior."
                                          },
                   "C6_IBeam.sldprt":  {
                                           "shouldPass":  true,
@@ -459,16 +447,12 @@
 
                                                              },
                                           "knownDeviations":  {
-                                                                  "classification":  {
-                                                                                         "reason":  "TubeGeometryExtractor handles I-beam. VBA classified as Generic.",
-                                                                                         "status":  "INTENTIONAL"
-                                                                                     },
                                                                   "rawWeight":  {
                                                                                     "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                     "status":  "INTENTIONAL"
                                                                                 },
                                                                   "description":  {
-                                                                                      "reason":  "C# generates PIPE for I-beam default; VBA used TUBE",
+                                                                                      "reason":  "C# classifies I-beam as Rectangle (even face distances) generating 'RECT TUBE'; VBA used 'TUBE'",
                                                                                       "status":  "INTENTIONAL"
                                                                                   },
                                                                   "routing":  {
@@ -476,7 +460,7 @@
                                                                                   "status":  "NOT_IMPLEMENTED"
                                                                               }
                                                               },
-                                          "_note":  "TubeGeometryExtractor handles I-beam. DEVIATION from VBA."
+                                          "_note":  "C# now classifies as Tube (Rectangle). I-beam has even face distances in both directions."
                                       },
                   "C7_RoundBar_1dia.sldprt":  {
                                                   "shouldPass":  true,
@@ -520,7 +504,7 @@
                                               },
                   "D1_MachinedBlock.sldprt":  {
                                                   "shouldPass":  true,
-                                                  "expectedClassification":  "Generic",
+                                                  "expectedClassification":  "Tube",
                                                   "vbaBaseline":  {
                                                                       "description":  "304L ANGLE",
                                                                       "optiMaterial":  "C.304L6\"X2\"X.5\"",
@@ -548,14 +532,15 @@
                                                                                                "status":  "NOT_IMPLEMENTED"
                                                                                            },
                                                                           "description":  {
-                                                                                              "reason":  "VBA generated 'ANGLE' for this block; C# classifies as Generic (material only)",
+                                                                                              "reason":  "C# classifies as Channel (odd distance count in one direction); VBA classified as Angle",
                                                                                               "status":  "INTENTIONAL"
                                                                                           },
                                                                           "routing":  {
                                                                                           "reason":  "Uses F110 work center not compared by standard mappings",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
-                                                                      }
+                                                                      },
+                                                  "_note":  "Machined block with pockets. VB.NET classified as Angle (both directions odd); C# classifies as Channel (one direction odd). Neither is ideal for a machined block but matches VB.NET-style no-rejection behavior."
                                               },
                   "D2_ElbowFitting.sldprt":  {
                                                  "shouldPass":  true,
