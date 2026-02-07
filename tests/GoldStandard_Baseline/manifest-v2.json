@@ -455,7 +455,9 @@
                                                                                   }
                                                                   },
                                                   "csharpExpected":  {
-                                                                         "rawWeight": 3.4049
+                                                                         "rawWeight": 3.4049,
+                                                                         "routing.F300.setup": 0.05,
+                                                                         "routing.F300.run": 0.0292
                                                                      },
                                                   "knownDeviations":  {
                                                                           "rawWeight":  {
@@ -463,12 +465,12 @@
                                                                                             "status":  "INTENTIONAL"
                                                                                         },
                                                                           "routing.F300.setup":  {
-                                                                                          "reason":  "F300 saw setup from Excel rate table - calculation not implemented",
-                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                          "reason":  "VBA baseline=0.2603 from older formula; C# uses VBA source RoundBar() setup=0.05hrs",
+                                                                                          "status":  "INTENTIONAL"
                                                                                       },
                                                                           "routing.F300.run":  {
-                                                                                          "reason":  "F300 saw run time from Excel rate table - calculation not implemented",
-                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                          "reason":  "VBA baseline=0.0103 from older formula; C# uses VBA source RoundBar() run=((diam*90)+15)/3600",
+                                                                                          "status":  "INTENTIONAL"
                                                                                       }
                                                                       },
                                                   "_note":  "Solid cylinder - classified as Tube (Round Bar) for OptiMaterial generation"

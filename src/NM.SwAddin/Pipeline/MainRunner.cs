@@ -640,7 +640,10 @@ namespace NM.SwAddin.Pipeline
             if (isSolidBar)
             {
                 pd.Cost.OP20_WorkCenter = "F300";
-                // F300 setup/run from Excel rate table - not implemented yet
+                // F300 saw: setup is fixed 0.05 hrs, run = ((diameter * 90) + 15) / 3600 hrs
+                // Formula from VBA SP.bas RoundBar() function
+                pd.Cost.OP20_S_min = 0.05 * 60; // 3 minutes
+                pd.Cost.OP20_R_min = ((odIn * 90.0) + 15.0) / 60.0; // convert seconds to minutes
             }
             else
             {
