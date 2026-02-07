@@ -35,8 +35,9 @@ namespace NM.Core.Manufacturing.Laser
             var speed = provider.GetSpeed(m.ThicknessIn, m.MaterialCode);
             if (!speed.HasValue) return res;
 
-            // total pierces are provided (loops + 2 + floor(length/30))
-            double totalPierces = Math.Max(0, m.PierceCount);
+            // VBA adds estimated tab pierces: 1 tab per 30 inches of cut length
+            double estimatedTabs = m.ApproxCutLengthIn > 0 ? Math.Floor(m.ApproxCutLengthIn / 30.0) : 0;
+            double totalPierces = Math.Max(0, m.PierceCount) + estimatedTabs;
             double totalPierceSeconds = isWaterjet ? 0.0 : (totalPierces * Math.Max(0, speed.PierceSeconds));
 
             // Cut time in minutes = length / IPM

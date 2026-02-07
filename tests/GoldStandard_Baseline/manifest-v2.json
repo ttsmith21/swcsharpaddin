@@ -129,7 +129,7 @@
                                                           "knownDeviations":  {
                                                                                   "routing.N120.run": {
                                                                                       "status": "BUG",
-                                                                                      "reason": "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs"
+                                                                                      "reason": "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
                                                                                   },
                                                                                   "routing.N140.setup": {
                                                                                       "status": "DATA",
@@ -172,7 +172,7 @@
                                                             "knownDeviations":  {
                                                                                     "routing.N120.run": {
                                                                                         "status": "BUG",
-                                                                                        "reason": "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs"
+                                                                                        "reason": "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
                                                                                     },
                                                                                     "routing.N140.setup": {
                                                                                         "status": "DATA",
@@ -214,7 +214,7 @@
                                                            "knownDeviations":  {
                                                                                    "routing.N120.run": {
                                                                                        "status": "BUG",
-                                                                                       "reason": "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs"
+                                                                                       "reason": "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
                                                                                    }
                                                                                },
                                                            "_note":  "Model thickness is 0.076 (not nominal 16ga)"
@@ -513,10 +513,6 @@
                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                             "status":  "INTENTIONAL"
                                                                                         },
-                                                                          "optiMaterial":  {
-                                                                                               "reason":  "Custom shaped part; OptiMaterial from VBA uses special prefix C.",
-                                                                                               "status":  "NOT_IMPLEMENTED"
-                                                                                           },
                                                                           "description":  {
                                                                                               "reason":  "C# classifies as Channel (odd distance count in one direction); VBA classified as Angle",
                                                                                               "status":  "INTENTIONAL"
@@ -644,8 +640,8 @@
                                                                       },
                                                    "knownDeviations":  {
                                                                            "routing.N120.run": {
-                                                                                             "reason":  "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs",
-                                                                                             "status":  "BUG"
+                                                                                             "status":  "BUG",
+                                                                                             "reason":  "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
                                                                                          },
                                                                            "optiMaterial":  {
                                                                                                 "reason":  "Thick plate (1in) classified as Generic; static service only handles SheetMetal/Tube",
@@ -686,11 +682,11 @@
                                              "knownDeviations":  {
                                                                      "routing.N120.run": {
                                                                          "status": "BUG",
-                                                                         "reason": "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs"
+                                                                         "reason": "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
                                                                      },
                                                                      "optiMaterial": {
-                                                                         "status": "BUG",
-                                                                         "reason": "Static gauge table maps 0.005in foil to 30GA (nearest match); VBA Excel lookup returns 22GA"
+                                                                         "status": "INTENTIONAL",
+                                                                         "reason": "Parts below 22GA not auto-classified; treated as problem part for manual processing"
                                                                      }
                                                                  }
                                          },
@@ -720,8 +716,8 @@
                                                                    },
                                                 "knownDeviations":  {
                                                                         "routing.N120.run": {
-                                                                                          "reason":  "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs",
-                                                                                          "status":  "BUG"
+                                                                                          "status":  "BUG",
+                                                                                          "reason":  "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
                                                                                       },
                                                                         "optiMaterial":  {
                                                                                              "reason":  "Tapered wall classified as Generic; static service only handles SheetMetal/Tube",
@@ -808,7 +804,7 @@
                                              "knownDeviations":  {
                                                                      "routing.N120.run": {
                                                                          "status": "BUG",
-                                                                         "reason": "Laser run time proportional calculation diverges; rawWeight now correct but sheet-loading time formula differs"
+                                                                         "reason": "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
                                                                      }
                                                                  },
                                              "_note":  "100m part - test units handling",

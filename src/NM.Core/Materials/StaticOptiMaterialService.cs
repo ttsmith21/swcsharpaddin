@@ -22,8 +22,6 @@ namespace NM.Core.Materials
         // Standard stainless steel gauges (slightly different from carbon steel)
         private static readonly SortedList<double, string> _ssGaugeTable = new SortedList<double, string>
         {
-            { 0.0120, "30GA" },
-            { 0.0157, "28GA" },
             { 0.0187, "26GA" },
             { 0.0217, "24GA" },
             { 0.0250, "23GA" },
@@ -237,6 +235,9 @@ namespace NM.Core.Materials
             {
                 // Sub-inch: 3 decimal places to match VBA gauge conventions (.060", .250", .170")
                 s = inches.ToString("F3", CultureInfo.InvariantCulture);
+                // VBA convention: trim double trailing zeros (.500->.5) but keep single (.060 stays)
+                if (s.EndsWith("00"))
+                    s = s.Substring(0, s.Length - 2);
                 if (s.StartsWith("0."))
                     s = s.Substring(1); // "0.060" -> ".060"
             }
