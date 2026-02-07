@@ -263,7 +263,13 @@ foreach ($result in $results.Results) {
                 }
 
                 if ($routingData -and ($routingData.PSObject.Properties.Name -contains $subField)) {
+                    # Three-tier priority for routing: csharpExpected > vbaBaseline
                     $expectedVal = $routingData.$subField
+                    $csharp = $fileEntry.csharpExpected
+                    if ($csharp -and ($csharp.PSObject.Properties.Name -contains $manifestField)) {
+                        $cseVal = $csharp.$manifestField
+                        if ($null -ne $cseVal -and $cseVal -ne "") { $expectedVal = $cseVal }
+                    }
                     $actualVal = $null
                     if ($result.PSObject.Properties.Name -contains $resultField) {
                         $actualVal = $result.$resultField
