@@ -519,10 +519,20 @@ namespace NM.SwAddin.Pipeline
                 if (isTube && pd.Tube.OD_m > 0)
                 {
                     double odIn = pd.Tube.OD_m * MetersToInches;
+                    double tubeLengthIn = pd.Tube.Length_m * MetersToInches;
+
                     if (odIn > MAX_CYLINDER_OD_IN)
                     {
                         pd.Status = ProcessingStatus.Failed;
                         pd.FailureReason = $"Oversize cylinder ({odIn:F2}\" OD exceeds {MAX_CYLINDER_OD_IN}\" max)";
+                        ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
+                        goto ErpPropertyCopy;
+                    }
+
+                    if (tubeLengthIn > MAX_SHEET_LENGTH_IN)
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = $"Oversize tube/bar ({tubeLengthIn:F1}\" long exceeds {MAX_SHEET_LENGTH_IN}\" max)";
                         ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
                         goto ErpPropertyCopy;
                     }
