@@ -94,6 +94,12 @@ namespace NM.Core.DataModel
         public string OptiMaterial { get; set; }
         public string Description { get; set; }
 
+        // BOM quantity (from assembly traversal)
+        public int? BomQty { get; set; }
+
+        // Component quantities for assembly results (maps filename → qty)
+        public Dictionary<string, int> ComponentQuantities { get; set; }
+
         // Timing
         public double ElapsedMs { get; set; }
         public DateTime ProcessedAt { get; set; } = DateTime.UtcNow;

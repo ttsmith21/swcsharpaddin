@@ -828,6 +828,11 @@
                                                                 },
                                              "_note":  "Standard STEP exchange format - Load -\u003e Heal -\u003e Detect",
                                              "_status":  "PLACEHOLDER - file not yet created"
-                                         }
+                                         },
+                  "GOLD_STANDARD_ASM_CLEAN.SLDASM":  {
+                                                         "shouldPass":  true,
+                                                         "expectedClassification":  "Assembly",
+                                                         "_note":  "Top-level assembly containing all test parts. Used for BOM quantity extraction."
+                                                     }
               }
 }
