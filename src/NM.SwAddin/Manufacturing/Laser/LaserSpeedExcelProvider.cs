@@ -15,7 +15,10 @@ namespace NM.SwAddin.Manufacturing.Laser
         }
 
         // Column and row indices (1-based per Excel)
-        private const int THICKNESS_COLUMN = 3; // C
+        // New Laser2022v4.xlsx format: each material tab has 5 columns (A=Name, B=Thickness, C=Speed, D=Pierce, E=Machine)
+        private const int THICKNESS_COLUMN = 2; // B
+        private const int SPEED_COLUMN = 3;     // C (same for all material tabs)
+        private const int PIERCE_COLUMN = 4;    // D (same for all material tabs)
         private const int HEADER_ROW = 1;
         private const int DATA_START_ROW = 2;
         private const double TOL = 0.005; // inches
@@ -25,8 +28,8 @@ namespace NM.SwAddin.Manufacturing.Laser
             var sheet = ResolveWorksheet(materialCode);
             if (sheet == null) return default;
 
-            int speedCol = GetSpeedColumn(materialCode);
-            int pierceCol = GetPierceColumn(materialCode);
+            int speedCol = SPEED_COLUMN;
+            int pierceCol = PIERCE_COLUMN;
 
             var (lbR, ubR, lbC, ubC) = GetBounds(sheet);
 
@@ -94,26 +97,6 @@ namespace NM.SwAddin.Manufacturing.Laser
         private static (int lbR, int ubR, int lbC, int ubC) GetBounds(object[,] arr)
         {
             return (arr.GetLowerBound(0), arr.GetUpperBound(0), arr.GetLowerBound(1), arr.GetUpperBound(1));
-        }
-
-        private static int GetSpeedColumn(string material)
-        {
-            var m = (material ?? string.Empty).ToUpperInvariant();
-            if (m.Contains("304") || m.Contains("316")) return 19; // S
-            if (m.Contains("309") || m.Contains("2205")) return 20; // T
-            if (m.Contains("A36") || m.Contains("ALNZD") || m.Contains("CS")) return 21; // U
-            if (m.Contains("6061") || m.Contains("5052") || m.Contains("AL")) return 22; // V
-            return 19;
-        }
-
-        private static int GetPierceColumn(string material)
-        {
-            var m = (material ?? string.Empty).ToUpperInvariant();
-            if (m.Contains("304") || m.Contains("316")) return 23; // W
-            if (m.Contains("309") || m.Contains("2205")) return 24; // X
-            if (m.Contains("A36") || m.Contains("ALNZD") || m.Contains("CS")) return 25; // Y
-            if (m.Contains("6061") || m.Contains("5052") || m.Contains("AL")) return 26; // Z
-            return 23;
         }
 
         private static double ToDouble(object cell)

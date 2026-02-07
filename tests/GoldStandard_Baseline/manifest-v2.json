@@ -127,10 +127,6 @@
 
                                                                              },
                                                           "knownDeviations":  {
-                                                                                  "routing.N120.run": {
-                                                                                      "status": "BUG",
-                                                                                      "reason": "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
-                                                                                  },
                                                                                   "routing.N140.setup": {
                                                                                       "status": "DATA",
                                                                                       "reason": "Original .prn had 0.18; current test file bend line is 19.13in (C# reads 0.1999hr). .prn was generated from different file version."
@@ -170,10 +166,6 @@
 
                                                                                },
                                                             "knownDeviations":  {
-                                                                                    "routing.N120.run": {
-                                                                                        "status": "BUG",
-                                                                                        "reason": "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
-                                                                                    },
                                                                                     "routing.N140.setup": {
                                                                                         "status": "DATA",
                                                                                         "reason": "Original .prn had 0.18; current test file bend line is 15.00in (C# reads 0.1927hr). .prn was generated from different file version."
@@ -211,12 +203,6 @@
                                                            "csharpExpected":  {
 
                                                                               },
-                                                           "knownDeviations":  {
-                                                                                   "routing.N120.run": {
-                                                                                       "status": "BUG",
-                                                                                       "reason": "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
-                                                                                   }
-                                                                               },
                                                            "_note":  "Model thickness is 0.076 (not nominal 16ga)"
                                                        },
                   "B4_ComplexUBracket_11ga_CS.sldprt":  {
@@ -639,10 +625,6 @@
 
                                                                       },
                                                    "knownDeviations":  {
-                                                                           "routing.N120.run": {
-                                                                                             "status":  "BUG",
-                                                                                             "reason":  "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
-                                                                                         },
                                                                            "optiMaterial":  {
                                                                                                 "reason":  "Thick plate (1in) classified as Generic; static service only handles SheetMetal/Tube",
                                                                                                 "status":  "NOT_IMPLEMENTED"
@@ -680,10 +662,6 @@
 
                                                                 },
                                              "knownDeviations":  {
-                                                                     "routing.N120.run": {
-                                                                         "status": "BUG",
-                                                                         "reason": "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
-                                                                     },
                                                                      "optiMaterial": {
                                                                          "status": "INTENTIONAL",
                                                                          "reason": "Parts below 22GA not auto-classified; treated as problem part for manual processing"
@@ -715,10 +693,6 @@
 
                                                                    },
                                                 "knownDeviations":  {
-                                                                        "routing.N120.run": {
-                                                                                          "status":  "BUG",
-                                                                                          "reason":  "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
-                                                                                      },
                                                                         "optiMaterial":  {
                                                                                              "reason":  "Tapered wall classified as Generic; static service only handles SheetMetal/Tube",
                                                                                              "status":  "NOT_IMPLEMENTED"
@@ -801,12 +775,6 @@
                                              "csharpExpected":  {
 
                                                                 },
-                                             "knownDeviations":  {
-                                                                     "routing.N120.run": {
-                                                                         "status": "BUG",
-                                                                         "reason": "C# static speed table differs from VBA Excel lookup; tab estimation added but feed rates/pierce times need calibration from VBA Excel data"
-                                                                     }
-                                                                 },
                                              "_note":  "100m part - test units handling",
                                              "_status":  "PLACEHOLDER - file not yet created"
                                          },
