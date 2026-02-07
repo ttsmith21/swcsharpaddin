@@ -571,8 +571,19 @@ namespace NM.SwAddin.Pipeline
                     : pd.Mass_kg * KG_TO_LB;
                 int quantity = Math.Max(1, options.Quantity > 0 ? options.Quantity : pd.QuoteQty);
 
+                // Check for purchased/customer-supplied parts (VBA: rbPartType=1)
+                string rbPartType;
+                if (pd.Extra.TryGetValue("rbPartType", out rbPartType) && rbPartType == "1")
+                {
+                    string rbPartTypeSub;
+                    pd.Extra.TryGetValue("rbPartTypeSub", out rbPartTypeSub);
+                    pd.Cost.OP20_WorkCenter = (rbPartTypeSub == "2") ? "CUST" : "NPUR";
+                    pd.Cost.OP20_S_min = 0;
+                    pd.Cost.OP20_R_min = 0;
+                    // No processing costs for purchased parts - skip to material cost
+                }
                 // Route to appropriate cost calculator based on part type
-                if (pd.Classification == PartType.Tube && pd.Tube.IsTube)
+                else if (pd.Classification == PartType.Tube && pd.Tube.IsTube)
                 {
                     CalculateTubeCosts(pd, rawWeightLb, quantity);
                 }
@@ -621,6 +632,40 @@ namespace NM.SwAddin.Pipeline
             // Convert tube dimensions to inches
             double wallIn = pd.Tube.Wall_m * M_TO_IN;
             double lengthIn = pd.Tube.Length_m * M_TO_IN;
+            double odIn = pd.Tube.OD_m * M_TO_IN;
+
+            // OP20 Routing: Work center assignment based on tube geometry
+            // Solid bar: no wall thickness, or ID same as OD (wall=0 causes ID=OD in calculation)
+            bool isSolidBar = pd.Tube.Wall_m < 0.001 || pd.Tube.ID_m < 0.001;
+            if (isSolidBar)
+            {
+                pd.Cost.OP20_WorkCenter = "F300";
+                // F300 setup/run from Excel rate table - not implemented yet
+            }
+            else
+            {
+                string shape = pd.Tube.TubeShape ?? "Round";
+                if (shape == "Round")
+                {
+                    // OD thresholds use small epsilon (0.05") to handle floating point
+                    // from metric-to-imperial conversion (e.g., 6.0" stores as 6.000039")
+                    if (odIn > 10.80)       { pd.Cost.OP20_WorkCenter = "N145"; pd.Cost.OP20_S_min = 0.25 * 60; }
+                    else if (odIn > 10.05)  { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 1.0 * 60; }
+                    else if (odIn > 6.05)   { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 0.5 * 60; }
+                    else                    { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 0.15 * 60; }
+                }
+                else if (shape == "Angle" || shape == "Channel")
+                {
+                    pd.Cost.OP20_WorkCenter = "F110";
+                    pd.Cost.OP20_S_min = 0.25 * 60;
+                }
+                else // Rectangle, Square
+                {
+                    pd.Cost.OP20_WorkCenter = "F110";
+                    pd.Cost.OP20_S_min = 0.15 * 60;
+                }
+                // Run time from Mazak ExternalStart library - cannot replicate, remains 0
+            }
 
             // F325 Roll Form - always applies to tubes
             var f325Result = TubeWorkCenterRules.ComputeF325(rawWeightLb, wallIn);

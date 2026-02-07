@@ -393,24 +393,25 @@ namespace NM.Core.Processing
         /// </summary>
         private static (string WorkCenter, double SetupHours) GetTubeWorkCenterRouting(double outerDiameterIn, TubeShape shape)
         {
-            // For non-round shapes, use a simpler routing (F110 for all structural)
+            // For non-round shapes, route to F110 with shape-specific setup
             if (shape != TubeShape.Round)
             {
-                // Structural shapes (square, rect, angle, channel) go to F110
-                // Setup based on size - use perimeter as proxy
-                return ("F110 - TUBE LASER", 0.15);
+                // Structural shapes (angle, channel) need more setup than tube shapes (rect, square)
+                double setupHrs = (shape == TubeShape.Angle || shape == TubeShape.Channel) ? 0.25 : 0.15;
+                return ("F110 - TUBE LASER", setupHrs);
             }
 
             // Round pipe/tube routing based on OD thresholds
-            if (outerDiameterIn <= 6.0)
+            // Small epsilon (0.05") handles floating point from metric-to-imperial conversion
+            if (outerDiameterIn <= 6.05)
             {
                 return ("F110 - TUBE LASER", 0.15);
             }
-            else if (outerDiameterIn <= 10.0)
+            else if (outerDiameterIn <= 10.05)
             {
                 return ("F110 - TUBE LASER", 0.5);
             }
-            else if (outerDiameterIn <= 10.75)
+            else if (outerDiameterIn <= 10.80)
             {
                 return ("F110 - TUBE LASER", 1.0);
             }

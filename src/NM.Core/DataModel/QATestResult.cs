@@ -74,6 +74,22 @@ namespace NM.Core.DataModel
         public double? F325_Setup { get; set; }
         public double? F325_Run { get; set; }
 
+        // Tube laser routing (F110)
+        public double? F110_Setup { get; set; }
+        public double? F110_Run { get; set; }
+        // 5-axis laser routing for large pipes (N145)
+        public double? N145_Setup { get; set; }
+        public double? N145_Run { get; set; }
+        // Saw routing for bar stock (F300)
+        public double? F300_Setup { get; set; }
+        public double? F300_Run { get; set; }
+        // Purchased part routing (NPUR)
+        public double? NPUR_Setup { get; set; }
+        public double? NPUR_Run { get; set; }
+        // Customer-supplied part routing (CUST)
+        public double? CUST_Setup { get; set; }
+        public double? CUST_Run { get; set; }
+
         // ERP fields (for Import.prn comparison)
         public string OptiMaterial { get; set; }
         public string Description { get; set; }
@@ -175,8 +191,35 @@ namespace NM.Core.DataModel
             if (pd.Cost.F325_Price > 0) result.CostBreakdown["F325_Roll"] = pd.Cost.F325_Price;
 
             // Per-workcenter setup/run times (minutes -> hours for routing comparison)
-            if (pd.Cost.OP20_S_min > 0) result.F115_Setup = pd.Cost.OP20_S_min / 60.0;
-            if (pd.Cost.OP20_R_min > 0) result.F115_Run = pd.Cost.OP20_R_min / 60.0;
+            // Route OP20 to the correct work center field based on OP20_WorkCenter
+            var wc = pd.Cost.OP20_WorkCenter ?? "";
+            switch (wc)
+            {
+                case "F115":
+                    if (pd.Cost.OP20_S_min > 0) result.F115_Setup = pd.Cost.OP20_S_min / 60.0;
+                    if (pd.Cost.OP20_R_min > 0) result.F115_Run = pd.Cost.OP20_R_min / 60.0;
+                    break;
+                case "F110":
+                    if (pd.Cost.OP20_S_min > 0) result.F110_Setup = pd.Cost.OP20_S_min / 60.0;
+                    if (pd.Cost.OP20_R_min > 0) result.F110_Run = pd.Cost.OP20_R_min / 60.0;
+                    break;
+                case "N145":
+                    if (pd.Cost.OP20_S_min > 0) result.N145_Setup = pd.Cost.OP20_S_min / 60.0;
+                    if (pd.Cost.OP20_R_min > 0) result.N145_Run = pd.Cost.OP20_R_min / 60.0;
+                    break;
+                case "F300":
+                    if (pd.Cost.OP20_S_min > 0) result.F300_Setup = pd.Cost.OP20_S_min / 60.0;
+                    if (pd.Cost.OP20_R_min > 0) result.F300_Run = pd.Cost.OP20_R_min / 60.0;
+                    break;
+                case "NPUR":
+                    result.NPUR_Setup = pd.Cost.OP20_S_min / 60.0;
+                    result.NPUR_Run = pd.Cost.OP20_R_min / 60.0;
+                    break;
+                case "CUST":
+                    result.CUST_Setup = pd.Cost.OP20_S_min / 60.0;
+                    result.CUST_Run = pd.Cost.OP20_R_min / 60.0;
+                    break;
+            }
             if (pd.Cost.F140_S_min > 0) result.F140_Setup = pd.Cost.F140_S_min / 60.0;
             if (pd.Cost.F140_R_min > 0) result.F140_Run = pd.Cost.F140_R_min / 60.0;
             if (pd.Cost.F210_S_min > 0) result.F210_Setup = pd.Cost.F210_S_min / 60.0;

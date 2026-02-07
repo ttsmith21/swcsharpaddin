@@ -197,7 +197,17 @@ $fieldMappings = @(
     @("F220_Setup", "routing.N220.setup", $true),
     @("F220_Run", "routing.N220.run", $true),
     @("F325_Setup", "routing.F325.setup", $true),
-    @("F325_Run", "routing.F325.run", $true)
+    @("F325_Run", "routing.F325.run", $true),
+    @("F110_Setup", "routing.F110.setup", $true),
+    @("F110_Run", "routing.F110.run", $true),
+    @("N145_Setup", "routing.N145.setup", $true),
+    @("N145_Run", "routing.N145.run", $true),
+    @("F300_Setup", "routing.F300.setup", $true),
+    @("F300_Run", "routing.F300.run", $true),
+    @("NPUR_Setup", "routing.NPUR.setup", $true),
+    @("NPUR_Run", "routing.NPUR.run", $true),
+    @("CUST_Setup", "routing.CUST.setup", $true),
+    @("CUST_Run", "routing.CUST.run", $true)
 )
 
 # Totals
@@ -342,6 +352,8 @@ Write-Status "  Total fields:     $totalFields"
 Write-Status "  Match:            $totalMatch" "Green"
 Write-Status "  Tolerance:        $totalTol" $(if ($totalTol -gt 0) { "DarkYellow" } else { "Green" })
 Write-Status "  Not Implemented:  $totalNotImpl" $(if ($totalNotImpl -gt 0) { "Yellow" } else { "Green" })
+Write-Status "  Intentional:      $totalIntentional" $(if ($totalIntentional -gt 0) { "DarkGray" } else { "Green" })
+Write-Status "  Bug:              $totalBug" $(if ($totalBug -gt 0) { "Magenta" } else { "Green" })
 Write-Status "  Missing:          $totalMissing" $(if ($totalMissing -gt 0) { "Yellow" } else { "Green" })
 Write-Status "  Fail:             $totalFail" $(if ($totalFail -gt 0) { "Red" } else { "Green" })
 Write-Status ""
@@ -359,7 +371,7 @@ $report += "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 $report += "Results:   $ResultsPath"
 $report += "Manifest:  $ManifestPath"
 $report += ""
-$report += "Summary: $totalMatch match, $totalTol tolerance, $totalNotImpl not-impl, $totalMissing missing, $totalFail fail"
+$report += "Summary: $totalMatch match, $totalTol tolerance, $totalNotImpl not-impl, $totalIntentional intentional, $totalBug bug, $totalMissing missing, $totalFail fail"
 $report += "Coverage: $pct% ($($totalMatch + $totalTol) / $totalFields)"
 $report | Out-File $reportPath -Encoding UTF8
 Write-Status "Report: $reportPath"
