@@ -112,7 +112,7 @@ namespace NM.SwAddin
                 }
                 catch { }
 
-                if (!SelectReference(model, body, isPlane, isCyl, info))
+                if (!SelectReference(model, body, largestFace, isPlane, isCyl, info))
                     return false;
 
                 double volBefore = SafeGetVolume(model);
@@ -228,7 +228,7 @@ namespace NM.SwAddin
                     return false;
                 }
                 SolidWorksApiWrapper.ClearSelection(model);
-                if (!SelectReference(model, body, isPlane, isCyl, info))
+                if (!SelectReference(model, body, null, isPlane, isCyl, info))
                     return false;
 
                 // Calculate final parameters
@@ -270,7 +270,7 @@ namespace NM.SwAddin
                         if (body != null)
                         {
                             SolidWorksApiWrapper.ClearSelection(model);
-                            SelectReference(model, body, isPlane, isCyl, null); // Don't fail on reselect
+                            SelectReference(model, body, null, isPlane, isCyl, null); // Don't fail on reselect
                         }
                     }
                 }
@@ -345,7 +345,7 @@ namespace NM.SwAddin
         ///      Set swSelData = swSelMgr.CreateSelectData
         ///      bRet = swEnt.Select4(True, swSelData)
         /// </summary>
-        private bool SelectReference(IModelDoc2 model, IBody2 body, bool isPlane, bool isCyl, ModelInfo info)
+        private bool SelectReference(IModelDoc2 model, IBody2 body, IFace2 largestFace, bool isPlane, bool isCyl, ModelInfo info)
         {
             // VBA creates SelectionData object for proper selection context
             // Note: Select4 expects SelectData (concrete), not ISelectData (interface)
@@ -362,7 +362,7 @@ namespace NM.SwAddin
 
             if (isPlane)
             {
-                var face = GetLargestFace(body);
+                var face = largestFace ?? GetLargestFace(body);
                 if (face == null)
                 {
                     if (info != null) Fail(info, "Cannot find planar face");
@@ -533,7 +533,8 @@ namespace NM.SwAddin
         /// VBA equivalent: GetLinearEdge() in SP.bas
         /// - Gets edges directly from body (not from faces)
         /// - Checks swCurve.Identity = 3001 (line)
-        /// - Uses GetLength2 for accurate length
+        /// - Uses GetEndParams + GetLength3 for accurate length
+        /// Optimized: non-linear edges exit after 2 COM calls (GetCurve + Identity).
         /// </summary>
         private static IEdge FindLongestLinearEdge(IBody2 body)
         {
@@ -543,7 +544,6 @@ namespace NM.SwAddin
 
             try
             {
-                // VBA: vEdge = swBody.GetEdges
                 var edgesRaw = body?.GetEdges() as object[];
                 if (edgesRaw == null || edgesRaw.Length == 0)
                 {
@@ -551,95 +551,44 @@ namespace NM.SwAddin
                     return null;
                 }
 
-                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Checking {edgesRaw.Length} edges");
+                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Scanning {edgesRaw.Length} edges");
                 int linearCount = 0;
-                int nonLinearCount = 0;
 
-                int edgeIndex = 0;
-                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Starting foreach loop over {edgesRaw.Length} edges");
                 foreach (var eo in edgesRaw)
                 {
-                    edgeIndex++;
-                    ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: Processing (eo is null: {eo == null})");
                     var edge = eo as IEdge;
-                    if (edge == null)
-                    {
-                        ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: cast to IEdge returned NULL");
-                        continue;
-                    }
+                    if (edge == null) continue;
 
                     var curve = edge.GetCurve() as ICurve;
-                    if (curve == null)
-                    {
-                        ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: GetCurve() returned NULL");
-                        continue;
-                    }
+                    if (curve == null) continue;
 
-                    // Check if curve is a line using Identity() == 3001 (LINE_TYPE)
+                    // Early exit: skip non-linear edges (2 COM calls only)
                     // NOTE: ICurve.IsLine() only exists in SW 2024+, so use Identity() for 2022 compatibility
-                    bool isLine = false;
-                    int curveIdentity = -1;
-
                     try
                     {
-                        curveIdentity = curve.Identity();
-                        isLine = (curveIdentity == 3001); // 3001 = LINE_TYPE in swCurveTypes_e
+                        if (curve.Identity() != 3001) continue; // 3001 = LINE_TYPE
                     }
-                    catch (Exception ex)
-                    {
-                        ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: Identity() threw: {ex.Message}");
-                    }
+                    catch { continue; }
 
-                    // Log EVERY edge for diagnostic purposes using GetCurveParams3 (returns CurveParamData object)
-                    // NOTE: Per API docs, must call GetCurve() first (done above) to generate curve info
-                    double diagLength = 0;
-                    string cpInfo = "null";
-                    double startParam = 0, endParam = 0;
-                    try
-                    {
-                        // Try GetCurveParams3 first (returns ICurveParamData object)
-                        var cpData = edge.GetCurveParams3();
-                        if (cpData != null)
-                        {
-                            startParam = cpData.UMinValue;
-                            endParam = cpData.UMaxValue;
-                            cpInfo = $"UMin={startParam:F6},UMax={endParam:F6}";
-                            diagLength = curve.GetLength3(startParam, endParam);
-                        }
-                        else
-                        {
-                            // Fallback to GetCurveParams2 (array-based)
-                            var cp = edge.GetCurveParams2() as object[];
-                            if (cp != null && cp.Length >= 8)
-                            {
-                                startParam = Convert.ToDouble(cp[6]);
-                                endParam = Convert.ToDouble(cp[7]);
-                                cpInfo = $"arr[6]={startParam:F6},[7]={endParam:F6}";
-                                diagLength = curve.GetLength3(startParam, endParam);
-                            }
-                        }
-                    }
-                    catch (Exception cpEx) { cpInfo = $"ex:{cpEx.Message}"; }
-                    ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: Identity={curveIdentity}, IsLine={isLine}, cp=[{cpInfo}], Len={diagLength:F4}m");
-
-                    if (!isLine)
-                    {
-                        nonLinearCount++;
-                        continue; // Not a linear edge
-                    }
                     linearCount++;
 
-                    // Use the params already retrieved from diagnostic section above
-                    // VBA: vCurveParam = swEdge.GetCurveParams2
-                    //      currentedge = swCurve.GetLength2(vCurveParam(6), vCurveParam(7))
-                    // Note: GetLength3 is correct (trimmed curve), GetLength2 is obsolete (base curve)
-                    double edgeLength = diagLength; // Already calculated in diagnostic section
-                    if (edgeLength <= 0)
+                    // Only linear edges reach here: get params + length
+                    // Uses GetEndParams (returns primitives via out params) instead of
+                    // GetCurveParams3 (allocates COM object per call) — matches FaceWrapper.cs pattern
+                    double edgeLength = 0;
+                    try
                     {
-                        // Fallback to chord length if params didn't work
-                        edgeLength = GetEdgeChordLength(edge);
-                        ErrorHandler.DebugLog($"[SMDBG]   Edge[{edgeIndex}]: Using chord length fallback: {edgeLength:F4}m");
+                        double start = 0, end = 0;
+                        bool isClosed = false, isPeriodic = false;
+                        if (curve.GetEndParams(out start, out end, out isClosed, out isPeriodic))
+                        {
+                            edgeLength = curve.GetLength3(start, end);
+                        }
                     }
+                    catch { }
+
+                    if (edgeLength <= 0)
+                        edgeLength = GetEdgeChordLength(edge);
 
                     if (edgeLength > bestLen)
                     {
@@ -648,7 +597,7 @@ namespace NM.SwAddin
                     }
                 }
 
-                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Found {linearCount} linear, {nonLinearCount} non-linear. Best length = {bestLen:F6} m");
+                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: {linearCount} linear of {edgesRaw.Length} total. Best = {bestLen:F6} m");
             }
             catch (Exception ex)
             {

@@ -1,18 +1,18 @@
 {
-  "CreatedAt": "2026-01-30T16:36:00Z",
-  "RunId": "20260130_113400",
+  "CreatedAt": "2026-02-07T20:16:00Z",
+  "RunId": "20260207_135411",
   "FileCount": 32,
-  "TotalElapsedMs": 96102,
+  "TotalElapsedMs": 94235,
   "Timers": {
-    "InsertBends2_Probe": { "AvgMs": 117.0, "MaxMs": 194.0, "Count": 19 },
-    "InsertBends2_Final_KFactor": { "AvgMs": 88.1, "MaxMs": 225.0, "Count": 7 },
-    "TryFlatten_Probe": { "AvgMs": 325.4, "MaxMs": 734.0, "Count": 13 },
-    "TryFlatten_Final": { "AvgMs": 230.6, "MaxMs": 247.0, "Count": 7 },
-    "GetLargestFace": { "AvgMs": 373.1, "MaxMs": 2376.0, "Count": 47 },
-    "FindLongestLinearEdge": { "AvgMs": 2386.1, "MaxMs": 11664.0, "Count": 8 },
-    "CustomProperty_Read": { "AvgMs": 7.0, "MaxMs": 34.0, "Count": 64 },
-    "Validation": { "AvgMs": 16.9, "MaxMs": 69.0, "Count": 32 },
-    "Classification": { "AvgMs": 3562.4, "MaxMs": 19123.0, "Count": 26 },
-    "Processing": { "AvgMs": 95.5, "MaxMs": 723.0, "Count": 26 }
+    "InsertBends2_Probe": { "AvgMs": 83.2, "MaxMs": 158.0, "Count": 19 },
+    "InsertBends2_Final_KFactor": { "AvgMs": 55.0, "MaxMs": 91.0, "Count": 7 },
+    "TryFlatten_Probe": { "AvgMs": 285.2, "MaxMs": 383.0, "Count": 13 },
+    "TryFlatten_Final": { "AvgMs": 215.6, "MaxMs": 258.0, "Count": 7 },
+    "GetLargestFace": { "AvgMs": 200.1, "MaxMs": 1656.0, "Count": 47 },
+    "FindLongestLinearEdge": { "AvgMs": 1824.1, "MaxMs": 9810.0, "Count": 8 },
+    "CustomProperty_Read": { "AvgMs": 3.5, "MaxMs": 30.0, "Count": 64 },
+    "Validation": { "AvgMs": 10.1, "MaxMs": 39.0, "Count": 32 },
+    "Classification": { "AvgMs": 2571.0, "MaxMs": 16065.0, "Count": 26 },
+    "Processing": { "AvgMs": 595.0, "MaxMs": 6837.0, "Count": 26 }
   }
 }
