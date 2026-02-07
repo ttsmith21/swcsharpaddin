@@ -241,7 +241,9 @@ namespace NM.SwAddin.Pipeline
         {
             try
             {
-                var form = new ProblemPartsForm(ProblemPartManager.Instance);
+                var problems = ProblemPartManager.Instance.GetProblemParts();
+                if (problems.Count == 0) return;
+                var form = new ProblemWizardForm(problems, null, 0);
                 form.StartPosition = FormStartPosition.CenterScreen;
                 form.Show();
             }

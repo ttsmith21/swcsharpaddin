@@ -281,11 +281,11 @@ namespace NM.Core
             }
             else
             {
-                // New property
-                _properties.Add(propertyName, value);
-                _originalProperties.Add(propertyName, null); // Original is null for new props
-                _propertyStates.Add(propertyName, PropertyState.Added);
-                _propertyTypes.Add(propertyName, propertyType);
+                // New property — use indexer to avoid duplicate-key exceptions
+                _properties[propertyName] = value;
+                _originalProperties[propertyName] = null; // Original is null for new props
+                _propertyStates[propertyName] = PropertyState.Added;
+                _propertyTypes[propertyName] = propertyType;
                 IsDirty = true;
             }
         }
@@ -336,11 +336,8 @@ namespace NM.Core
             _originalProperties.Clear();
             foreach (var kvp in _properties)
             {
-                _originalProperties.Add(kvp.Key, kvp.Value);
-                if (_propertyStates.ContainsKey(kvp.Key))
-                {
-                    _propertyStates[kvp.Key] = PropertyState.Unchanged;
-                }
+                _originalProperties[kvp.Key] = kvp.Value;
+                _propertyStates[kvp.Key] = PropertyState.Unchanged;
             }
             IsDirty = false;
         }
@@ -360,10 +357,11 @@ namespace NM.Core
             {
                 if (!string.IsNullOrWhiteSpace(propName))
                 {
-                    _properties.Add(propName, "");
-                    _originalProperties.Add(propName, "");
-                    _propertyStates.Add(propName, PropertyState.Unchanged);
-                    _propertyTypes.Add(propName, CustomPropertyType.Text); // Default to text
+                    // Use indexer to safely handle duplicate property names
+                    _properties[propName] = "";
+                    _originalProperties[propName] = "";
+                    _propertyStates[propName] = PropertyState.Unchanged;
+                    _propertyTypes[propName] = CustomPropertyType.Text; // Default to text
                 }
             }
             IsDirty = false;
