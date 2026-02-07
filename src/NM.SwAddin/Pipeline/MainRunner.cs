@@ -194,6 +194,35 @@ namespace NM.SwAddin.Pipeline
                 var swModel = new SolidWorksModel(info, swApp);
                 swModel.Attach(doc, cfg);
 
+                // ====== PURCHASED/OVERRIDE EARLY-OUT ======
+                // If part has rbPartType=1 (set by user via PUR/MACH/CUST buttons or pre-existing),
+                // skip the entire classification pipeline. These are known non-fabricated parts.
+                string rbPartTypeEarly = SolidWorksApiWrapper.GetCustomPropertyValue(doc, "rbPartType");
+                if (rbPartTypeEarly == "1")
+                {
+                    string rbSubVal = SolidWorksApiWrapper.GetCustomPropertyValue(doc, "rbPartTypeSub");
+                    pd.Classification = PartType.Purchased;
+                    pd.IsPurchased = true;
+                    pd.Extra["rbPartType"] = "1";
+                    if (!string.IsNullOrEmpty(rbSubVal)) pd.Extra["rbPartTypeSub"] = rbSubVal;
+
+                    // Set work center based on sub-type
+                    pd.Cost.OP20_WorkCenter = (rbSubVal == "2") ? "CUST" : "NPUR";
+                    pd.Cost.OP20_S_min = 0;
+                    pd.Cost.OP20_R_min = 0;
+
+                    ErrorHandler.DebugLog($"[SMDBG] rbPartType=1 detected (sub={rbSubVal}) - skipping classification, work center={pd.Cost.OP20_WorkCenter}");
+
+                    // Still collect mass for material costing
+                    var purchMass = SolidWorksApiWrapper.GetModelMass(doc);
+                    if (purchMass >= 0) pd.Mass_kg = purchMass;
+                    pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
+                    pd.Status = ProcessingStatus.Success;
+
+                    // Skip to ERP property copy (bypass classification + processing)
+                    goto ErpPropertyCopy;
+                }
+
                 // ====== CLASSIFICATION ======
                 // VBA Logic: Try sheet metal FIRST, only fall back to tube if sheet metal fails
                 PerformanceTracker.Instance.StartTimer("Classification");
@@ -460,6 +489,7 @@ namespace NM.SwAddin.Pipeline
                     }
                 }
 
+                ErpPropertyCopy:
                 // ====== COPY ERP-RELEVANT CUSTOM PROPERTIES ======
                 // These properties are used by ErpExportDataBuilder for VBA-parity export
                 string[] erpProps = { "rbPartType", "rbPartTypeSub", "OS_WC", "OS_WC_A",

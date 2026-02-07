@@ -163,7 +163,7 @@ namespace NM.SwAddin.Validation
                 {
                     ErrorHandler.DebugLog($"[BATCHVAL]   PROBLEM: {vr.Summary}");
                     // MarkAsProblem calls model.MarkValidated internally
-                    MarkAsProblem(model, vr.Summary, MapReasonToCategory(vr.Summary));
+                    MarkAsProblem(model, vr.Summary, MapReasonToCategory(vr.Summary), vr.PurchasedHint);
                     result.ProblemModels.Add(model);
                     ErrorHandler.DebugLog($"[BATCHVAL]   Added to ProblemModels, count now: {result.ProblemModels.Count}");
                 }
@@ -194,7 +194,7 @@ namespace NM.SwAddin.Validation
             }
         }
 
-        private void MarkAsProblem(SwModelInfo model, string reason, ProblemPartManager.ProblemCategory category)
+        private void MarkAsProblem(SwModelInfo model, string reason, ProblemPartManager.ProblemCategory category, string purchasedHint = null)
         {
             model.MarkValidated(false, reason);
 
@@ -204,6 +204,17 @@ namespace NM.SwAddin.Validation
                 model.ComponentName ?? string.Empty,
                 reason,
                 category);
+
+            // Store purchased-part heuristic hint in problem item metadata
+            if (!string.IsNullOrEmpty(purchasedHint))
+            {
+                var items = ProblemPartManager.Instance.GetProblemParts();
+                var item = items.Find(p =>
+                    string.Equals(p.FilePath, model.FilePath, System.StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(p.Configuration ?? "", model.Configuration ?? "", System.StringComparison.OrdinalIgnoreCase));
+                if (item != null)
+                    item.Metadata["PurchasedHint"] = purchasedHint;
+            }
         }
 
         private static ProblemPartManager.ProblemCategory MapReasonToCategory(string reason)
@@ -215,6 +226,8 @@ namespace NM.SwAddin.Validation
 
             if (lower.Contains("no solid bod") || lower.Contains("no bodies"))
                 return ProblemPartManager.ProblemCategory.GeometryValidation;
+            if (lower.Contains("mixed-body") || lower.Contains("mixed body"))
+                return ProblemPartManager.ProblemCategory.MixedBody;
             if (lower.Contains("multi-body") || lower.Contains("multiple bod"))
                 return ProblemPartManager.ProblemCategory.GeometryValidation;
             if (lower.Contains("material"))

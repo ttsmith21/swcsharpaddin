@@ -44,17 +44,54 @@ namespace NM.SwAddin.Validation
                 // Multi-body check - FAIL validation for multi-body parts
                 if (bodies.Length > 1)
                 {
-                    return new PreflightResult { IsProblem = true, Reason = $"Multi-body part ({bodies.Length} bodies)" };
+                    return new PreflightResult { IsProblem = true, Reason = $"Multi-body part ({bodies.Length} bodies)", SolidBodyCount = bodies.Length };
+                }
+
+                // Mixed-body check: solid + surface bodies coexisting
+                // Parts like D8_Swagelock_T_Fitting have both solid and surface bodies.
+                // Surface bodies can interfere with geometry analysis.
+                var mixedSurfBodies = part.GetBodies2((int)swBodyType_e.swSheetBody, true) as object[];
+                int surfaceCount = mixedSurfBodies?.Length ?? 0;
+                if (surfaceCount > 0)
+                {
+                    return new PreflightResult
+                    {
+                        IsProblem = true,
+                        Reason = $"Mixed-body part ({bodies.Length} solid + {surfaceCount} surface bodies)",
+                        SolidBodyCount = bodies.Length,
+                        SurfaceBodyCount = surfaceCount
+                    };
                 }
 
                 // Material check - FAIL validation if no material assigned
                 var material = SolidWorksApiWrapper.GetMaterialName(model);
                 if (string.IsNullOrWhiteSpace(material))
                 {
-                    return new PreflightResult { IsProblem = true, Reason = "No material assigned" };
+                    return new PreflightResult { IsProblem = true, Reason = "No material assigned", SolidBodyCount = bodies.Length };
                 }
 
-                return new PreflightResult { IsProblem = false, Reason = null };
+                // Extract geometry metrics for heuristic analysis
+                var mainBody = (IBody2)bodies[0];
+                var faces = mainBody.GetFaces() as object[];
+                var edges = mainBody.GetEdges() as object[];
+
+                var result = new PreflightResult
+                {
+                    IsProblem = false,
+                    SolidBodyCount = bodies.Length,
+                    FaceCount = faces?.Length ?? 0,
+                    EdgeCount = edges?.Length ?? 0
+                };
+
+                try
+                {
+                    var massProp = model.Extension?.CreateMassProperty() as IMassProperty;
+                    if (massProp != null)
+                        result.MassKg = massProp.Mass;
+                }
+                catch { /* Non-fatal - mass is optional for heuristics */ }
+
+                return result;
             }
             catch (Exception ex)
             {
@@ -70,5 +107,12 @@ namespace NM.SwAddin.Validation
     {
         public bool IsProblem { get; set; }
         public string Reason { get; set; }
+
+        // Geometry metrics for heuristic analysis (populated on success or partial success)
+        public int SolidBodyCount { get; set; }
+        public int SurfaceBodyCount { get; set; }
+        public int FaceCount { get; set; }
+        public int EdgeCount { get; set; }
+        public double MassKg { get; set; }
     }
 }
