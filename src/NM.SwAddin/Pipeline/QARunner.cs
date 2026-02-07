@@ -994,6 +994,32 @@ namespace NM.SwAddin.Pipeline
                 if (r.F325_Run.HasValue)
                     sb.AppendLine($"      \"F325_Run\": {r.F325_Run.Value:F4},");
 
+                // Tube laser routing (F110)
+                if (r.F110_Setup.HasValue)
+                    sb.AppendLine($"      \"F110_Setup\": {r.F110_Setup.Value:F4},");
+                if (r.F110_Run.HasValue)
+                    sb.AppendLine($"      \"F110_Run\": {r.F110_Run.Value:F4},");
+                // 5-axis laser routing (N145)
+                if (r.N145_Setup.HasValue)
+                    sb.AppendLine($"      \"N145_Setup\": {r.N145_Setup.Value:F4},");
+                if (r.N145_Run.HasValue)
+                    sb.AppendLine($"      \"N145_Run\": {r.N145_Run.Value:F4},");
+                // Saw routing (F300)
+                if (r.F300_Setup.HasValue)
+                    sb.AppendLine($"      \"F300_Setup\": {r.F300_Setup.Value:F4},");
+                if (r.F300_Run.HasValue)
+                    sb.AppendLine($"      \"F300_Run\": {r.F300_Run.Value:F4},");
+                // Purchased part routing (NPUR)
+                if (r.NPUR_Setup.HasValue)
+                    sb.AppendLine($"      \"NPUR_Setup\": {r.NPUR_Setup.Value:F4},");
+                if (r.NPUR_Run.HasValue)
+                    sb.AppendLine($"      \"NPUR_Run\": {r.NPUR_Run.Value:F4},");
+                // Customer-supplied routing (CUST)
+                if (r.CUST_Setup.HasValue)
+                    sb.AppendLine($"      \"CUST_Setup\": {r.CUST_Setup.Value:F4},");
+                if (r.CUST_Run.HasValue)
+                    sb.AppendLine($"      \"CUST_Run\": {r.CUST_Run.Value:F4},");
+
                 // ERP fields
                 if (!string.IsNullOrEmpty(r.OptiMaterial))
                     sb.AppendLine($"      \"OptiMaterial\": \"{Escape(r.OptiMaterial)}\",");

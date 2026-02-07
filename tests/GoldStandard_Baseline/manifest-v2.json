@@ -259,8 +259,8 @@
                                                                                                   "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                                   "status":  "INTENTIONAL"
                                                                                               },
-                                                                                "routing":  {
-                                                                                                "reason":  "Tube routing uses N145 work center not compared by standard mappings",
+                                                                                "routing.N145.run":  {
+                                                                                                "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
                                                                                                 "status":  "NOT_IMPLEMENTED"
                                                                                             }
                                                                             },
@@ -301,8 +301,8 @@
                                                                                              "reason":  "C# generates 'RECT TUBE'; VBA used generic 'TUBE' for all tube shapes",
                                                                                              "status":  "INTENTIONAL"
                                                                                          },
-                                                                         "routing":  {
-                                                                                         "reason":  "Tube routing uses F110 work center not compared by standard mappings",
+                                                                         "routing.F110.run":  {
+                                                                                         "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
                                                                                          "status":  "NOT_IMPLEMENTED"
                                                                                      }
                                                                      },
@@ -343,8 +343,8 @@
                                                                                                "reason":  "C# generates 'SQ TUBE'; VBA used generic 'TUBE' for all tube shapes",
                                                                                                "status":  "INTENTIONAL"
                                                                                            },
-                                                                           "routing":  {
-                                                                                           "reason":  "Tube routing uses F110 work center not compared by standard mappings",
+                                                                           "routing.F110.run":  {
+                                                                                           "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
                                                                                            "status":  "NOT_IMPLEMENTED"
                                                                                        }
                                                                        },
@@ -377,8 +377,8 @@
                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                             "status":  "INTENTIONAL"
                                                                                         },
-                                                                          "routing":  {
-                                                                                          "reason":  "Tube routing uses F110 work center not compared by standard mappings",
+                                                                          "routing.F110.run":  {
+                                                                                          "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       },
@@ -435,8 +435,8 @@
                                                                                       "reason":  "C# classifies I-beam as Rectangle (even face distances) generating 'RECT TUBE'; VBA used 'TUBE'",
                                                                                       "status":  "INTENTIONAL"
                                                                                   },
-                                                                  "routing":  {
-                                                                                  "reason":  "Tube routing uses F110 work center not compared by standard mappings",
+                                                                  "routing.F110.run":  {
+                                                                                  "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
                                                                                   "status":  "NOT_IMPLEMENTED"
                                                                               }
                                                               },
@@ -467,8 +467,12 @@
                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                             "status":  "INTENTIONAL"
                                                                                         },
-                                                                          "routing":  {
-                                                                                          "reason":  "Bar routing uses F300 work center not compared by standard mappings",
+                                                                          "routing.F300.setup":  {
+                                                                                          "reason":  "F300 saw setup from Excel rate table - calculation not implemented",
+                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                      },
+                                                                          "routing.F300.run":  {
+                                                                                          "reason":  "F300 saw run time from Excel rate table - calculation not implemented",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       },
@@ -503,8 +507,8 @@
                                                                                               "reason":  "C# classifies as Channel (odd distance count in one direction); VBA classified as Angle",
                                                                                               "status":  "INTENTIONAL"
                                                                                           },
-                                                                          "routing":  {
-                                                                                          "reason":  "Uses F110 work center not compared by standard mappings",
+                                                                          "routing.F110.run":  {
+                                                                                          "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       },
@@ -542,8 +546,12 @@
                                                                                              "reason":  "Purchased part; VBA used custom description from properties",
                                                                                              "status":  "INTENTIONAL"
                                                                                          },
-                                                                         "routing":  {
-                                                                                         "reason":  "Purchased part uses NPUR work center",
+                                                                         "routing.NPUR.setup":  {
+                                                                                         "reason":  "Test file lacks rbPartType custom property needed for purchased detection",
+                                                                                         "status":  "NOT_IMPLEMENTED"
+                                                                                     },
+                                                                         "routing.NPUR.run":  {
+                                                                                         "reason":  "Test file lacks rbPartType custom property needed for purchased detection",
                                                                                          "status":  "NOT_IMPLEMENTED"
                                                                                      }
                                                                      }
@@ -580,8 +588,12 @@
                                                                                       "reason":  "Purchased part; VBA used custom 'MOTOR, ELECTRIC' description",
                                                                                       "status":  "INTENTIONAL"
                                                                                   },
-                                                                  "routing":  {
-                                                                                  "reason":  "Purchased part uses CUST work center",
+                                                                  "routing.CUST.setup":  {
+                                                                                  "reason":  "Customer-supplied part uses CUST work center; test file lacks rbPartType",
+                                                                                  "status":  "NOT_IMPLEMENTED"
+                                                                              },
+                                                                  "routing.CUST.run":  {
+                                                                                  "reason":  "Customer-supplied part uses CUST work center; test file lacks rbPartType",
                                                                                   "status":  "NOT_IMPLEMENTED"
                                                                               }
                                                               }
@@ -737,8 +749,12 @@
                                                                                               "reason":  "C# classifies as Generic (material only); VBA generated 'TUBE'",
                                                                                               "status":  "INTENTIONAL"
                                                                                           },
-                                                                          "routing":  {
-                                                                                          "reason":  "Uses F110 work center not compared by standard mappings",
+                                                                          "routing.F110.setup":  {
+                                                                                          "reason":  "Eccentric tube classified as Generic; tube routing only computed for Tube classification",
+                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                      },
+                                                                          "routing.F110.run":  {
+                                                                                          "reason":  "Eccentric tube classified as Generic; tube routing only computed for Tube classification",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       },

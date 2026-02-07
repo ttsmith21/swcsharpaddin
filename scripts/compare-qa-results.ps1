@@ -197,7 +197,17 @@ $fieldMappings = @(
     @("F220_Setup", "routing.N220.setup", $true),
     @("F220_Run", "routing.N220.run", $true),
     @("F325_Setup", "routing.F325.setup", $true),
-    @("F325_Run", "routing.F325.run", $true)
+    @("F325_Run", "routing.F325.run", $true),
+    @("F110_Setup", "routing.F110.setup", $true),
+    @("F110_Run", "routing.F110.run", $true),
+    @("N145_Setup", "routing.N145.setup", $true),
+    @("N145_Run", "routing.N145.run", $true),
+    @("F300_Setup", "routing.F300.setup", $true),
+    @("F300_Run", "routing.F300.run", $true),
+    @("NPUR_Setup", "routing.NPUR.setup", $true),
+    @("NPUR_Run", "routing.NPUR.run", $true),
+    @("CUST_Setup", "routing.CUST.setup", $true),
+    @("CUST_Run", "routing.CUST.run", $true)
 )
 
 # Totals

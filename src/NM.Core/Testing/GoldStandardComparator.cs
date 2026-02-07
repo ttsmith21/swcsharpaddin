@@ -336,6 +336,16 @@ namespace NM.Core.Testing
             AddRoutingFromFlat(routing, "N220", actual, "F220_Setup", "F220_Run");
             // F325 (Roll Forming) → N325 workcenter
             AddRoutingFromFlat(routing, "N325", actual, "F325_Setup", "F325_Run");
+            // F110 (Tube Laser) → F110 workcenter
+            AddRoutingFromFlat(routing, "F110", actual, "F110_Setup", "F110_Run");
+            // N145 (5-Axis Laser) → N145 workcenter
+            AddRoutingFromFlat(routing, "N145", actual, "N145_Setup", "N145_Run");
+            // F300 (Saw) → F300 workcenter
+            AddRoutingFromFlat(routing, "F300", actual, "F300_Setup", "F300_Run");
+            // NPUR (Purchased) → NPUR workcenter
+            AddRoutingFromFlat(routing, "NPUR", actual, "NPUR_Setup", "NPUR_Run");
+            // CUST (Customer-Supplied) → CUST workcenter
+            AddRoutingFromFlat(routing, "CUST", actual, "CUST_Setup", "CUST_Run");
 
             return routing.Count > 0 ? routing : null;
         }
