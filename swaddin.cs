@@ -933,6 +933,7 @@ namespace NM.Core
             public static double F140CostPerHour => C.WorkCenters.F140_PressBrake;
             public static double F145CostPerHour => C.WorkCenters.F145_CncBending;
             public static double F155CostPerHour => C.WorkCenters.F155_Waterjet;
+            public static double F220CostPerHour => C.WorkCenters.F220_Tapping;
             public static double F325CostPerHour => C.WorkCenters.F325_RollForming;
             public static double F400CostPerHour => C.WorkCenters.F400_Welding;
             public static double F385CostPerHour => C.WorkCenters.F385_Assembly;
@@ -956,7 +957,7 @@ namespace NM.Core
         {
             // Unit conversions — true physics constants
             public const double MetersToInches = NM.Core.Constants.UnitConversions.MetersToInches;
-            public const double InchesToMeters = 1.0 / 39.3701;
+            public const double InchesToMeters = NM.Core.Constants.UnitConversions.InchesToMeters;
             public const double KgToLbs = NM.Core.Constants.UnitConversions.KgToLbs;
             public static double SteelDensityLbsPerIn3 => NM.Core.Config.NmConfigProvider.Current.MaterialDensities.Steel_General;
 

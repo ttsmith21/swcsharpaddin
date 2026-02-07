@@ -38,6 +38,7 @@ namespace NM.Core.Config
             ValidateRate(msgs, "WorkCenters.F400", config.WorkCenters.F400_Welding);
             ValidateRate(msgs, "WorkCenters.F500", config.WorkCenters.F500_Finishing);
             ValidateRate(msgs, "WorkCenters.F525", config.WorkCenters.F525_Packaging);
+            ValidateRate(msgs, "WorkCenters.F155", config.WorkCenters.F155_Waterjet);
             ValidateRate(msgs, "WorkCenters.ENG", config.WorkCenters.ENG_Engineering);
 
             // Material pricing: must be > 0 and < 100 $/lb
@@ -67,6 +68,8 @@ namespace NM.Core.Config
                 msgs.Add(Error("MaterialDensities.CarbonSteelA36", "Density must be > 0"));
             if (config.MaterialDensities.Aluminum <= 0)
                 msgs.Add(Error("MaterialDensities.Aluminum", "Density must be > 0"));
+            if (config.MaterialDensities.Steel_General <= 0)
+                msgs.Add(Error("MaterialDensities.Steel_General", "Density must be > 0"));
 
             // Standard sheet dimensions
             if (config.Manufacturing.StandardSheet.WidthIn <= 0 || config.Manufacturing.StandardSheet.LengthIn <= 0)
