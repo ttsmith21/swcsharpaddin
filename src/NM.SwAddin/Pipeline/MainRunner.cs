@@ -12,6 +12,7 @@ using NM.SwAddin.Processing;
 using NM.SwAddin.SheetMetal;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.SwAddin.Pipeline
 {
@@ -389,8 +390,8 @@ namespace NM.SwAddin.Pipeline
                     var blankSize = bboxExtractor.GetBlankSize(doc);
                     if (blankSize.length > 0)
                     {
-                        pd.BBoxLength_m = blankSize.length / 39.3701;
-                        pd.BBoxWidth_m = blankSize.width / 39.3701;
+                        pd.BBoxLength_m = blankSize.length * InchesToMeters;
+                        pd.BBoxWidth_m = blankSize.width * InchesToMeters;
                     }
                 }
                 catch (Exception bboxEx)
@@ -445,7 +446,7 @@ namespace NM.SwAddin.Pipeline
                             var cutMetrics = FlatPatternAnalyzer.Extract(doc, flatFace);
                             if (cutMetrics != null && cutMetrics.TotalCutLengthIn > 0)
                             {
-                                pd.Sheet.TotalCutLength_m = cutMetrics.TotalCutLengthIn / 39.3701;
+                                pd.Sheet.TotalCutLength_m = cutMetrics.TotalCutLengthIn * InchesToMeters;
                                 pd.Extra["CutMetrics_PerimeterIn"] = cutMetrics.PerimeterLengthIn.ToString(System.Globalization.CultureInfo.InvariantCulture);
                                 pd.Extra["CutMetrics_InternalIn"] = cutMetrics.InternalCutLengthIn.ToString(System.Globalization.CultureInfo.InvariantCulture);
                                 pd.Extra["CutMetrics_PierceCount"] = cutMetrics.PierceCount.ToString();
@@ -493,7 +494,7 @@ namespace NM.SwAddin.Pipeline
                     var partMetrics = MetricsExtractor.FromModel(doc, info);
                     // Override with our already-computed values (more reliable than re-reading)
                     if (pd.Mass_kg > 0) partMetrics.MassKg = pd.Mass_kg;
-                    if (pd.Thickness_m > 0) partMetrics.ThicknessIn = pd.Thickness_m * 39.3701;
+                    if (pd.Thickness_m > 0) partMetrics.ThicknessIn = pd.Thickness_m * MetersToInches;
                     if (!string.IsNullOrEmpty(pd.Material)) partMetrics.MaterialCode = pd.Material;
 
                     var calcResult = ManufacturingCalculator.Compute(partMetrics, new CalcOptions());
@@ -561,14 +562,12 @@ namespace NM.SwAddin.Pipeline
         /// </summary>
         private static void CalculateCosts(PartData pd, ModelInfo info, ProcessingOptions options)
         {
-            const double KG_TO_LB = 2.20462;
-
             try
             {
                 // Use ManufacturingCalculator-computed rawWeight if available, else fall back to finished mass
                 double rawWeightLb = pd.Cost.MaterialWeight_lb > 0
                     ? pd.Cost.MaterialWeight_lb
-                    : pd.Mass_kg * KG_TO_LB;
+                    : pd.Mass_kg * KgToLbs;
                 int quantity = Math.Max(1, options.Quantity > 0 ? options.Quantity : pd.QuoteQty);
 
                 // Check for purchased/customer-supplied parts (VBA: rbPartType=1)
@@ -627,12 +626,10 @@ namespace NM.SwAddin.Pipeline
         /// </summary>
         private static void CalculateTubeCosts(PartData pd, double rawWeightLb, int quantity)
         {
-            const double M_TO_IN = 39.3701;
-
             // Convert tube dimensions to inches
-            double wallIn = pd.Tube.Wall_m * M_TO_IN;
-            double lengthIn = pd.Tube.Length_m * M_TO_IN;
-            double odIn = pd.Tube.OD_m * M_TO_IN;
+            double wallIn = pd.Tube.Wall_m * MetersToInches;
+            double lengthIn = pd.Tube.Length_m * MetersToInches;
+            double odIn = pd.Tube.OD_m * MetersToInches;
 
             // OP20 Routing: Work center assignment based on tube geometry
             // Solid bar: no wall thickness, or ID same as OD (wall=0 causes ID=OD in calculation)
@@ -701,7 +698,6 @@ namespace NM.SwAddin.Pipeline
         /// </summary>
         private static void CalculateSheetMetalCosts(PartData pd, ModelInfo info, double rawWeightLb, int quantity)
         {
-            const double M_TO_IN = 39.3701;
 
             // F115 Laser Cutting - based on cut length and pierce count
             if (pd.Sheet.TotalCutLength_m > 0 && pd.Thickness_m > 0)
@@ -715,9 +711,9 @@ namespace NM.SwAddin.Pipeline
 
                     var partMetrics = new PartMetrics
                     {
-                        ApproxCutLengthIn = pd.Sheet.TotalCutLength_m * M_TO_IN,
+                        ApproxCutLengthIn = pd.Sheet.TotalCutLength_m * MetersToInches,
                         PierceCount = pierceCount,
-                        ThicknessIn = pd.Thickness_m * M_TO_IN,
+                        ThicknessIn = pd.Thickness_m * MetersToInches,
                         MaterialCode = pd.Material ?? "304L",
                         MassKg = pd.Mass_kg
                     };
@@ -737,7 +733,7 @@ namespace NM.SwAddin.Pipeline
             // F210 Deburr - based on cut perimeter
             if (pd.Sheet.TotalCutLength_m > 0)
             {
-                double cutPerimeterIn = pd.Sheet.TotalCutLength_m * M_TO_IN;
+                double cutPerimeterIn = pd.Sheet.TotalCutLength_m * MetersToInches;
                 double f210Hours = F210Calculator.ComputeHours(cutPerimeterIn);
                 pd.Cost.F210_R_min = f210Hours * 60.0;
                 pd.Cost.F210_Price = F210Calculator.ComputeCost(cutPerimeterIn, quantity);
@@ -762,7 +758,7 @@ namespace NM.SwAddin.Pipeline
                 };
 
                 // VBA: dblLength1 from LengthWidth(objFace) — longest flat face dimension for FindRate
-                double partLengthIn = pd.BBoxLength_m * M_TO_IN;
+                double partLengthIn = pd.BBoxLength_m * MetersToInches;
 
                 var f140Result = F140Calculator.Compute(bendInfo, rawWeightLb, partLengthIn, quantity);
                 pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;

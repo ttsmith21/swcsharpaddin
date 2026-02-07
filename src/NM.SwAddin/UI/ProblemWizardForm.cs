@@ -12,6 +12,7 @@ using NM.SwAddin.Pipeline;
 using NM.SwAddin.Validation;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.SwAddin.UI
 {
@@ -585,7 +586,7 @@ namespace NM.SwAddin.UI
 
                     if (profile != null)
                     {
-                        _lblDiagStatus.Text = $"Profile: {profile.Shape}, OD={profile.OuterDiameterMeters * 39.3701:F3}in | {diagnostics.GetSummary()}";
+                        _lblDiagStatus.Text = $"Profile: {profile.Shape}, OD={profile.OuterDiameterMeters * MetersToInches:F3}in | {diagnostics.GetSummary()}";
                     }
                     else
                     {

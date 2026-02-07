@@ -1,11 +1,11 @@
 using System;
 using SolidWorks.Interop.sldworks;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.SwAddin.Geometry
 {
     public sealed class BoundingBoxExtractor
     {
-        private const double M_TO_IN = 39.37007874015748;
 
         public sealed class BoundingBoxInfo
         {
@@ -52,11 +52,11 @@ namespace NM.SwAddin.Geometry
 
                 return new BoundingBoxInfo
                 {
-                    LengthInches = (maxX - minX) * M_TO_IN,
-                    WidthInches = (maxY - minY) * M_TO_IN,
-                    HeightInches = (maxZ - minZ) * M_TO_IN,
-                    MinPoint = new[] { minX * M_TO_IN, minY * M_TO_IN, minZ * M_TO_IN },
-                    MaxPoint = new[] { maxX * M_TO_IN, maxY * M_TO_IN, maxZ * M_TO_IN }
+                    LengthInches = (maxX - minX) * MetersToInches,
+                    WidthInches = (maxY - minY) * MetersToInches,
+                    HeightInches = (maxZ - minZ) * MetersToInches,
+                    MinPoint = new[] { minX * MetersToInches, minY * MetersToInches, minZ * MetersToInches },
+                    MaxPoint = new[] { maxX * MetersToInches, maxY * MetersToInches, maxZ * MetersToInches }
                 };
             }
             catch { return null; }

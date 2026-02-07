@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.Core.DataModel
 {
@@ -109,8 +110,6 @@ namespace NM.Core.DataModel
         /// </summary>
         public static QATestResult FromPartData(PartData pd, double elapsedMs)
         {
-            const double M_TO_IN = 39.3701;
-            const double KG_TO_LB = 2.20462;
             const double M2_TO_SQIN = 1550.0031;
 
             var result = new QATestResult
@@ -131,18 +130,18 @@ namespace NM.Core.DataModel
 
             // Geometry conversions (only if non-zero)
             if (pd.Thickness_m > 0)
-                result.Thickness_in = pd.Thickness_m * M_TO_IN;
+                result.Thickness_in = pd.Thickness_m * MetersToInches;
             // Report rawWeight (blank weight with nest efficiency + thickness multiplier) for VBA parity
             if (pd.Cost.MaterialWeight_lb > 0)
                 result.Mass_lb = pd.Cost.MaterialWeight_lb;
             else if (pd.Mass_kg > 0)
-                result.Mass_lb = pd.Mass_kg * KG_TO_LB;
+                result.Mass_lb = pd.Mass_kg * KgToLbs;
             if (pd.BBoxLength_m > 0)
-                result.BBoxLength_in = pd.BBoxLength_m * M_TO_IN;
+                result.BBoxLength_in = pd.BBoxLength_m * MetersToInches;
             if (pd.BBoxWidth_m > 0)
-                result.BBoxWidth_in = pd.BBoxWidth_m * M_TO_IN;
+                result.BBoxWidth_in = pd.BBoxWidth_m * MetersToInches;
             if (pd.BBoxHeight_m > 0)
-                result.BBoxHeight_in = pd.BBoxHeight_m * M_TO_IN;
+                result.BBoxHeight_in = pd.BBoxHeight_m * MetersToInches;
 
             // Sheet metal data
             if (pd.Sheet.IsSheetMetal)
@@ -152,20 +151,20 @@ namespace NM.Core.DataModel
                 if (pd.Sheet.FlatArea_m2 > 0)
                     result.FlatArea_sqin = pd.Sheet.FlatArea_m2 * M2_TO_SQIN;
                 if (pd.Sheet.TotalCutLength_m > 0)
-                    result.CutLength_in = pd.Sheet.TotalCutLength_m * M_TO_IN;
+                    result.CutLength_in = pd.Sheet.TotalCutLength_m * MetersToInches;
             }
 
             // Tube data
             if (pd.Tube.IsTube)
             {
                 if (pd.Tube.OD_m > 0)
-                    result.TubeOD_in = pd.Tube.OD_m * M_TO_IN;
+                    result.TubeOD_in = pd.Tube.OD_m * MetersToInches;
                 if (pd.Tube.Wall_m > 0)
-                    result.TubeWall_in = pd.Tube.Wall_m * M_TO_IN;
+                    result.TubeWall_in = pd.Tube.Wall_m * MetersToInches;
                 if (pd.Tube.ID_m > 0)
-                    result.TubeID_in = pd.Tube.ID_m * M_TO_IN;
+                    result.TubeID_in = pd.Tube.ID_m * MetersToInches;
                 if (pd.Tube.Length_m > 0)
-                    result.TubeLength_in = pd.Tube.Length_m * M_TO_IN;
+                    result.TubeLength_in = pd.Tube.Length_m * MetersToInches;
                 result.TubeNPS = pd.Tube.NpsText;
                 result.TubeSchedule = pd.Tube.ScheduleCode;
             }

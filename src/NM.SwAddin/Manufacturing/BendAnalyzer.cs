@@ -3,12 +3,12 @@ using NM.Core;
 using NM.Core.Manufacturing;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.SwAddin.Manufacturing
 {
     public static class BendAnalyzer
     {
-        private const double M_TO_IN = 39.37007874015748;
 
         /// <summary>
         /// Analyze bends by extracting bend line data from the FlatPattern "Bend-Lines" sketch.
@@ -73,7 +73,7 @@ namespace NM.SwAddin.Manufacturing
                                                 double len = swSketchSeg.GetLength();
                                                 ErrorHandler.DebugLog("[BendAnalyzer] " +
                                                     string.Format("  Seg[{0}]: type={1}, length={2:F6}m ({3:F4}in)",
-                                                        i, segType, len, len * M_TO_IN));
+                                                        i, segType, len, len * MetersToInches));
 
                                                 if (segType == (int)swSketchSegments_e.swSketchLINE)
                                                 {
@@ -96,7 +96,7 @@ namespace NM.SwAddin.Manufacturing
 
                 info.Count = sketchSegmentCount;
                 // VBA: dblLongestLine = dblLongestLine * 39.36996  (convert meters to inches)
-                info.LongestBendIn = longestLineMeters * M_TO_IN;
+                info.LongestBendIn = longestLineMeters * MetersToInches;
 
                 ErrorHandler.DebugLog("[BendAnalyzer] " +
                     string.Format("Result: Count={0}, LongestBendIn={1:F4}, longestLineMeters={2:F6}",
@@ -163,7 +163,7 @@ namespace NM.SwAddin.Manufacturing
                 object defObj = feat.GetDefinition();
                 if (defObj is IOneBendFeatureData one)
                 {
-                    double rIn = one.BendRadius * M_TO_IN;
+                    double rIn = one.BendRadius * MetersToInches;
                     if (rIn > info.MaxRadiusIn) info.MaxRadiusIn = rIn;
 
                     double ang = 0.0;
