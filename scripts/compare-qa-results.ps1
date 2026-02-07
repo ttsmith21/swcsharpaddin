@@ -77,6 +77,11 @@ function Get-ExpectedValue($fileEntry, $fieldName) {
     if ($vba -and ($vba.PSObject.Properties.Name -contains $fieldName)) {
         return $vba.$fieldName
     }
+    # 3. Fallback to top-level manifest fields (expectedClassification, expectedThickness_in, etc.)
+    if ($fileEntry.PSObject.Properties.Name -contains $fieldName) {
+        $v = $fileEntry.$fieldName
+        if ($null -ne $v -and $v -ne "") { return $v }
+    }
     return $null
 }
 
@@ -207,7 +212,14 @@ $fieldMappings = @(
     @("NPUR_Setup", "routing.NPUR.setup", $true),
     @("NPUR_Run", "routing.NPUR.run", $true),
     @("CUST_Setup", "routing.CUST.setup", $true),
-    @("CUST_Run", "routing.CUST.run", $true)
+    @("CUST_Run", "routing.CUST.run", $true),
+    # Tube geometry (top-level expected values)
+    @("TubeOD_in", "expectedTubeOD_in", $true),
+    @("TubeWall_in", "expectedTubeWall_in", $true),
+    @("TubeID_in", "expectedTubeID_in", $true),
+    @("TubeLength_in", "expectedTubeLength_in", $true),
+    # Stock bar length (VBA F300 metadata, equals tube length for tube parts)
+    @("TubeLength_in", "f300Length", $true)
 )
 
 # Totals
