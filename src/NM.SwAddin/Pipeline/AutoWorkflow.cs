@@ -97,10 +97,30 @@ namespace NM.SwAddin.Pipeline
                 int totalBomQty = 0;
                 var fileOps = new SolidWorksFileOperations(swApp);
 
+                // Progress dialog so the user knows SolidWorks isn't frozen
+                // (graphics updates are suppressed inside BatchPerformanceScope)
+                using (var progressForm = new ProgressForm())
+                {
+                    progressForm.Text = "Processing Assembly Components";
+                    progressForm.SetMax(prep.ComponentsToProcess.Count);
+                    progressForm.Show();
+                    System.Windows.Forms.Application.DoEvents();
+
+                    int step = 0;
+
                 // Batch performance optimization: disable graphics updates during component loop
+                var compCount = prep.ComponentsToProcess.Count;
                 using (new BatchPerformanceScope(swApp, asmModel))
+                using (var swProgress = new SwProgressBar(swApp, compCount, "NM Assembly Processing"))
                 foreach (var mi in prep.ComponentsToProcess)
                 {
+                    step++;
+                    progressForm.SetStep(step, $"Processing: {mi.FileName}");
+                    swProgress.Update(step, $"Component {step}/{compCount}: {mi.FileName}");
+                    System.Windows.Forms.Application.DoEvents();
+
+                    if (progressForm.IsCanceled || swProgress.UserCanceled) break;
+
                     // Get quantity from BOM
                     string key = AssemblyComponentQuantifier.BuildKey(mi.FilePath, mi.Configuration);
                     int qty = quantities.TryGetValue(key, out var q) ? q.Quantity : 1;
@@ -148,6 +168,8 @@ namespace NM.SwAddin.Pipeline
                         try { if (compDoc != null) fileOps.CloseSWDocument(compDoc); } catch { }
                     }
                 }
+
+                } // close progressForm using block
 
                 sb.AppendLine();
                 sb.AppendLine($"Processed OK: {ok}");

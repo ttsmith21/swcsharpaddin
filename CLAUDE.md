@@ -137,10 +137,17 @@ try {
 Use the RAII wrapper for batch operations to disable graphics updates:
 
 ```csharp
-using (new BatchPerformanceScope(swApp, doc, suppressFeatureTree: true))
+// Normal mode: suppresses graphics, feature tree, and feature tree window automatically
+using (new BatchPerformanceScope(swApp, doc))
 {
-    // Batch operations run with CommandInProgress=true
-    // and optionally FeatureTree disabled
+    // CommandInProgress=true, EnableGraphicsUpdate=false,
+    // EnableFeatureTree=false, EnableFeatureTreeWindow=false
+}
+
+// Debug mode: keeps UI visible so AI/operator can observe SW state
+using (new BatchPerformanceScope(swApp, doc, debugMode: true))
+{
+    // Only CommandInProgress=true (no UI suppression)
 }
 ```
 

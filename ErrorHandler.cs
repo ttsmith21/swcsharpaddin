@@ -75,6 +75,35 @@ namespace NM.Core
             }
         }
 
+        /// <summary>
+        /// Always-on informational log for operational events (performance mode changes,
+        /// scope entry/exit, state transitions). Unlike DebugLog, this writes in ALL modes
+        /// including Normal and Production when file logging is enabled. Cost: one boolean
+        /// check + timestamp format + file append (~0.1ms). Use for events that an AI
+        /// debugging agent needs to see even when verbose debug tracing is off.
+        /// </summary>
+        public static void LogInfo(string message)
+        {
+            if (!Configuration.Logging.LogEnabled) return;
+
+            var line = $"{DateTime.Now.ToString(DateFormat)}: {message}";
+
+            // Always write to file log when logging is enabled (independent of debug mode)
+            TryWriteToLog(line);
+
+            // Also write to additional debug log if set (QA runner captures these)
+            if (!string.IsNullOrEmpty(AdditionalDebugLogPath))
+            {
+                TryWriteToAdditionalLog(line);
+            }
+
+            // Debug output only when debug mode is on (avoids noise in VS output window during production)
+            if (Configuration.Logging.EnableDebugMode)
+            {
+                Debug.WriteLine(line);
+            }
+        }
+
         private static void TryWriteToAdditionalLog(string message)
         {
             try
@@ -131,10 +160,17 @@ namespace NM.Core
                     Console.WriteLine(finalMessage);
                 }
 
-                // File logging if enabled
+                // File logging: errors/warnings ALWAYS write when logging is enabled,
+                // regardless of debug mode. An AI debugging agent needs the error trail.
                 if (Configuration.Logging.LogEnabled)
                 {
                     TryWriteToLog(finalMessage);
+                }
+
+                // QA runner additional log: always capture errors
+                if (!string.IsNullOrEmpty(AdditionalDebugLogPath))
+                {
+                    TryWriteToAdditionalLog(finalMessage);
                 }
 
                 // TODO(vNext): UI notifications (MessageBox/TaskPane) controlled by Logging.ShowWarnings & level

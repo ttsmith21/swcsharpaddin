@@ -206,13 +206,15 @@ namespace NM.SwAddin.Pipeline
 
                 // Batch performance optimization: disable graphics updates during processing loop
                 using (new BatchPerformanceScope(_swApp, context.SourceDocument))
+                using (var swProgress = new SwProgressBar(_swApp, context.GoodModels.Count, "NM Part Processing"))
                 foreach (var modelInfo in context.GoodModels)
                 {
                     processed++;
                     progressForm.SetStep(processed, $"Processing: {modelInfo.FileName}");
+                    swProgress.Update(processed, $"Processing {processed}/{context.GoodModels.Count}: {modelInfo.FileName}");
                     Application.DoEvents();
 
-                    if (progressForm.IsCanceled)
+                    if (progressForm.IsCanceled || swProgress.UserCanceled)
                     {
                         context.UserCanceled = true;
                         break;
