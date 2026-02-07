@@ -59,13 +59,13 @@ namespace NM.Core.Tests
         {
             var input = new PurchasedPartHeuristics.HeuristicInput
             {
-                MassKg = 0.080,     // 80g
+                MassKg = 0.040,     // 40g (under 50g threshold for low mass heuristic)
                 FaceCount = 40,
                 EdgeCount = 80,
                 FileName = "D8_Swagelock_T_Fitting.sldprt"
             };
             var result = PurchasedPartHeuristics.Analyze(input);
-            // "swagelock" keyword + low mass = score >= 0.5
+            // "swagelock" keyword (0.3) + low mass (0.3) = score >= 0.5
             Assert.True(result.LikelyPurchased);
             Assert.Contains("Filename suggests purchased", result.Reason);
         }
