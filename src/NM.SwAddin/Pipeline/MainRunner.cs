@@ -4,6 +4,7 @@ using NM.Core.DataModel;
 using NM.Core.Manufacturing;
 using NM.Core.Manufacturing.Laser;
 using NM.Core.Materials;
+using NM.Core.ProblemParts;
 using NM.Core.Processing;
 using NM.Core.Tubes;
 using NM.SwAddin.Geometry;
@@ -380,6 +381,21 @@ namespace NM.SwAddin.Pipeline
                     }
                 }
 
+                // Step 3b: Parts that failed both sheet metal and tube classification
+                // need human review - don't silently fall through to Generic processing
+                if (sheetMetalFailed && !isTube)
+                {
+                    string reason = "Could not classify as sheet metal or tube - needs human review";
+                    ErrorHandler.DebugLog($"[SMDBG] Step 3b: {reason}");
+                    ProblemPartManager.Instance.AddProblemPart(
+                        pathOrTitle, cfg, System.IO.Path.GetFileName(pathOrTitle),
+                        reason, ProblemPartManager.ProblemCategory.ClassificationFailed);
+                    PerformanceTracker.Instance.StopTimer("Classification");
+                    pd.Status = ProcessingStatus.Failed;
+                    pd.FailureReason = reason;
+                    return pd;
+                }
+
                 PerformanceTracker.Instance.StopTimer("Classification");
 
                 // ====== PROCESSING ======
@@ -400,6 +416,7 @@ namespace NM.SwAddin.Pipeline
                 }
                 else
                 {
+                    // Reached only when sheet metal was never attempted (sheetProcessor was null)
                     processor = factory.Get(ProcessorType.Generic);
                     pres = processor.Process(doc, info, options ?? new ProcessingOptions());
                 }

@@ -27,6 +27,7 @@ namespace NM.Core.ProblemParts
             Imported,
             MixedBody,
             ProcessingError,
+            ClassificationFailed,
             Fatal
         }
 
