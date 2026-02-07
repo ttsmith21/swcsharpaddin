@@ -281,74 +281,18 @@ namespace NM.SwAddin.Geometry
             var secondaryDir = CrossProduct(primaryNormal, axisDirection);
             var facesNormalToSecondary = faces.Where(f => f.IsPlanar && f.IsNormalParallelTo(secondaryDir)).ToList();
 
-            // =================================================================
-            // VALIDATION: Check for true extrusion vs machined part with pockets
-            // Based on old SWExtractDataAddin logic - true extrusions have face pairs,
-            // machined parts with pockets have odd numbers of parallel faces at different distances
-            // =================================================================
+            // Measure cross-section dimensions by parallel face distances
             int distinctDistancesPrimary, distinctDistancesSecondary;
             double height = MeasureMaxDistanceWithValidation(model, selectData, facesParallelToPrimary, out var heightWall, out distinctDistancesPrimary);
             double width = MeasureMaxDistanceWithValidation(model, selectData, facesNormalToSecondary, out var widthWall, out distinctDistancesSecondary);
             double length = MeasureMaxDistance(model, selectData, facesNormalToAxis, out _);
 
-            // Modulo check from old code: if odd number of distinct distances, it's not a true extrusion
-            // (pockets create extra parallel faces at different distances)
-            bool primaryHasOddDistances = distinctDistancesPrimary > 0 && distinctDistancesPrimary % 2 != 0;
-            bool secondaryHasOddDistances = distinctDistancesSecondary > 0 && distinctDistancesSecondary % 2 != 0;
-
-            // Also check face counts - true extrusions typically have 2 or 4 faces per direction (inner/outer pairs)
-            // Machined blocks with pockets often have 3+ faces (outer + pocket bottom + through-hole)
-            bool tooManyPrimaryFaces = facesParallelToPrimary.Count > 4;
-            bool tooManySecondaryFaces = facesNormalToSecondary.Count > 4;
-
-            if (primaryHasOddDistances || secondaryHasOddDistances || tooManyPrimaryFaces || tooManySecondaryFaces)
-            {
-                ErrorHandler.DebugLog($"[TUBE] ExtractNonRoundProfile REJECTED (face geometry): " +
-                    $"primaryDistances={distinctDistancesPrimary} (odd={primaryHasOddDistances}), " +
-                    $"secondaryDistances={distinctDistancesSecondary} (odd={secondaryHasOddDistances}), " +
-                    $"primaryFaces={facesParallelToPrimary.Count}, secondaryFaces={facesNormalToSecondary.Count}");
-                result.Message = "Not a true extrusion - irregular face geometry (pockets/machined features detected)";
-                result.Shape = TubeShape.None;
-                return;
-            }
-
-            // VALIDATION: Wall-to-dimension ratio check for Rectangle/Square profiles
-            // Real structural tubes have walls that are 5-15% of the cross-section dimension
-            // Solid blocks mistakenly detected as "tubes" often have very thick walls (>20% of dimension)
-            double wallThicknessPrelim = (heightWall > 0 && widthWall > 0) ? Math.Min(heightWall, widthWall) :
-                                         (heightWall > 0 ? heightWall : widthWall);
-            double smallestDimension = Math.Min(height, width);
-
             // Diagnostic logging
-            ErrorHandler.DebugLog($"[TUBE] ExtractNonRoundProfile validation: " +
+            ErrorHandler.DebugLog($"[TUBE] ExtractNonRoundProfile measurements: " +
                 $"height={height * 39.37:F3}in, width={width * 39.37:F3}in, " +
                 $"heightWall={heightWall * 39.37:F3}in, widthWall={widthWall * 39.37:F3}in, " +
                 $"primaryFaces={facesParallelToPrimary.Count}, secondaryFaces={facesNormalToSecondary.Count}, " +
                 $"distinctDist1={distinctDistancesPrimary}, distinctDist2={distinctDistancesSecondary}");
-
-            if (smallestDimension > Tolerance && wallThicknessPrelim > 0)
-            {
-                double wallRatio = wallThicknessPrelim / smallestDimension;
-                const double MAX_WALL_RATIO = 0.20; // 20% - real tubes are typically 5-15%
-
-                ErrorHandler.DebugLog($"[TUBE] Wall ratio check: wall={wallThicknessPrelim * 39.37:F3}in, " +
-                    $"dim={smallestDimension * 39.37:F3}in, ratio={wallRatio:P1}");
-
-                if (wallRatio > MAX_WALL_RATIO)
-                {
-                    ErrorHandler.DebugLog($"[TUBE] ExtractNonRoundProfile REJECTED (wall ratio): " +
-                        $"wall={wallThicknessPrelim * 39.37:F3}in, dimension={smallestDimension * 39.37:F3}in, " +
-                        $"ratio={wallRatio:P1} > max {MAX_WALL_RATIO:P0}");
-                    result.Message = $"Not a true extrusion - wall too thick ({wallRatio:P0} of cross-section)";
-                    result.Shape = TubeShape.None;
-                    return;
-                }
-            }
-            else
-            {
-                ErrorHandler.DebugLog($"[TUBE] Wall ratio check SKIPPED: smallestDim={smallestDimension * 39.37:F3}in, " +
-                    $"wallPrelim={wallThicknessPrelim * 39.37:F3}in");
-            }
 
             // Update material length if measured length is greater
             if (length > result.MaterialLengthMeters)
@@ -370,25 +314,37 @@ namespace NM.SwAddin.Geometry
                 result.WallThicknessMeters = widthWall;
             }
 
-            // Determine shape
-            bool heightZero = IsTendsToZero(height);
-            bool widthZero = IsTendsToZero(width);
-
-            if (heightZero && widthZero)
+            // Shape determination — faithful port of VB.NET CFaceCollection.ComputeShape()
+            // Tier 1: Zero-dimension check (open profiles where no parallel faces exist in that direction)
+            if (IsTendsToZero(height) || IsTendsToZero(width))
             {
-                result.Shape = TubeShape.Angle;
-            }
-            else if (heightZero || widthZero)
-            {
-                result.Shape = TubeShape.Channel;
-            }
-            else if (IsTendsToZero(height - width))
-            {
-                result.Shape = TubeShape.Square;
+                if (IsTendsToZero(height) && IsTendsToZero(width))
+                    result.Shape = TubeShape.Angle;
+                else
+                    result.Shape = TubeShape.Channel;
             }
             else
             {
-                result.Shape = TubeShape.Rectangle;
+                // Tier 2: Distance count modulo check (structural shapes with non-zero dimensions)
+                // Odd count in a direction = open profile in that direction (e.g., angle leg, channel flange)
+                int remPrimary = distinctDistancesPrimary % 2;
+                int remSecondary = distinctDistancesSecondary % 2;
+
+                if (remPrimary != 0 || remSecondary != 0)
+                {
+                    if (remPrimary != 0 && remSecondary != 0)
+                        result.Shape = TubeShape.Angle;   // Both directions open
+                    else
+                        result.Shape = TubeShape.Channel;  // One direction open
+                }
+                else
+                {
+                    // Both directions have even distance counts = enclosed profile
+                    if (IsTendsToZero(height - width))
+                        result.Shape = TubeShape.Square;
+                    else
+                        result.Shape = TubeShape.Rectangle;
+                }
             }
 
             // Cross-section string
