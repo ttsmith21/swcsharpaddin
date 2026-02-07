@@ -9,7 +9,7 @@ namespace NM.SwAddin.Manufacturing
     // Extracts metrics from SolidWorks safely (COM use lives here)
     public static class MetricsExtractor
     {
-        private const double DEFAULT_NEST_EFFICIENCY = 85.0; // percent
+        private const double DEFAULT_NEST_EFFICIENCY = 80.0; // percent (SOLIDWORKS template default)
 
         public static PartMetrics FromModel(IModelDoc2 doc, ModelInfo info)
         {
@@ -32,8 +32,8 @@ namespace NM.SwAddin.Manufacturing
                 }
                 catch { }
             }
-            double blankL = TryParseDouble(info?.CustomProperties?.GetPropertyValue("BlankLength")?.ToString());
-            double blankW = TryParseDouble(info?.CustomProperties?.GetPropertyValue("BlankWidth")?.ToString());
+            double blankL = TryParseDouble(info?.CustomProperties?.GetPropertyValue("Length")?.ToString());
+            double blankW = TryParseDouble(info?.CustomProperties?.GetPropertyValue("Width")?.ToString());
             int qty = (int)TryParseDouble(info?.CustomProperties?.GetPropertyValue("Quantity")?.ToString());
             var diff = DifficultyLevel.Normal;
             var diffStr = info?.CustomProperties?.GetPropertyValue("rbWeightTolerance")?.ToString();
