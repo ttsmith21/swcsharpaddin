@@ -352,6 +352,8 @@ Write-Status "  Total fields:     $totalFields"
 Write-Status "  Match:            $totalMatch" "Green"
 Write-Status "  Tolerance:        $totalTol" $(if ($totalTol -gt 0) { "DarkYellow" } else { "Green" })
 Write-Status "  Not Implemented:  $totalNotImpl" $(if ($totalNotImpl -gt 0) { "Yellow" } else { "Green" })
+Write-Status "  Intentional:      $totalIntentional" $(if ($totalIntentional -gt 0) { "DarkGray" } else { "Green" })
+Write-Status "  Bug:              $totalBug" $(if ($totalBug -gt 0) { "Magenta" } else { "Green" })
 Write-Status "  Missing:          $totalMissing" $(if ($totalMissing -gt 0) { "Yellow" } else { "Green" })
 Write-Status "  Fail:             $totalFail" $(if ($totalFail -gt 0) { "Red" } else { "Green" })
 Write-Status ""
@@ -369,7 +371,7 @@ $report += "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 $report += "Results:   $ResultsPath"
 $report += "Manifest:  $ManifestPath"
 $report += ""
-$report += "Summary: $totalMatch match, $totalTol tolerance, $totalNotImpl not-impl, $totalMissing missing, $totalFail fail"
+$report += "Summary: $totalMatch match, $totalTol tolerance, $totalNotImpl not-impl, $totalIntentional intentional, $totalBug bug, $totalMissing missing, $totalFail fail"
 $report += "Coverage: $pct% ($($totalMatch + $totalTol) / $totalFields)"
 $report | Out-File $reportPath -Encoding UTF8
 Write-Status "Report: $reportPath"

@@ -290,10 +290,6 @@
                                                                         "description": "304L RECT TUBE"
                                                                     },
                                                  "knownDeviations":  {
-                                                                         "classification":  {
-                                                                                                "reason":  "TubeGeometryExtractor handles rectangular tubes. VBA classified as Generic.",
-                                                                                                "status":  "INTENTIONAL"
-                                                                                            },
                                                                          "rawWeight":  {
                                                                                            "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                            "status":  "INTENTIONAL"
@@ -307,7 +303,7 @@
                                                                                          "status":  "NOT_IMPLEMENTED"
                                                                                      }
                                                                      },
-                                                 "_note":  "TubeGeometryExtractor handles rectangular tubes. DEVIATION from VBA which classified as Generic."
+                                                 "_note":  "TubeGeometryExtractor handles rectangular tubes. expectedClassification already set to Tube."
                                              },
                   "C3_SquareTube_2x2.sldprt":  {
                                                    "shouldPass":  true,
@@ -333,10 +329,6 @@
                                                                           "description": "304L SQ TUBE"
                                                                       },
                                                    "knownDeviations":  {
-                                                                           "classification":  {
-                                                                                                  "reason":  "TubeGeometryExtractor handles square tubes. VBA classified as Generic.",
-                                                                                                  "status":  "INTENTIONAL"
-                                                                                              },
                                                                            "rawWeight":  {
                                                                                              "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                              "status":  "INTENTIONAL"
@@ -350,7 +342,7 @@
                                                                                            "status":  "NOT_IMPLEMENTED"
                                                                                        }
                                                                        },
-                                                   "_note":  "TubeGeometryExtractor handles square tubes. DEVIATION from VBA."
+                                                   "_note":  "TubeGeometryExtractor handles square tubes. expectedClassification already set to Tube."
                                                },
                   "C4_AngleIron_2x2.sldprt":  {
                                                   "shouldPass":  true,
@@ -544,8 +536,8 @@
                                                                                            "status":  "INTENTIONAL"
                                                                                        },
                                                                          "optiMaterial":  {
-                                                                                              "reason":  "Code implemented (ResolveByPartType) but test file lacks rbPartType/PurchasedPartNumber custom properties; set these in SolidWorks to verify",
-                                                                                              "status":  "BUG"
+                                                                                              "reason":  "Test file lacks rbPartType/PurchasedPartNumber custom properties; code implemented (ResolveByPartType) but cannot verify without test data",
+                                                                                              "status":  "NOT_IMPLEMENTED"
                                                                                           },
                                                                          "description":  {
                                                                                              "reason":  "Purchased part; VBA used custom description from properties",
@@ -669,12 +661,12 @@
                                                                              }
                                                              },
                                              "csharpExpected":  {
-
+                                                                        "optiMaterial": "S.304L.005IN"
                                                                 },
                                              "knownDeviations":  {
                                                                      "optiMaterial": {
                                                                          "status": "INTENTIONAL",
-                                                                         "reason": "Parts below 22GA not auto-classified; treated as problem part for manual processing"
+                                                                         "reason": "Parts below 22GA not auto-classified to gauge; C# uses actual thickness format (S.304L.005IN vs S.304L22GA)"
                                                                      }
                                                                  }
                                          },
