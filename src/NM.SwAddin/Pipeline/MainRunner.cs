@@ -663,16 +663,13 @@ namespace NM.SwAddin.Pipeline
             // F140 Press Brake - based on bend info
             if (pd.Sheet.BendCount > 0)
             {
-                double longestBendIn = info.CustomProperties.LongestBendIn;
-                // Fallback: use BendAnalyzer result stored in Extra
-                if (longestBendIn <= 0)
+                // Longest bend line from BendAnalyzer (extracted from "Bend-Lines" sketch)
+                double longestBendIn = 0.0;
                 {
                     string extraBend;
                     if (pd.Extra.TryGetValue("LongestBendIn", out extraBend))
                         double.TryParse(extraBend, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out longestBendIn);
                 }
-                if (longestBendIn <= 0)
-                    longestBendIn = pd.BBoxWidth_m * M_TO_IN; // Estimate from bounding box
 
                 var bendInfo = new BendInfo
                 {
@@ -681,7 +678,10 @@ namespace NM.SwAddin.Pipeline
                     NeedsFlip = pd.Sheet.BendsBothDirections
                 };
 
-                var f140Result = F140Calculator.Compute(bendInfo, rawWeightLb, quantity);
+                // VBA: dblLength1 from LengthWidth(objFace) — longest flat face dimension for FindRate
+                double partLengthIn = pd.BBoxLength_m * M_TO_IN;
+
+                var f140Result = F140Calculator.Compute(bendInfo, rawWeightLb, partLengthIn, quantity);
                 pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
                 pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
                 pd.Cost.F140_Price = f140Result.Price(quantity);

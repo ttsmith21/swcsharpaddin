@@ -291,7 +291,17 @@ namespace NM.SwAddin
                     var bends = BendAnalyzer.AnalyzeBends(doc);
                     if (bends != null && bends.Count > 0)
                     {
-                        var f140 = F140Calculator.Compute(bends, rawWeightLb, 1);
+                        // VBA: dblLength1 from LengthWidth(objFace) — longest flat face dimension
+                        double partLengthIn = 0.0;
+                        try
+                        {
+                            var bboxExtractor = new NM.SwAddin.Geometry.BoundingBoxExtractor();
+                            var blankSize = bboxExtractor.GetBlankSize(doc);
+                            partLengthIn = blankSize.length; // already in inches, longest dimension
+                        }
+                        catch { }
+
+                        var f140 = F140Calculator.Compute(bends, rawWeightLb, partLengthIn, 1);
                         info.CustomProperties.SetPropertyValue("F140_S", f140.SetupHours.ToString("0.##", CultureInfo.InvariantCulture));
                         info.CustomProperties.SetPropertyValue("F140_R", f140.RunHours.ToString("0.####", CultureInfo.InvariantCulture));
                         info.CustomProperties.SetPropertyValue("F140_S_Cost", f140.SetupHours.ToString("0.##", CultureInfo.InvariantCulture));
