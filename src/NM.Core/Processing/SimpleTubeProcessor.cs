@@ -158,6 +158,7 @@ namespace NM.Core.Processing
         {
             const string proc = "SimpleTubeProcessor.ExtractTubeGeometry";
             ErrorHandler.PushCallStack(proc);
+            PerformanceTracker.Instance.StartTimer("TubeGeometryExtraction");
             try
             {
                 if (model == null) return null;
@@ -210,6 +211,7 @@ namespace NM.Core.Processing
             }
             finally
             {
+                PerformanceTracker.Instance.StopTimer("TubeGeometryExtraction");
                 ErrorHandler.PopCallStack();
             }
         }
