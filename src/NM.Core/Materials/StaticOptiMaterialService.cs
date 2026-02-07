@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using NM.Core.DataModel;
 
 namespace NM.Core.Materials
@@ -60,6 +61,11 @@ namespace NM.Core.Materials
         public static string Resolve(PartData pd)
         {
             if (pd == null) return null;
+
+            // Check rbPartType/rbPartTypeSub for purchased/machined/customer-supplied parts (VBA parity)
+            string resolvedByPartType = ResolveByPartType(pd);
+            if (resolvedByPartType != null)
+                return resolvedByPartType;
 
             string materialCode = MaterialCodeMapper.ToShortCode(pd.Material);
             if (string.IsNullOrWhiteSpace(materialCode)) return null;
@@ -183,6 +189,43 @@ namespace NM.Core.Materials
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Resolves OptiMaterial for non-standard part types (purchased, machined, customer supplied).
+        /// VBA parity: SP.bas lines 2067-2086 (rbPartType/rbPartTypeSub handling).
+        /// </summary>
+        private static string ResolveByPartType(PartData pd)
+        {
+            if (!pd.Extra.TryGetValue("rbPartType", out var rbPartType) || rbPartType != "1")
+                return null; // Standard (0), Outsourced (2), or not set → material-based resolution
+
+            pd.Extra.TryGetValue("rbPartTypeSub", out var sub);
+            switch (sub)
+            {
+                case "1": // Purchased
+                    if (pd.Extra.TryGetValue("PurchasedPartNumber", out var pn) && !string.IsNullOrWhiteSpace(pn))
+                        return pn;
+                    return null;
+
+                case "2": // Customer Supplied
+                    if (pd.Extra.TryGetValue("CustPartNumber", out var cn) && !string.IsNullOrWhiteSpace(cn))
+                    {
+                        if (!cn.StartsWith("CUST-", StringComparison.OrdinalIgnoreCase))
+                            return "CUST-" + cn;
+                        return cn;
+                    }
+                    return null;
+
+                case "0": // Machined
+                default:  // Default to machined if rbPartTypeSub not set (VBA behavior)
+                    string partNum = !string.IsNullOrEmpty(pd.FilePath)
+                        ? Path.GetFileNameWithoutExtension(pd.FilePath)
+                        : pd.PartName;
+                    if (!string.IsNullOrWhiteSpace(partNum))
+                        return "MP-" + partNum;
+                    return null;
+            }
         }
 
         /// <summary>
