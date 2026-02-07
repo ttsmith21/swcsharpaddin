@@ -861,203 +861,130 @@ namespace swcsharpaddin
 
 namespace NM.Core
 {
-    /// <summary>Configuration settings for Northern Manufacturing SolidWorks Automator.</summary>
+    /// <summary>
+    /// Configuration facade — backward-compatible static API that delegates to NmConfigProvider.
+    /// Existing code can continue using Configuration.Manufacturing.F115CostPerHour etc.
+    /// New code should prefer NmConfigProvider.Current directly.
+    /// </summary>
     public static class Configuration
     {
         /// <summary>Logging and debugging settings.</summary>
         public static class Logging
         {
-            /// <summary>Enable or disable logging.</summary>
-            public const bool LogEnabled = true;
-
-            /// <summary>Log file location for errors.</summary>
-            public const string ErrorLogPath = @"C:\SolidWorksMacroLogs\ErrorLog.txt";
-
-            /// <summary>Show pop-ups for warnings.</summary>
-            public const bool ShowWarnings = false;
-
-            /// <summary>Production mode suppresses verbose logging.</summary>
-            public const bool ProductionMode = false;
-
-            /// <summary>Enable performance monitoring/timing.</summary>
-            public const bool EnablePerformanceMonitoring = true;
-
-            /// <summary>Set to true to enable verbose debugging.</summary>
-            public static readonly bool EnableDebugMode = true;
-
-            /// <summary>Returns whether production mode is enabled.</summary>
+            public static bool LogEnabled => NM.Core.Config.NmConfigProvider.Current.Logging.LogEnabled;
+            public static string ErrorLogPath => NM.Core.Config.NmConfigProvider.Current.Paths.ErrorLogPath;
+            public static bool ShowWarnings => NM.Core.Config.NmConfigProvider.Current.Logging.ShowWarnings;
+            public static bool ProductionMode => NM.Core.Config.NmConfigProvider.Current.Logging.ProductionMode;
+            public static bool EnablePerformanceMonitoring => NM.Core.Config.NmConfigProvider.Current.Logging.PerformanceMonitoring;
+            public static bool EnableDebugMode => NM.Core.Config.NmConfigProvider.Current.Logging.DebugMode;
             public static bool IsProductionMode => ProductionMode;
-
-            /// <summary>Returns whether performance monitoring is enabled.</summary>
             public static bool IsPerformanceMonitoringEnabled => EnablePerformanceMonitoring;
         }
 
         /// <summary>File system locations used by the application.</summary>
         public static class FilePaths
         {
-            /// <summary>Path to the material Excel file.</summary>
-            public const string MaterialFilePath = @"O:\\Engineering Department\\Solidworks\\Macros\\(Semi)Autopilot\\Laser2022v4.xlsx";
-
-            /// <summary>Path to the laser data Excel file.</summary>
-            public const string LaserDataFilePath = @"O:\\Engineering Department\\Solidworks\\Macros\\(Semi)Autopilot\\Laser2022v4.xlsx";
-
-            /// <summary>Path to the SolidWorks materials database.</summary>
-            public const string MaterialPropertyFilePath = @"C:\\Program Files\\SolidWorks Corp\\SolidWorks\\lang\\english\\sldmaterials\\SolidWorks Materials.sldmat";
-
-            /// <summary>Network bend table for Stainless Steel.</summary>
-            public const string BendTableSs = @"O:\\Engineering Department\\Solidworks\\Bend Tables\\StainlessSteel.xlsx";
-
-            /// <summary>Network bend table for Carbon Steel.</summary>
-            public const string BendTableCs = @"O:\\Engineering Department\\Solidworks\\Bend Tables\\CarbonSteel.xlsx";
-
-            /// <summary>Local fallback bend table for Stainless Steel.</summary>
-            public const string BendTableSsLocal = @"C:\\Program Files\\SolidWorks Corp\\SolidWorks\\lang\\english\\Sheet Metal Bend Tables\\Stainless Steel.xls";
-
-            /// <summary>Local fallback bend table for Carbon Steel.</summary>
-            public const string BendTableCsLocal = @"C:\\Program Files\\SolidWorks Corp\\SolidWorks\\lang\\english\\Sheet Metal Bend Tables\\Steel - Mild Steel.xls";
-
-            /// <summary>Special value indicating no bend table should be used (use K-factor).</summary>
-            public const string BendTableNone = "-1";
-
-            /// <summary>Excel lookup file used for cutting information.</summary>
+            private static NM.Core.Config.Sections.PathConfig P => NM.Core.Config.NmConfigProvider.Current.Paths;
+            public static string MaterialFilePath => P.MaterialDataPaths != null && P.MaterialDataPaths.Length > 0 ? P.MaterialDataPaths[0] : "";
+            public static string LaserDataFilePath => MaterialFilePath;
+            public static string MaterialPropertyFilePath => P.MaterialPropertyFilePath;
+            public static string BendTableSs => P.BendTables.StainlessSteel != null && P.BendTables.StainlessSteel.Length > 0 ? P.BendTables.StainlessSteel[0] : "";
+            public static string BendTableCs => P.BendTables.CarbonSteel != null && P.BendTables.CarbonSteel.Length > 0 ? P.BendTables.CarbonSteel[0] : "";
+            public static string BendTableSsLocal => P.BendTables.StainlessSteel != null && P.BendTables.StainlessSteel.Length > 1 ? P.BendTables.StainlessSteel[1] : "";
+            public static string BendTableCsLocal => P.BendTables.CarbonSteel != null && P.BendTables.CarbonSteel.Length > 1 ? P.BendTables.CarbonSteel[1] : "";
+            public static string BendTableNone => P.BendTables.NoneValue;
             public const string ExcelLookupFile = "NewLaser.xls";
-
-            /// <summary>Path to the ExtractData add-in DLL for external start.</summary>
-            public const string ExtractDataAddInPath = @"C:\Program Files\SolidWorks Corp\SolidWorks\Toolbox\data collector\ExtractData.dll";
-
-            /// <summary>Default error log file path.</summary>
-            public const string ErrorLogPath = @"C:\SolidWorksMacroLogs\ErrorLog.txt";
-
-            // TODO(vNext): Validate the paths at startup and provide user-friendly guidance if missing.
+            public static string ExtractDataAddInPath => P.ExtractDataAddInPath;
+            public static string ErrorLogPath => P.ErrorLogPath;
         }
 
         /// <summary>Manufacturing rates, costs, and processing parameters.</summary>
         public static class Manufacturing
         {
-            // CalculateBendInfo constants
-            /// <summary>Processing rate 1 in seconds.</summary>
-            public const double Rate1Seconds = 10; // seconds
-            /// <summary>Processing rate 2 in seconds.</summary>
-            public const double Rate2Seconds = 30; // seconds
-            /// <summary>Processing rate 3 in seconds.</summary>
-            public const double Rate3Seconds = 45; // seconds
-            /// <summary>Processing rate 4 in seconds.</summary>
-            public const double Rate4Seconds = 200; // seconds
-            /// <summary>Processing rate 5 in seconds.</summary>
-            public const double Rate5Seconds = 400; // seconds
-            /// <summary>Minutes per foot for brake setup.</summary>
-            public const double SetupRateMinutesPerFoot = 1.25; // minutes/ft
-            /// <summary>Brake setup constant in minutes.</summary>
-            public const double BrakeSetupMinutes = 10; // minutes
-            /// <summary>Max weight for rate 3 (lbs).</summary>
-            public const double Rate3MaxWeightLbs = 100; // lbs
-            /// <summary>Max weight for rate 2 (lbs).</summary>
-            public const double Rate2MaxWeightLbs = 40; // lbs
-            /// <summary>Max weight for rate 1 (lbs).</summary>
-            public const double Rate1MaxWeightLbs = 5; // lbs
-            /// <summary>Max length for rate 1 (inches).</summary>
-            public const double Rate1MaxLengthIn = 12; // in
-            /// <summary>Max length for rate 2 (inches).</summary>
-            public const double Rate2MaxLengthIn = 60; // in
-            /// <summary>Laser setup time per sheet in minutes.</summary>
-            public const double LaserSetupRateMinutesPerSheet = 5; // minutes
-            /// <summary>Laser setup fixed time in minutes.</summary>
-            public const double LaserSetupFixedMinutes = 0.5; // minutes
-            /// <summary>Waterjet setup fixed time in minutes.</summary>
-            public const double WaterJetSetupFixedMinutes = 15; // minutes
-            /// <summary>Waterjet setup time per sheet load in minutes.</summary>
-            public const double WaterJetSetupRateMinutesPerLoad = 30; // minutes
-            /// <summary>Standard sheet width in inches.</summary>
-            public const double StandardSheetWidthIn = 60; // in
-            /// <summary>Standard sheet length in inches.</summary>
-            public const double StandardSheetLengthIn = 120; // in
+            private static NM.Core.Config.NmConfig C => NM.Core.Config.NmConfigProvider.Current;
+            private static NM.Core.Config.Sections.ManufacturingParams M => C.Manufacturing;
 
-            // Standard Costs $/hr
-            public const double F115CostPerHour = 120;
-            public const double F300CostPerHour = 44;
-            public const double F210CostPerHour = 42;
-            public const double F140CostPerHour = 80;
-            public const double F145CostPerHour = 175;
-            public const double F155CostPerHour = 120;
-            public const double F325CostPerHour = 65;
-            public const double F400CostPerHour = 48;
-            public const double F385CostPerHour = 37;
-            public const double F500CostPerHour = 48;
-            public const double F525CostPerHour = 47;
-            public const double EngCostPerHour = 50;
+            // Press brake rate tiers
+            public static double Rate1Seconds => M.PressBrake.RateSeconds[0];
+            public static double Rate2Seconds => M.PressBrake.RateSeconds[1];
+            public static double Rate3Seconds => M.PressBrake.RateSeconds[2];
+            public static double Rate4Seconds => M.PressBrake.RateSeconds[3];
+            public static double Rate5Seconds => M.PressBrake.RateSeconds[4];
+            public static double SetupRateMinutesPerFoot => M.PressBrake.SetupMinutesPerFoot;
+            public static double BrakeSetupMinutes => M.PressBrake.SetupFixedMinutes;
+            public static double Rate3MaxWeightLbs => M.PressBrake.WeightThresholdsLbs[2];
+            public static double Rate2MaxWeightLbs => M.PressBrake.WeightThresholdsLbs[1];
+            public static double Rate1MaxWeightLbs => M.PressBrake.WeightThresholdsLbs[0];
+            public static double Rate1MaxLengthIn => M.PressBrake.LengthThresholdsIn[0];
+            public static double Rate2MaxLengthIn => M.PressBrake.LengthThresholdsIn[1];
 
-            /// <summary>Material markup multiplier.</summary>
-            public const double MaterialMarkup = 1.05;  // 5%
-            /// <summary>Tight tolerance multiplier.</summary>
-            public const double TightPercent = 1.15; // 15%
-            /// <summary>Normal tolerance multiplier.</summary>
-            public const double NormalPercent = 1.0;  // 0%
-            /// <summary>Loose tolerance multiplier.</summary>
-            public const double LoosePercent = 0.95; // -5%
+            // Laser/waterjet setup
+            public static double LaserSetupRateMinutesPerSheet => M.Laser.SetupMinutesPerSheet;
+            public static double LaserSetupFixedMinutes => M.Laser.SetupFixedMinutes;
+            public static double WaterJetSetupFixedMinutes => M.Waterjet.SetupFixedMinutes;
+            public static double WaterJetSetupRateMinutesPerLoad => M.Waterjet.SetupMinutesPerLoad;
+            public static double StandardSheetWidthIn => M.StandardSheet.WidthIn;
+            public static double StandardSheetLengthIn => M.StandardSheet.LengthIn;
 
-            // CalculateCutInfo constants
-            /// <summary>Constant added to calculated pierce total.</summary>
-            public const double PierceConstant = 2;
-            /// <summary>Tab spacing in units consistent with process planning (typically mm or in).</summary>
-            public const int TabSpacing = 30;
+            // Work center hourly costs
+            public static double F115CostPerHour => C.WorkCenters.F115_LaserCutting;
+            public static double F300CostPerHour => C.WorkCenters.F300_MaterialHandling;
+            public static double F210CostPerHour => C.WorkCenters.F210_Deburring;
+            public static double F140CostPerHour => C.WorkCenters.F140_PressBrake;
+            public static double F145CostPerHour => C.WorkCenters.F145_CncBending;
+            public static double F155CostPerHour => C.WorkCenters.F155_Waterjet;
+            public static double F220CostPerHour => C.WorkCenters.F220_Tapping;
+            public static double F325CostPerHour => C.WorkCenters.F325_RollForming;
+            public static double F400CostPerHour => C.WorkCenters.F400_Welding;
+            public static double F385CostPerHour => C.WorkCenters.F385_Assembly;
+            public static double F500CostPerHour => C.WorkCenters.F500_Finishing;
+            public static double F525CostPerHour => C.WorkCenters.F525_Packaging;
+            public static double EngCostPerHour => C.WorkCenters.ENG_Engineering;
+
+            // Pricing modifiers
+            public static double MaterialMarkup => C.Pricing.MaterialMarkup;
+            public static double TightPercent => C.Pricing.TightTolerance;
+            public static double NormalPercent => C.Pricing.NormalTolerance;
+            public static double LoosePercent => C.Pricing.LooseTolerance;
+
+            // Cutting
+            public static double PierceConstant => M.Cutting.PierceConstant;
+            public static int TabSpacing => M.Cutting.TabSpacing;
         }
 
-        /// <summary>Material-related constants such as unit conversions and default property sets.</summary>
+        /// <summary>Material-related constants (unit conversions delegate to UnitConversions; properties delegate to config).</summary>
         public static class Materials
         {
-            /// <summary>Conversion factor from meters to inches.</summary>
-            public const double MetersToInches = 39.3701;
-            /// <summary>Conversion factor from inches to meters.</summary>
-            public const double InchesToMeters = 1.0 / 39.3701;
-            /// <summary>Conversion factor from kilograms to pounds.</summary>
-            public const double KgToLbs = 2.20462;
-            /// <summary>Density of steel in pounds per cubic inch.</summary>
-            public const double SteelDensityLbsPerIn3 = 0.284;
+            // Unit conversions — true physics constants
+            public const double MetersToInches = NM.Core.Constants.UnitConversions.MetersToInches;
+            public const double InchesToMeters = NM.Core.Constants.UnitConversions.InchesToMeters;
+            public const double KgToLbs = NM.Core.Constants.UnitConversions.KgToLbs;
+            public static double SteelDensityLbsPerIn3 => NM.Core.Config.NmConfigProvider.Current.MaterialDensities.Steel_General;
 
-            /// <summary>Initial custom property names used on models.</summary>
-            public static readonly IReadOnlyList<string> InitialCustomProperties = new[]
-            {
-                "IsSheetMetal", "IsTube", "Thickness", "Description", "Customer",
-                "CustPartNumber", "CuttingType", "Drawing", "ExportDate", "F115_Hours",
-                "F115_Price", "F210_Hours", "F210_Price", "Length", "MaterialCostPerLB",
-                "Model", "MPNumber", "RawWeight", "Revision", "Total_Weight"
-            };
+            public static System.Collections.Generic.IReadOnlyList<string> InitialCustomProperties
+                => NM.Core.Config.NmConfigProvider.Current.CustomProperties.InitialProperties.AsReadOnly();
 
-            /// <summary>Returns the initial custom property names sequence.</summary>
-            public static IReadOnlyList<string> GetInitialCustomProperties() => InitialCustomProperties;
+            public static System.Collections.Generic.IReadOnlyList<string> GetInitialCustomProperties() => InitialCustomProperties;
         }
 
         /// <summary>General application defaults and user preferences.</summary>
         public static class Defaults
         {
-            /// <summary>Number of retries for Excel file reads.</summary>
-            public const int MaxRetries = 3;
-            /// <summary>Default worksheet name to use when reading from Excel.</summary>
-            public const string DefaultSheetName = "Sheet1";
-            /// <summary>Whether Excel should be automatically closed after operations.</summary>
-            public const bool AutoCloseExcel = true;
+            private static NM.Core.Config.Sections.ProcessingDefaults D => NM.Core.Config.NmConfigProvider.Current.Defaults;
+            private static NM.Core.Config.Sections.LoggingConfig L => NM.Core.Config.NmConfigProvider.Current.Logging;
 
-            /// <summary>Conservative default cost per pound when quoting.</summary>
-            public const double DefaultCostPerLb = 3.5;
-            /// <summary>Default order quantity.</summary>
-            public const int DefaultQuantity = 1;
-            /// <summary>Typical steel K-factor when not using a bend table.</summary>
-            public const double DefaultKFactor = 0.44;
-
-            /// <summary>Default logging enabled state.</summary>
-            public const bool LogEnabledDefault = true;
-            /// <summary>Default show warnings state.</summary>
-            public const bool ShowWarningsDefault = false;
-            /// <summary>Default production mode state.</summary>
-            public const bool ProductionModeDefault = false;
-            /// <summary>Default debug mode state.</summary>
-            public const bool EnableDebugModeDefault = false;
-            /// <summary>Default performance monitoring state.</summary>
-            public const bool EnablePerformanceMonitoringDefault = true;
-            /// <summary>Default SolidWorks visibility during processing.</summary>
-            public const bool SolidWorksVisibleDefault = false;
-
-            // TODO(vNext): Externalize defaults to a JSON config with environment overrides.
+            public static int MaxRetries => D.MaxRetries;
+            public static string DefaultSheetName => D.DefaultSheetName;
+            public static bool AutoCloseExcel => D.AutoCloseExcel;
+            public static double DefaultCostPerLb => NM.Core.Config.NmConfigProvider.Current.MaterialPricing.DefaultCostPerLb;
+            public static int DefaultQuantity => D.DefaultQuantity;
+            public static double DefaultKFactor => D.DefaultKFactor;
+            public static bool LogEnabledDefault => L.LogEnabled;
+            public static bool ShowWarningsDefault => L.ShowWarnings;
+            public static bool ProductionModeDefault => L.ProductionMode;
+            public static bool EnableDebugModeDefault => L.DebugMode;
+            public static bool EnablePerformanceMonitoringDefault => L.PerformanceMonitoring;
+            public static bool SolidWorksVisibleDefault => L.SolidWorksVisible;
         }
     }
 }

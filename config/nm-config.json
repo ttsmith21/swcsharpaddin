@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "workCenters": {
+    "F115_LaserCutting": 120.0,
+    "F140_PressBrake": 80.0,
+    "F145_CncBending": 175.0,
+    "F155_Waterjet": 120.0,
+    "F210_Deburring": 42.0,
+    "F220_Tapping": 65.0,
+    "F300_MaterialHandling": 44.0,
+    "F325_RollForming": 65.0,
+    "F385_Assembly": 37.0,
+    "F400_Welding": 48.0,
+    "F500_Finishing": 48.0,
+    "F525_Packaging": 47.0,
+    "ENG_Engineering": 50.0
+  },
+  "manufacturing": {
+    "pressBrake": {
+      "rateSeconds": [10, 30, 45, 200, 400],
+      "weightThresholdsLbs": [5, 40, 100],
+      "lengthThresholdsIn": [12, 60],
+      "setupMinutesPerFoot": 1.25,
+      "setupFixedMinutes": 10.0
+    },
+    "laser": {
+      "setupMinutesPerSheet": 5.0,
+      "setupFixedMinutes": 0.5,
+      "minSetupHours": 0.01,
+      "tabSpacingIn": 30.0
+    },
+    "waterjet": {
+      "setupFixedMinutes": 15.0,
+      "setupMinutesPerLoad": 30.0
+    },
+    "standardSheet": {
+      "widthIn": 60.0,
+      "lengthIn": 120.0
+    },
+    "pressBrakeCapacity": {
+      "smallBrakeTons": 90.0,
+      "mediumBrakeTons": 175.0,
+      "largeBrakeTons": 350.0,
+      "dieOpeningMultiplier": 8.0,
+      "minDieOpeningIn": 0.25,
+      "tonnageFormulaNumerator": 575.0,
+      "defaultTensileStrength": 60000.0
+    },
+    "deburring": {
+      "rateInchesPerMinute": 60.0
+    },
+    "rollForming": {
+      "setupHours": 0.5,
+      "speedFeetPerMinute": 10.0,
+      "minRadiusForRolling": 2.0
+    },
+    "tapping": {
+      "setupPerHoleHours": 0.015,
+      "setupFixedHours": 0.085,
+      "minSetupHours": 0.1,
+      "runHoursPerHole": 0.01
+    },
+    "cutting": {
+      "pierceConstant": 2.0,
+      "tabSpacing": 30
+    }
+  },
+  "materialPricing": {
+    "stainless304_PerLb": 1.75,
+    "stainless316_PerLb": 2.25,
+    "carbonSteel_PerLb": 0.55,
+    "aluminum6061_PerLb": 2.50,
+    "aluminum5052_PerLb": 2.35,
+    "galvanized_PerLb": 0.65,
+    "defaultCostPerLb": 3.5
+  },
+  "materialDensities": {
+    "stainless304_316": 0.289,
+    "carbonSteelA36": 0.284,
+    "aluminum": 0.098,
+    "steel_General": 0.284
+  },
+  "pricing": {
+    "materialMarkup": 1.05,
+    "tightTolerance": 1.15,
+    "normalTolerance": 1.0,
+    "looseTolerance": 0.95,
+    "orderSetup": 20.0,
+    "orderRun": 3.0
+  },
+  "tensileStrengths": {
+    "values": {
+      "304": 75000,
+      "316": 75000,
+      "309": 75000,
+      "2205": 95000,
+      "AL6XN": 100000,
+      "HASTELLOY": 100000,
+      "A36": 58000,
+      "CS": 58000,
+      "6061": 45000,
+      "5052": 33000,
+      "AL": 40000
+    },
+    "defaultPsi": 60000
+  },
+  "paths": {
+    "materialDataPaths": [
+      "O:\\Engineering Department\\Solidworks\\Macros\\(Semi)Autopilot\\Laser2022v4.xlsx"
+    ],
+    "bendTables": {
+      "stainlessSteel": [
+        "O:\\Engineering Department\\Solidworks\\Bend Tables\\StainlessSteel.xlsx",
+        "C:\\Program Files\\SolidWorks Corp\\SolidWorks\\lang\\english\\Sheet Metal Bend Tables\\Stainless Steel.xls"
+      ],
+      "carbonSteel": [
+        "O:\\Engineering Department\\Solidworks\\Bend Tables\\CarbonSteel.xlsx",
+        "C:\\Program Files\\SolidWorks Corp\\SolidWorks\\lang\\english\\Sheet Metal Bend Tables\\Steel - Mild Steel.xls"
+      ],
+      "noneValue": "-1"
+    },
+    "materialPropertyFilePath": "C:\\Program Files\\SolidWorks Corp\\SolidWorks\\lang\\english\\sldmaterials\\SolidWorks Materials.sldmat",
+    "extractDataAddInPath": "C:\\Program Files\\SolidWorks Corp\\SolidWorks\\Toolbox\\data collector\\ExtractData.dll",
+    "errorLogPath": "C:\\SolidWorksMacroLogs\\ErrorLog.txt"
+  },
+  "defaults": {
+    "defaultKFactor": 0.44,
+    "defaultQuantity": 1,
+    "maxRetries": 3,
+    "nestEfficiency": 1.0,
+    "defaultSheetName": "Sheet1",
+    "autoCloseExcel": true
+  },
+  "logging": {
+    "logEnabled": true,
+    "showWarnings": false,
+    "productionMode": false,
+    "debugMode": false,
+    "performanceMonitoring": true,
+    "solidWorksVisible": false
+  },
+  "customProperties": {
+    "initialProperties": [
+      "IsSheetMetal", "IsTube", "Thickness", "Description", "Customer",
+      "CustPartNumber", "CuttingType", "Drawing", "ExportDate", "F115_Hours",
+      "F115_Price", "F210_Hours", "F210_Price", "Length", "MaterialCostPerLB",
+      "Model", "MPNumber", "RawWeight", "Revision", "Total_Weight"
+    ]
+  }
+}

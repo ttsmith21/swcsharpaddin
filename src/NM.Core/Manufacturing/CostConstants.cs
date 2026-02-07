@@ -1,31 +1,36 @@
+using NM.Core.Config;
+
 namespace NM.Core.Manufacturing
 {
-    // Legacy work center hourly costs and pricing modifiers (exact values from VBA)
+    /// <summary>
+    /// Legacy work center hourly costs — now delegates to NmConfigProvider.
+    /// Kept for backward compatibility; new code should use NmConfigProvider.Current.WorkCenters directly.
+    /// </summary>
     public static class CostConstants
     {
-        // Hourly rates ($/hr)
-        public const double F115_COST = 120.0;  // Laser cutting
-        public const double F300_COST = 44.0;   // Material handling
-        public const double F210_COST = 42.0;   // Deburring
-        public const double F140_COST = 80.0;   // Press brake
-        public const double F145_COST = 175.0;  // CNC bending
-        public const double F155_COST = 120.0;  // Waterjet (deprecated)
-        public const double F220_COST = 65.0;   // Tapping
-        public const double F325_COST = 65.0;   // Roll forming
-        public const double F400_COST = 48.0;   // Welding
-        public const double F385_COST = 37.0;   // Assembly
-        public const double F500_COST = 48.0;   // Finishing
-        public const double F525_COST = 47.0;   // Packaging
-        public const double ENG_COST = 50.0;    // Engineering
+        // Hourly rates ($/hr) — delegated to config
+        public static double F115_COST => NmConfigProvider.Current.WorkCenters.F115_LaserCutting;
+        public static double F300_COST => NmConfigProvider.Current.WorkCenters.F300_MaterialHandling;
+        public static double F210_COST => NmConfigProvider.Current.WorkCenters.F210_Deburring;
+        public static double F140_COST => NmConfigProvider.Current.WorkCenters.F140_PressBrake;
+        public static double F145_COST => NmConfigProvider.Current.WorkCenters.F145_CncBending;
+        public static double F155_COST => NmConfigProvider.Current.WorkCenters.F155_Waterjet;
+        public static double F220_COST => NmConfigProvider.Current.WorkCenters.F220_Tapping;
+        public static double F325_COST => NmConfigProvider.Current.WorkCenters.F325_RollForming;
+        public static double F400_COST => NmConfigProvider.Current.WorkCenters.F400_Welding;
+        public static double F385_COST => NmConfigProvider.Current.WorkCenters.F385_Assembly;
+        public static double F500_COST => NmConfigProvider.Current.WorkCenters.F500_Finishing;
+        public static double F525_COST => NmConfigProvider.Current.WorkCenters.F525_Packaging;
+        public static double ENG_COST => NmConfigProvider.Current.WorkCenters.ENG_Engineering;
 
-        // Pricing modifiers
-        public const double MATERIAL_MARKUP = 1.05; // 5%
-        public const double TIGHT_PERCENT = 1.15;   // +15%
-        public const double NORMAL_PERCENT = 1.0;   // base
-        public const double LOOSE_PERCENT = 0.95;   // -5%
+        // Pricing modifiers — delegated to config
+        public static double MATERIAL_MARKUP => NmConfigProvider.Current.Pricing.MaterialMarkup;
+        public static double TIGHT_PERCENT => NmConfigProvider.Current.Pricing.TightTolerance;
+        public static double NORMAL_PERCENT => NmConfigProvider.Current.Pricing.NormalTolerance;
+        public static double LOOSE_PERCENT => NmConfigProvider.Current.Pricing.LooseTolerance;
 
-        // Order processing (fixed $)
-        public const double ORDER_SETUP = 20.0;
-        public const double ORDER_RUN = 3.0;
+        // Order processing — delegated to config
+        public static double ORDER_SETUP => NmConfigProvider.Current.Pricing.OrderSetup;
+        public static double ORDER_RUN => NmConfigProvider.Current.Pricing.OrderRun;
     }
 }

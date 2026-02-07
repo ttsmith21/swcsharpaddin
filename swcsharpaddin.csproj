@@ -189,6 +189,17 @@
     <Compile Include="src\NM.Core\Processing\DescriptionGenerator.cs" />
     <Compile Include="src\NM.Core\Materials\MaterialCodeMapper.cs" />
     <Compile Include="src\NM.Core\Materials\StaticOptiMaterialService.cs" />
+    <Compile Include="src\NM.Core\Constants\UnitConversions.cs" />
+    <Compile Include="src\NM.Core\Configuration\NmConfig.cs" />
+    <Compile Include="src\NM.Core\Configuration\NmConfigProvider.cs" />
+    <Compile Include="src\NM.Core\Configuration\ConfigValidator.cs" />
+    <Compile Include="src\NM.Core\Configuration\Sections\WorkCenterRates.cs" />
+    <Compile Include="src\NM.Core\Configuration\Sections\ManufacturingParams.cs" />
+    <Compile Include="src\NM.Core\Configuration\Sections\MaterialPricing.cs" />
+    <Compile Include="src\NM.Core\Configuration\Sections\PathConfig.cs" />
+    <Compile Include="src\NM.Core\Configuration\Sections\ProcessingDefaults.cs" />
+    <Compile Include="src\NM.Core\Configuration\Tables\NmTables.cs" />
+    <Compile Include="src\NM.Core\Configuration\Tables\NmTablesProvider.cs" />
     <Compile Include="src\NM.SwAddin\UI\ProblemWizardForm.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -214,6 +225,17 @@
     <EmbeddedResource Include="Icons\ToolbarStrip_128.png" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Configuration JSON files — copied to bin\Debug\config\ at build time -->
+    <Content Include="config\nm-config.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>config\nm-config.json</Link>
+    </Content>
+    <Content Include="config\nm-tables.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>config\nm-tables.json</Link>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <None Include=".github\copilot-instructions.md" />
     <None Include=".github\prompts\debug-one-issue.prompt.md" />
     <None Include=".github\prompts\scaffold-foundation.prompt.md" />
@@ -223,6 +245,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Static Analyzers -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.12.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
