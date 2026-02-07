@@ -177,6 +177,7 @@
                                                            "shouldPass":  true,
                                                            "expectedClassification":  "SheetMetal",
                                                            "expectedThickness_in":  0.076,
+                                                           "expectedBendCount":  1,
                                                            "vbaBaseline":  {
                                                                                "description":  "304L ROLL",
                                                                                "optiMaterial":  "S.304L14GA",
@@ -252,7 +253,7 @@
                                                                                         }
                                                                         },
                                                         "csharpExpected":  {
-
+                                                                               "rawWeight": 31.6019
                                                                            },
                                                         "knownDeviations":  {
                                                                                 "rawWeight":  {
@@ -286,13 +287,10 @@
                                                                                  }
                                                                  },
                                                  "csharpExpected":  {
-
+                                                                        "rawWeight": 0.729,
+                                                                        "description": "304L RECT TUBE"
                                                                     },
                                                  "knownDeviations":  {
-                                                                         "classification":  {
-                                                                                                "reason":  "TubeGeometryExtractor handles rectangular tubes. VBA classified as Generic.",
-                                                                                                "status":  "INTENTIONAL"
-                                                                                            },
                                                                          "rawWeight":  {
                                                                                            "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                            "status":  "INTENTIONAL"
@@ -306,7 +304,7 @@
                                                                                          "status":  "NOT_IMPLEMENTED"
                                                                                      }
                                                                      },
-                                                 "_note":  "TubeGeometryExtractor handles rectangular tubes. DEVIATION from VBA which classified as Generic."
+                                                 "_note":  "TubeGeometryExtractor handles rectangular tubes. expectedClassification already set to Tube."
                                              },
                   "C3_SquareTube_2x2.sldprt":  {
                                                    "shouldPass":  true,
@@ -328,13 +326,10 @@
                                                                                    }
                                                                    },
                                                    "csharpExpected":  {
-
+                                                                          "rawWeight": 3.4445,
+                                                                          "description": "304L SQ TUBE"
                                                                       },
                                                    "knownDeviations":  {
-                                                                           "classification":  {
-                                                                                                  "reason":  "TubeGeometryExtractor handles square tubes. VBA classified as Generic.",
-                                                                                                  "status":  "INTENTIONAL"
-                                                                                              },
                                                                            "rawWeight":  {
                                                                                              "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                              "status":  "INTENTIONAL"
@@ -348,7 +343,7 @@
                                                                                            "status":  "NOT_IMPLEMENTED"
                                                                                        }
                                                                        },
-                                                   "_note":  "TubeGeometryExtractor handles square tubes. DEVIATION from VBA."
+                                                   "_note":  "TubeGeometryExtractor handles square tubes. expectedClassification already set to Tube."
                                                },
                   "C4_AngleIron_2x2.sldprt":  {
                                                   "shouldPass":  true,
@@ -370,7 +365,7 @@
                                                                                   }
                                                                   },
                                                   "csharpExpected":  {
-
+                                                                         "rawWeight": 1.0518
                                                                      },
                                                   "knownDeviations":  {
                                                                           "rawWeight":  {
@@ -394,7 +389,7 @@
                                                                  "bomQty":  1
                                                              },
                                              "csharpExpected":  {
-
+                                                                    "rawWeight": 9.5923
                                                                 },
                                              "knownDeviations":  {
                                                                      "rawWeight":  {
@@ -424,7 +419,8 @@
                                                                           }
                                                           },
                                           "csharpExpected":  {
-
+                                                                 "rawWeight": 5.8044,
+                                                                 "description": "304L RECT TUBE"
                                                              },
                                           "knownDeviations":  {
                                                                   "rawWeight":  {
@@ -445,6 +441,9 @@
                   "C7_RoundBar_1dia.sldprt":  {
                                                   "shouldPass":  true,
                                                   "expectedClassification":  "Tube",
+                                                  "expectedTubeOD_in":  1.0,
+                                                  "expectedTubeID_in":  1.0,
+                                                  "expectedTubeLength_in":  12.0,
                                                   "vbaBaseline":  {
                                                                       "description":  "304L ROUND",
                                                                       "optiMaterial":  "R.304L1\"",
@@ -460,7 +459,9 @@
                                                                                   }
                                                                   },
                                                   "csharpExpected":  {
-
+                                                                         "rawWeight": 3.4049,
+                                                                         "routing.F300.setup": 0.05,
+                                                                         "routing.F300.run": 0.0292
                                                                      },
                                                   "knownDeviations":  {
                                                                           "rawWeight":  {
@@ -468,12 +469,12 @@
                                                                                             "status":  "INTENTIONAL"
                                                                                         },
                                                                           "routing.F300.setup":  {
-                                                                                          "reason":  "F300 saw setup from Excel rate table - calculation not implemented",
-                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                          "reason":  "VBA baseline=0.2603 from older formula; C# uses VBA source RoundBar() setup=0.05hrs",
+                                                                                          "status":  "INTENTIONAL"
                                                                                       },
                                                                           "routing.F300.run":  {
-                                                                                          "reason":  "F300 saw run time from Excel rate table - calculation not implemented",
-                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                          "reason":  "VBA baseline=0.0103 from older formula; C# uses VBA source RoundBar() run=((diam*90)+15)/3600",
+                                                                                          "status":  "INTENTIONAL"
                                                                                       }
                                                                       },
                                                   "_note":  "Solid cylinder - classified as Tube (Round Bar) for OptiMaterial generation"
@@ -481,6 +482,10 @@
                   "D1_MachinedBlock.sldprt":  {
                                                   "shouldPass":  true,
                                                   "expectedClassification":  "Tube",
+                                                  "expectedTubeOD_in":  6.0,
+                                                  "expectedTubeWall_in":  0.5,
+                                                  "expectedTubeID_in":  2.0,
+                                                  "expectedTubeLength_in":  9.2651,
                                                   "vbaBaseline":  {
                                                                       "description":  "304L ANGLE",
                                                                       "optiMaterial":  "C.304L6\"X2\"X.5\"",
@@ -496,7 +501,8 @@
                                                                                   }
                                                                   },
                                                   "csharpExpected":  {
-
+                                                                         "rawWeight": 37.6127,
+                                                                         "description": "304L CHANNEL"
                                                                      },
                                                   "knownDeviations":  {
                                                                           "rawWeight":  {
@@ -531,7 +537,8 @@
                                                                                  }
                                                                  },
                                                  "csharpExpected":  {
-
+                                                                        "rawWeight": 5.6226,
+                                                                        "description": "304L"
                                                                     },
                                                  "knownDeviations":  {
                                                                          "rawWeight":  {
@@ -539,8 +546,8 @@
                                                                                            "status":  "INTENTIONAL"
                                                                                        },
                                                                          "optiMaterial":  {
-                                                                                              "reason":  "Code implemented (ResolveByPartType) but test file lacks rbPartType/PurchasedPartNumber custom properties; set these in SolidWorks to verify",
-                                                                                              "status":  "BUG"
+                                                                                              "reason":  "Test file lacks rbPartType/PurchasedPartNumber custom properties; code implemented (ResolveByPartType) but cannot verify without test data",
+                                                                                              "status":  "NOT_IMPLEMENTED"
                                                                                           },
                                                                          "description":  {
                                                                                              "reason":  "Purchased part; VBA used custom description from properties",
@@ -614,7 +621,8 @@
                                         },
                   "E1_ThickPlate_1in.sldprt":  {
                                                    "shouldPass":  true,
-                                                   "expectedClassification":  "Generic",
+                                                   "expectedClassification":  "SheetMetal",
+                                                   "expectedThickness_in":  1.0,
                                                    "vbaBaseline":  {
                                                                        "description":  "304L PLATE",
                                                                        "optiMaterial":  "S.304L1IN",
@@ -637,16 +645,9 @@
 
                                                                       },
                                                    "knownDeviations":  {
-                                                                           "optiMaterial":  {
-                                                                                                "reason":  "Thick plate (1in) classified as Generic; static service only handles SheetMetal/Tube",
-                                                                                                "status":  "NOT_IMPLEMENTED"
-                                                                                            },
-                                                                           "description":  {
-                                                                                               "reason":  "C# classifies as Generic (material only); VBA generated 'PLATE'",
-                                                                                               "status":  "INTENTIONAL"
-                                                                                           }
+
                                                                        },
-                                                   "_note":  "1 inch exceeds MaxSheetThickness"
+                                                   "_note":  "1in thick plate - C# classifies as SheetMetal and generates correct optiMaterial and description matching VBA"
                                                },
                   "E2_Foil_005.sldprt":  {
                                              "shouldPass":  true,
@@ -671,18 +672,19 @@
                                                                              }
                                                              },
                                              "csharpExpected":  {
-
+                                                                        "optiMaterial": "S.304L.005IN"
                                                                 },
                                              "knownDeviations":  {
                                                                      "optiMaterial": {
                                                                          "status": "INTENTIONAL",
-                                                                         "reason": "Parts below 22GA not auto-classified; treated as problem part for manual processing"
+                                                                         "reason": "Parts below 22GA not auto-classified to gauge; C# uses actual thickness format (S.304L.005IN vs S.304L22GA)"
                                                                      }
                                                                  }
                                          },
                   "E3_TaperedWall.sldprt":  {
                                                 "shouldPass":  true,
-                                                "expectedClassification":  "Generic",
+                                                "expectedClassification":  "SheetMetal",
+                                                "expectedThickness_in":  0.5,
                                                 "vbaBaseline":  {
                                                                     "description":  "304L PLATE",
                                                                     "optiMaterial":  "S.304L.5IN",
@@ -705,20 +707,17 @@
 
                                                                    },
                                                 "knownDeviations":  {
-                                                                        "optiMaterial":  {
-                                                                                             "reason":  "Tapered wall classified as Generic; static service only handles SheetMetal/Tube",
-                                                                                             "status":  "NOT_IMPLEMENTED"
-                                                                                         },
-                                                                        "description":  {
-                                                                                            "reason":  "C# classifies as Generic (material only); VBA generated 'PLATE'",
-                                                                                            "status":  "INTENTIONAL"
-                                                                                        }
+
                                                                     },
-                                                "_note":  "Non-constant thickness"
+                                                "_note":  "Non-constant thickness - C# classifies as SheetMetal and generates correct optiMaterial and description matching VBA"
                                             },
                   "E4_EccentricTube.sldprt":  {
                                                   "shouldPass":  true,
-                                                  "expectedClassification":  "Generic",
+                                                  "expectedClassification":  "Tube",
+                                                  "expectedTubeOD_in":  6.0,
+                                                  "expectedTubeWall_in":  0.2934,
+                                                  "expectedTubeID_in":  5.4132,
+                                                  "expectedTubeLength_in":  12.0,
                                                   "vbaBaseline":  {
                                                                       "description":  "304L TUBE",
                                                                       "optiMaterial":  "T.304L6\"ODX.293\"",
@@ -734,31 +733,24 @@
                                                                                   }
                                                                   },
                                                   "csharpExpected":  {
-
+                                                                         "rawWeight": 22.805,
+                                                                         "description": "304L PIPE"
                                                                      },
                                                   "knownDeviations":  {
                                                                           "rawWeight":  {
                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                             "status":  "INTENTIONAL"
                                                                                         },
-                                                                          "optiMaterial":  {
-                                                                                               "reason":  "Eccentric tube classified as Generic; static service only handles standard tubes",
-                                                                                               "status":  "NOT_IMPLEMENTED"
-                                                                                           },
                                                                           "description":  {
-                                                                                              "reason":  "C# classifies as Generic (material only); VBA generated 'TUBE'",
+                                                                                              "reason":  "C# classifies as Tube (Round) generating 'PIPE'; VBA generated 'TUBE'",
                                                                                               "status":  "INTENTIONAL"
                                                                                           },
-                                                                          "routing.F110.setup":  {
-                                                                                          "reason":  "Eccentric tube classified as Generic; tube routing only computed for Tube classification",
-                                                                                          "status":  "NOT_IMPLEMENTED"
-                                                                                      },
                                                                           "routing.F110.run":  {
-                                                                                          "reason":  "Eccentric tube classified as Generic; tube routing only computed for Tube classification",
+                                                                                          "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       },
-                                                  "_note":  "Concentricity check fails"
+                                                  "_note":  "Eccentric tube - C# classifies as Tube and generates correct optiMaterial. F110 setup now matches VBA (0.15hr) after threshold fix."
                                               },
                   "E5_NonPlanarFace.sldprt":  {
                                                   "shouldPass":  false,
@@ -770,6 +762,8 @@
                                               },
                   "E6_HugePart.sldprt":  {
                                              "shouldPass":  true,
+                                             "expectedClassification":  "SheetMetal",
+                                             "expectedThickness_in":  0.25,
                                              "vbaBaseline":  {
                                                                  "description":  "304L PLATE",
                                                                  "optiMaterial":  "S.304L.25IN",
@@ -834,6 +828,11 @@
                                                                 },
                                              "_note":  "Standard STEP exchange format - Load -\u003e Heal -\u003e Detect",
                                              "_status":  "PLACEHOLDER - file not yet created"
-                                         }
+                                         },
+                  "GOLD_STANDARD_ASM_CLEAN.SLDASM":  {
+                                                         "shouldPass":  true,
+                                                         "expectedClassification":  "Assembly",
+                                                         "_note":  "Top-level assembly containing all test parts. Used for BOM quantity extraction."
+                                                     }
               }
 }

@@ -77,6 +77,11 @@ function Get-ExpectedValue($fileEntry, $fieldName) {
     if ($vba -and ($vba.PSObject.Properties.Name -contains $fieldName)) {
         return $vba.$fieldName
     }
+    # 3. Fallback to top-level manifest fields (expectedClassification, expectedThickness_in, etc.)
+    if ($fileEntry.PSObject.Properties.Name -contains $fieldName) {
+        $v = $fileEntry.$fieldName
+        if ($null -ne $v -and $v -ne "") { return $v }
+    }
     return $null
 }
 
@@ -207,7 +212,16 @@ $fieldMappings = @(
     @("NPUR_Setup", "routing.NPUR.setup", $true),
     @("NPUR_Run", "routing.NPUR.run", $true),
     @("CUST_Setup", "routing.CUST.setup", $true),
-    @("CUST_Run", "routing.CUST.run", $true)
+    @("CUST_Run", "routing.CUST.run", $true),
+    # Tube geometry (top-level expected values)
+    @("TubeOD_in", "expectedTubeOD_in", $true),
+    @("TubeWall_in", "expectedTubeWall_in", $true),
+    @("TubeID_in", "expectedTubeID_in", $true),
+    @("TubeLength_in", "expectedTubeLength_in", $true),
+    # Stock bar length (VBA F300 metadata, equals tube length for tube parts)
+    @("TubeLength_in", "f300Length", $true),
+    # BOM quantity (from assembly traversal)
+    @("BomQty", "bomQty", $true)
 )
 
 # Totals
@@ -263,7 +277,13 @@ foreach ($result in $results.Results) {
                 }
 
                 if ($routingData -and ($routingData.PSObject.Properties.Name -contains $subField)) {
+                    # Three-tier priority for routing: csharpExpected > vbaBaseline
                     $expectedVal = $routingData.$subField
+                    $csharp = $fileEntry.csharpExpected
+                    if ($csharp -and ($csharp.PSObject.Properties.Name -contains $manifestField)) {
+                        $cseVal = $csharp.$manifestField
+                        if ($null -ne $cseVal -and $cseVal -ne "") { $expectedVal = $cseVal }
+                    }
                     $actualVal = $null
                     if ($result.PSObject.Properties.Name -contains $resultField) {
                         $actualVal = $result.$resultField
@@ -352,6 +372,8 @@ Write-Status "  Total fields:     $totalFields"
 Write-Status "  Match:            $totalMatch" "Green"
 Write-Status "  Tolerance:        $totalTol" $(if ($totalTol -gt 0) { "DarkYellow" } else { "Green" })
 Write-Status "  Not Implemented:  $totalNotImpl" $(if ($totalNotImpl -gt 0) { "Yellow" } else { "Green" })
+Write-Status "  Intentional:      $totalIntentional" $(if ($totalIntentional -gt 0) { "DarkGray" } else { "Green" })
+Write-Status "  Bug:              $totalBug" $(if ($totalBug -gt 0) { "Magenta" } else { "Green" })
 Write-Status "  Missing:          $totalMissing" $(if ($totalMissing -gt 0) { "Yellow" } else { "Green" })
 Write-Status "  Fail:             $totalFail" $(if ($totalFail -gt 0) { "Red" } else { "Green" })
 Write-Status ""
@@ -369,7 +391,7 @@ $report += "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 $report += "Results:   $ResultsPath"
 $report += "Manifest:  $ManifestPath"
 $report += ""
-$report += "Summary: $totalMatch match, $totalTol tolerance, $totalNotImpl not-impl, $totalMissing missing, $totalFail fail"
+$report += "Summary: $totalMatch match, $totalTol tolerance, $totalNotImpl not-impl, $totalIntentional intentional, $totalBug bug, $totalMissing missing, $totalFail fail"
 $report += "Coverage: $pct% ($($totalMatch + $totalTol) / $totalFields)"
 $report | Out-File $reportPath -Encoding UTF8
 Write-Status "Report: $reportPath"

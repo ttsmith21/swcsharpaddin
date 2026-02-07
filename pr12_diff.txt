@@ -1,0 +1,361 @@
+diff --git a/scripts/compare-qa-results.ps1 b/scripts/compare-qa-results.ps1
+index 7002eb1..99c9c39 100644
+--- a/scripts/compare-qa-results.ps1
++++ b/scripts/compare-qa-results.ps1
+@@ -197,7 +197,17 @@ $fieldMappings = @(
+     @("F220_Setup", "routing.N220.setup", $true),
+     @("F220_Run", "routing.N220.run", $true),
+     @("F325_Setup", "routing.F325.setup", $true),
+-    @("F325_Run", "routing.F325.run", $true)
++    @("F325_Run", "routing.F325.run", $true),
++    @("F110_Setup", "routing.F110.setup", $true),
++    @("F110_Run", "routing.F110.run", $true),
++    @("N145_Setup", "routing.N145.setup", $true),
++    @("N145_Run", "routing.N145.run", $true),
++    @("F300_Setup", "routing.F300.setup", $true),
++    @("F300_Run", "routing.F300.run", $true),
++    @("NPUR_Setup", "routing.NPUR.setup", $true),
++    @("NPUR_Run", "routing.NPUR.run", $true),
++    @("CUST_Setup", "routing.CUST.setup", $true),
++    @("CUST_Run", "routing.CUST.run", $true)
+ )
+ 
+ # Totals
+diff --git a/src/NM.Core/DataModel/QATestResult.cs b/src/NM.Core/DataModel/QATestResult.cs
+index 7a81652..ed28404 100644
+--- a/src/NM.Core/DataModel/QATestResult.cs
++++ b/src/NM.Core/DataModel/QATestResult.cs
+@@ -74,6 +74,22 @@ public sealed class QATestResult
+         public double? F325_Setup { get; set; }
+         public double? F325_Run { get; set; }
+ 
++        // Tube laser routing (F110)
++        public double? F110_Setup { get; set; }
++        public double? F110_Run { get; set; }
++        // 5-axis laser routing for large pipes (N145)
++        public double? N145_Setup { get; set; }
++        public double? N145_Run { get; set; }
++        // Saw routing for bar stock (F300)
++        public double? F300_Setup { get; set; }
++        public double? F300_Run { get; set; }
++        // Purchased part routing (NPUR)
++        public double? NPUR_Setup { get; set; }
++        public double? NPUR_Run { get; set; }
++        // Customer-supplied part routing (CUST)
++        public double? CUST_Setup { get; set; }
++        public double? CUST_Run { get; set; }
++
+         // ERP fields (for Import.prn comparison)
+         public string OptiMaterial { get; set; }
+         public string Description { get; set; }
+@@ -175,8 +191,35 @@ public static QATestResult FromPartData(PartData pd, double elapsedMs)
+             if (pd.Cost.F325_Price > 0) result.CostBreakdown["F325_Roll"] = pd.Cost.F325_Price;
+ 
+             // Per-workcenter setup/run times (minutes -> hours for routing comparison)
+-            if (pd.Cost.OP20_S_min > 0) result.F115_Setup = pd.Cost.OP20_S_min / 60.0;
+-            if (pd.Cost.OP20_R_min > 0) result.F115_Run = pd.Cost.OP20_R_min / 60.0;
++            // Route OP20 to the correct work center field based on OP20_WorkCenter
++            var wc = pd.Cost.OP20_WorkCenter ?? "";
++            switch (wc)
++            {
++                case "F115":
++                    if (pd.Cost.OP20_S_min > 0) result.F115_Setup = pd.Cost.OP20_S_min / 60.0;
++                    if (pd.Cost.OP20_R_min > 0) result.F115_Run = pd.Cost.OP20_R_min / 60.0;
++                    break;
++                case "F110":
++                    if (pd.Cost.OP20_S_min > 0) result.F110_Setup = pd.Cost.OP20_S_min / 60.0;
++                    if (pd.Cost.OP20_R_min > 0) result.F110_Run = pd.Cost.OP20_R_min / 60.0;
++                    break;
++                case "N145":
++                    if (pd.Cost.OP20_S_min > 0) result.N145_Setup = pd.Cost.OP20_S_min / 60.0;
++                    if (pd.Cost.OP20_R_min > 0) result.N145_Run = pd.Cost.OP20_R_min / 60.0;
++                    break;
++                case "F300":
++                    if (pd.Cost.OP20_S_min > 0) result.F300_Setup = pd.Cost.OP20_S_min / 60.0;
++                    if (pd.Cost.OP20_R_min > 0) result.F300_Run = pd.Cost.OP20_R_min / 60.0;
++                    break;
++                case "NPUR":
++                    result.NPUR_Setup = pd.Cost.OP20_S_min / 60.0;
++                    result.NPUR_Run = pd.Cost.OP20_R_min / 60.0;
++                    break;
++                case "CUST":
++                    result.CUST_Setup = pd.Cost.OP20_S_min / 60.0;
++                    result.CUST_Run = pd.Cost.OP20_R_min / 60.0;
++                    break;
++            }
+             if (pd.Cost.F140_S_min > 0) result.F140_Setup = pd.Cost.F140_S_min / 60.0;
+             if (pd.Cost.F140_R_min > 0) result.F140_Run = pd.Cost.F140_R_min / 60.0;
+             if (pd.Cost.F210_S_min > 0) result.F210_Setup = pd.Cost.F210_S_min / 60.0;
+diff --git a/src/NM.Core/Processing/SimpleTubeProcessor.cs b/src/NM.Core/Processing/SimpleTubeProcessor.cs
+index 0d2061f..46cf6bf 100644
+--- a/src/NM.Core/Processing/SimpleTubeProcessor.cs
++++ b/src/NM.Core/Processing/SimpleTubeProcessor.cs
+@@ -393,12 +393,12 @@ private TubeGeometry ExtractRoundTubeGeometryLegacy(IModelDoc2 model)
+         /// </summary>
+         private static (string WorkCenter, double SetupHours) GetTubeWorkCenterRouting(double outerDiameterIn, TubeShape shape)
+         {
+-            // For non-round shapes, use a simpler routing (F110 for all structural)
++            // For non-round shapes, route to F110 with shape-specific setup
+             if (shape != TubeShape.Round)
+             {
+-                // Structural shapes (square, rect, angle, channel) go to F110
+-                // Setup based on size - use perimeter as proxy
+-                return ("F110 - TUBE LASER", 0.15);
++                // Structural shapes (angle, channel) need more setup than tube shapes (rect, square)
++                double setupHrs = (shape == TubeShape.Angle || shape == TubeShape.Channel) ? 0.25 : 0.15;
++                return ("F110 - TUBE LASER", setupHrs);
+             }
+ 
+             // Round pipe/tube routing based on OD thresholds
+diff --git a/src/NM.Core/Testing/GoldStandardComparator.cs b/src/NM.Core/Testing/GoldStandardComparator.cs
+index 4c4d873..9266194 100644
+--- a/src/NM.Core/Testing/GoldStandardComparator.cs
++++ b/src/NM.Core/Testing/GoldStandardComparator.cs
+@@ -336,6 +336,16 @@ private static Dictionary<string, object> BuildRoutingFromFlat(Dictionary<string
+             AddRoutingFromFlat(routing, "N220", actual, "F220_Setup", "F220_Run");
+             // F325 (Roll Forming) → N325 workcenter
+             AddRoutingFromFlat(routing, "N325", actual, "F325_Setup", "F325_Run");
++            // F110 (Tube Laser) → F110 workcenter
++            AddRoutingFromFlat(routing, "F110", actual, "F110_Setup", "F110_Run");
++            // N145 (5-Axis Laser) → N145 workcenter
++            AddRoutingFromFlat(routing, "N145", actual, "N145_Setup", "N145_Run");
++            // F300 (Saw) → F300 workcenter
++            AddRoutingFromFlat(routing, "F300", actual, "F300_Setup", "F300_Run");
++            // NPUR (Purchased) → NPUR workcenter
++            AddRoutingFromFlat(routing, "NPUR", actual, "NPUR_Setup", "NPUR_Run");
++            // CUST (Customer-Supplied) → CUST workcenter
++            AddRoutingFromFlat(routing, "CUST", actual, "CUST_Setup", "CUST_Run");
+ 
+             return routing.Count > 0 ? routing : null;
+         }
+diff --git a/src/NM.SwAddin/Pipeline/MainRunner.cs b/src/NM.SwAddin/Pipeline/MainRunner.cs
+index 1b9ac3c..d93e766 100644
+--- a/src/NM.SwAddin/Pipeline/MainRunner.cs
++++ b/src/NM.SwAddin/Pipeline/MainRunner.cs
+@@ -571,8 +571,19 @@ private static void CalculateCosts(PartData pd, ModelInfo info, ProcessingOption
+                     : pd.Mass_kg * KG_TO_LB;
+                 int quantity = Math.Max(1, options.Quantity > 0 ? options.Quantity : pd.QuoteQty);
+ 
++                // Check for purchased/customer-supplied parts (VBA: rbPartType=1)
++                string rbPartType;
++                if (pd.Extra.TryGetValue("rbPartType", out rbPartType) && rbPartType == "1")
++                {
++                    string rbPartTypeSub;
++                    pd.Extra.TryGetValue("rbPartTypeSub", out rbPartTypeSub);
++                    pd.Cost.OP20_WorkCenter = (rbPartTypeSub == "2") ? "CUST" : "NPUR";
++                    pd.Cost.OP20_S_min = 0;
++                    pd.Cost.OP20_R_min = 0;
++                    // No processing costs for purchased parts - skip to material cost
++                }
+                 // Route to appropriate cost calculator based on part type
+-                if (pd.Classification == PartType.Tube && pd.Tube.IsTube)
++                else if (pd.Classification == PartType.Tube && pd.Tube.IsTube)
+                 {
+                     CalculateTubeCosts(pd, rawWeightLb, quantity);
+                 }
+@@ -621,6 +632,38 @@ private static void CalculateTubeCosts(PartData pd, double rawWeightLb, int quan
+             // Convert tube dimensions to inches
+             double wallIn = pd.Tube.Wall_m * M_TO_IN;
+             double lengthIn = pd.Tube.Length_m * M_TO_IN;
++            double odIn = pd.Tube.OD_m * M_TO_IN;
++
++            // OP20 Routing: Work center assignment based on tube geometry
++            // Solid bar: no wall thickness, or ID same as OD (wall=0 causes ID=OD in calculation)
++            bool isSolidBar = pd.Tube.Wall_m < 0.001 || pd.Tube.ID_m < 0.001;
++            if (isSolidBar)
++            {
++                pd.Cost.OP20_WorkCenter = "F300";
++                // F300 setup/run from Excel rate table - not implemented yet
++            }
++            else
++            {
++                string shape = pd.Tube.TubeShape ?? "Round";
++                if (shape == "Round")
++                {
++                    if (odIn > 10.75)      { pd.Cost.OP20_WorkCenter = "N145"; pd.Cost.OP20_S_min = 0.25 * 60; }
++                    else if (odIn > 10.0)   { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 1.0 * 60; }
++                    else if (odIn > 6.0)    { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 0.5 * 60; }
++                    else                    { pd.Cost.OP20_WorkCenter = "F110"; pd.Cost.OP20_S_min = 0.15 * 60; }
++                }
++                else if (shape == "Angle" || shape == "Channel")
++                {
++                    pd.Cost.OP20_WorkCenter = "F110";
++                    pd.Cost.OP20_S_min = 0.25 * 60;
++                }
++                else // Rectangle, Square
++                {
++                    pd.Cost.OP20_WorkCenter = "F110";
++                    pd.Cost.OP20_S_min = 0.15 * 60;
++                }
++                // Run time from Mazak ExternalStart library - cannot replicate, remains 0
++            }
+ 
+             // F325 Roll Form - always applies to tubes
+             var f325Result = TubeWorkCenterRules.ComputeF325(rawWeightLb, wallIn);
+diff --git a/src/NM.SwAddin/Pipeline/QARunner.cs b/src/NM.SwAddin/Pipeline/QARunner.cs
+index 6206c04..a47806c 100644
+--- a/src/NM.SwAddin/Pipeline/QARunner.cs
++++ b/src/NM.SwAddin/Pipeline/QARunner.cs
+@@ -994,6 +994,32 @@ public static string Serialize(QARunSummary summary)
+                 if (r.F325_Run.HasValue)
+                     sb.AppendLine($"      \"F325_Run\": {r.F325_Run.Value:F4},");
+ 
++                // Tube laser routing (F110)
++                if (r.F110_Setup.HasValue)
++                    sb.AppendLine($"      \"F110_Setup\": {r.F110_Setup.Value:F4},");
++                if (r.F110_Run.HasValue)
++                    sb.AppendLine($"      \"F110_Run\": {r.F110_Run.Value:F4},");
++                // 5-axis laser routing (N145)
++                if (r.N145_Setup.HasValue)
++                    sb.AppendLine($"      \"N145_Setup\": {r.N145_Setup.Value:F4},");
++                if (r.N145_Run.HasValue)
++                    sb.AppendLine($"      \"N145_Run\": {r.N145_Run.Value:F4},");
++                // Saw routing (F300)
++                if (r.F300_Setup.HasValue)
++                    sb.AppendLine($"      \"F300_Setup\": {r.F300_Setup.Value:F4},");
++                if (r.F300_Run.HasValue)
++                    sb.AppendLine($"      \"F300_Run\": {r.F300_Run.Value:F4},");
++                // Purchased part routing (NPUR)
++                if (r.NPUR_Setup.HasValue)
++                    sb.AppendLine($"      \"NPUR_Setup\": {r.NPUR_Setup.Value:F4},");
++                if (r.NPUR_Run.HasValue)
++                    sb.AppendLine($"      \"NPUR_Run\": {r.NPUR_Run.Value:F4},");
++                // Customer-supplied routing (CUST)
++                if (r.CUST_Setup.HasValue)
++                    sb.AppendLine($"      \"CUST_Setup\": {r.CUST_Setup.Value:F4},");
++                if (r.CUST_Run.HasValue)
++                    sb.AppendLine($"      \"CUST_Run\": {r.CUST_Run.Value:F4},");
++
+                 // ERP fields
+                 if (!string.IsNullOrEmpty(r.OptiMaterial))
+                     sb.AppendLine($"      \"OptiMaterial\": \"{Escape(r.OptiMaterial)}\",");
+diff --git a/tests/GoldStandard_Baseline/manifest-v2.json b/tests/GoldStandard_Baseline/manifest-v2.json
+index e8cc707..108ede7 100644
+--- a/tests/GoldStandard_Baseline/manifest-v2.json
++++ b/tests/GoldStandard_Baseline/manifest-v2.json
+@@ -259,8 +259,8 @@
+                                                                                                   "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                                   "status":  "INTENTIONAL"
+                                                                                               },
+-                                                                                "routing":  {
+-                                                                                                "reason":  "Tube routing uses N145 work center not compared by standard mappings",
++                                                                                "routing.N145.run":  {
++                                                                                                "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
+                                                                                                 "status":  "NOT_IMPLEMENTED"
+                                                                                             }
+                                                                             },
+@@ -301,8 +301,8 @@
+                                                                                              "reason":  "C# generates 'RECT TUBE'; VBA used generic 'TUBE' for all tube shapes",
+                                                                                              "status":  "INTENTIONAL"
+                                                                                          },
+-                                                                         "routing":  {
+-                                                                                         "reason":  "Tube routing uses F110 work center not compared by standard mappings",
++                                                                         "routing.F110.run":  {
++                                                                                         "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
+                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                      }
+                                                                      },
+@@ -343,8 +343,8 @@
+                                                                                                "reason":  "C# generates 'SQ TUBE'; VBA used generic 'TUBE' for all tube shapes",
+                                                                                                "status":  "INTENTIONAL"
+                                                                                            },
+-                                                                           "routing":  {
+-                                                                                           "reason":  "Tube routing uses F110 work center not compared by standard mappings",
++                                                                           "routing.F110.run":  {
++                                                                                           "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
+                                                                                            "status":  "NOT_IMPLEMENTED"
+                                                                                        }
+                                                                        },
+@@ -377,8 +377,8 @@
+                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                             "status":  "INTENTIONAL"
+                                                                                         },
+-                                                                          "routing":  {
+-                                                                                          "reason":  "Tube routing uses F110 work center not compared by standard mappings",
++                                                                          "routing.F110.run":  {
++                                                                                          "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
+                                                                                           "status":  "NOT_IMPLEMENTED"
+                                                                                       }
+                                                                       },
+@@ -435,8 +435,8 @@
+                                                                                       "reason":  "C# classifies I-beam as Rectangle (even face distances) generating 'RECT TUBE'; VBA used 'TUBE'",
+                                                                                       "status":  "INTENTIONAL"
+                                                                                   },
+-                                                                  "routing":  {
+-                                                                                  "reason":  "Tube routing uses F110 work center not compared by standard mappings",
++                                                                  "routing.F110.run":  {
++                                                                                  "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
+                                                                                   "status":  "NOT_IMPLEMENTED"
+                                                                               }
+                                                               },
+@@ -467,8 +467,12 @@
+                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
+                                                                                             "status":  "INTENTIONAL"
+                                                                                         },
+-                                                                          "routing":  {
+-                                                                                          "reason":  "Bar routing uses F300 work center not compared by standard mappings",
++                                                                          "routing.F300.setup":  {
++                                                                                          "reason":  "F300 saw setup from Excel rate table - calculation not implemented",
++                                                                                          "status":  "NOT_IMPLEMENTED"
++                                                                                      },
++                                                                          "routing.F300.run":  {
++                                                                                          "reason":  "F300 saw run time from Excel rate table - calculation not implemented",
+                                                                                           "status":  "NOT_IMPLEMENTED"
+                                                                                       }
+                                                                       },
+@@ -503,8 +507,8 @@
+                                                                                               "reason":  "C# classifies as Channel (odd distance count in one direction); VBA classified as Angle",
+                                                                                               "status":  "INTENTIONAL"
+                                                                                           },
+-                                                                          "routing":  {
+-                                                                                          "reason":  "Uses F110 work center not compared by standard mappings",
++                                                                          "routing.F110.run":  {
++                                                                                          "reason":  "Tube laser run time from Mazak ExternalStart library - cannot replicate in C#",
+                                                                                           "status":  "NOT_IMPLEMENTED"
+                                                                                       }
+                                                                       },
+@@ -542,8 +546,12 @@
+                                                                                              "reason":  "Purchased part; VBA used custom description from properties",
+                                                                                              "status":  "INTENTIONAL"
+                                                                                          },
+-                                                                         "routing":  {
+-                                                                                         "reason":  "Purchased part uses NPUR work center",
++                                                                         "routing.NPUR.setup":  {
++                                                                                         "reason":  "Test file lacks rbPartType custom property needed for purchased detection",
++                                                                                         "status":  "NOT_IMPLEMENTED"
++                                                                                     },
++                                                                         "routing.NPUR.run":  {
++                                                                                         "reason":  "Test file lacks rbPartType custom property needed for purchased detection",
+                                                                                          "status":  "NOT_IMPLEMENTED"
+                                                                                      }
+                                                                      }
+@@ -580,8 +588,12 @@
+                                                                                       "reason":  "Purchased part; VBA used custom 'MOTOR, ELECTRIC' description",
+                                                                                       "status":  "INTENTIONAL"
+                                                                                   },
+-                                                                  "routing":  {
+-                                                                                  "reason":  "Purchased part uses CUST work center",
++                                                                  "routing.CUST.setup":  {
++                                                                                  "reason":  "Customer-supplied part uses CUST work center; test file lacks rbPartType",
++                                                                                  "status":  "NOT_IMPLEMENTED"
++                                                                              },
++                                                                  "routing.CUST.run":  {
++                                                                                  "reason":  "Customer-supplied part uses CUST work center; test file lacks rbPartType",
+                                                                                   "status":  "NOT_IMPLEMENTED"
+                                                                               }
+                                                               }
+@@ -737,8 +749,12 @@
+                                                                                               "reason":  "C# classifies as Generic (material only); VBA generated 'TUBE'",
+                                                                                               "status":  "INTENTIONAL"
+                                                                                           },
+-                                                                          "routing":  {
+-                                                                                          "reason":  "Uses F110 work center not compared by standard mappings",
++                                                                          "routing.F110.setup":  {
++                                                                                          "reason":  "Eccentric tube classified as Generic; tube routing only computed for Tube classification",
++                                                                                          "status":  "NOT_IMPLEMENTED"
++                                                                                      },
++                                                                          "routing.F110.run":  {
++                                                                                          "reason":  "Eccentric tube classified as Generic; tube routing only computed for Tube classification",
+                                                                                           "status":  "NOT_IMPLEMENTED"
+                                                                                       }
+                                                                       },

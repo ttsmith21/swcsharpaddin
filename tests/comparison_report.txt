@@ -1,0 +1,8 @@
+﻿Gold Standard Comparison Report
+===============================
+Generated: 2026-02-06 17:16:13
+Results:   C:\Users\tsmith\source\repos\swcsharpaddin\tests\Run_Headless
+Manifest:  C:\Users\tsmith\source\repos\swcsharpaddin-gold-standard-baseline-test-development\tests\GoldStandard_Baseline\manifest-v2.json
+
+Summary: 39 match, 0 tolerance, 4 not-impl, 10 missing, 27 fail
+Coverage: 40.2% (39 / 97)
