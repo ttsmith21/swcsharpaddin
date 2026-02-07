@@ -23,6 +23,7 @@ namespace NM.SwAddin.Geometry
         private readonly double[] _axis = new double[3];
         private readonly double[] _origin = new double[3];
         private readonly double _radius;
+        private double[] _planeOrigin;
 
         public IFace2 Face => _face;
         public double Area => _area;
@@ -31,6 +32,39 @@ namespace NM.SwAddin.Geometry
         public double[] Axis => _axis;
         public double[] Normal => _normal;
         public double Radius => _radius;
+
+        /// <summary>
+        /// A point on the planar face, lazily computed from the first edge vertex.
+        /// Used for geometric plane-to-plane distance calculations.
+        /// </summary>
+        public double[] PlaneOrigin
+        {
+            get
+            {
+                if (_planeOrigin == null && _isPlanar)
+                {
+                    try
+                    {
+                        var edgesObj = _face.GetEdges() as object[];
+                        if (edgesObj != null && edgesObj.Length > 0)
+                        {
+                            var edge = (IEdge)edgesObj[0];
+                            var vertex = (IVertex)edge.GetStartVertex();
+                            if (vertex != null)
+                            {
+                                var pt = (double[])vertex.GetPoint();
+                                if (pt != null && pt.Length >= 3)
+                                    _planeOrigin = new double[] { pt[0], pt[1], pt[2] };
+                            }
+                        }
+                    }
+                    catch { }
+                    if (_planeOrigin == null)
+                        _planeOrigin = new double[3];
+                }
+                return _planeOrigin;
+            }
+        }
 
         public FaceWrapper(IFace2 face)
         {

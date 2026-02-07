@@ -266,10 +266,7 @@ namespace NM.SwAddin.Geometry
             result.EndPoint = endPt;
             result.MaterialLengthMeters = edgeLength;
 
-            // Get cross-section dimensions by measuring parallel face distances
-            var selMgr = (ISelectionMgr)model.SelectionManager;
-            var selectData = selMgr.CreateSelectData();
-
+            // Get cross-section dimensions by computing parallel face distances geometrically
             // Find faces parallel to primary face normal
             var primaryNormal = primaryFace.Normal;
             var facesParallelToPrimary = faces.Where(f => f.IsPlanar && f.IsNormalParallelTo(primaryFace)).ToList();
@@ -281,11 +278,11 @@ namespace NM.SwAddin.Geometry
             var secondaryDir = CrossProduct(primaryNormal, axisDirection);
             var facesNormalToSecondary = faces.Where(f => f.IsPlanar && f.IsNormalParallelTo(secondaryDir)).ToList();
 
-            // Measure cross-section dimensions by parallel face distances
+            // Compute cross-section dimensions using dot-product plane distances (no COM Measure calls)
             int distinctDistancesPrimary, distinctDistancesSecondary;
-            double height = MeasureMaxDistanceWithValidation(model, selectData, facesParallelToPrimary, out var heightWall, out distinctDistancesPrimary);
-            double width = MeasureMaxDistanceWithValidation(model, selectData, facesNormalToSecondary, out var widthWall, out distinctDistancesSecondary);
-            double length = MeasureMaxDistance(model, selectData, facesNormalToAxis, out _);
+            double height = MeasureMaxDistanceWithValidation(facesParallelToPrimary, out var heightWall, out distinctDistancesPrimary);
+            double width = MeasureMaxDistanceWithValidation(facesNormalToSecondary, out var widthWall, out distinctDistancesSecondary);
+            double length = MeasureMaxDistance(facesNormalToAxis, out _);
 
             // Diagnostic logging
             ErrorHandler.DebugLog($"[TUBE] ExtractNonRoundProfile measurements: " +
@@ -418,17 +415,18 @@ namespace NM.SwAddin.Geometry
             result.CutLengthMeters = CalculateTotalEdgeLength(cutEdges);
         }
 
-        private double MeasureMaxDistance(IModelDoc2 model, SelectData selectData, List<FaceWrapper> parallelFaces, out double wallThickness)
+        private double MeasureMaxDistance(List<FaceWrapper> parallelFaces, out double wallThickness)
         {
             int distinctDistances;
-            return MeasureMaxDistanceWithValidation(model, selectData, parallelFaces, out wallThickness, out distinctDistances);
+            return MeasureMaxDistanceWithValidation(parallelFaces, out wallThickness, out distinctDistances);
         }
 
         /// <summary>
-        /// Measures distances between parallel faces and returns the count of distinct distances found.
+        /// Computes distances between parallel planar faces using dot-product geometry.
+        /// Returns the count of distinct distances found.
         /// Used for validation: true extrusions have paired faces (even count), machined parts have odd counts.
         /// </summary>
-        private double MeasureMaxDistanceWithValidation(IModelDoc2 model, SelectData selectData, List<FaceWrapper> parallelFaces,
+        private double MeasureMaxDistanceWithValidation(List<FaceWrapper> parallelFaces,
             out double wallThickness, out int distinctDistanceCount)
         {
             wallThickness = -1;
@@ -438,56 +436,54 @@ namespace NM.SwAddin.Geometry
             if (parallelFaces.Count < 2)
                 return 0;
 
-            var measure = model.Extension.CreateMeasure();
-            if (measure == null)
-                return 0;
-
-            measure.ArcOption = 0;
-
             // Track distinct distances (within tolerance) for the modulo check
             var distinctDistances = new List<double>();
             const double DISTANCE_TOLERANCE = 0.0001; // 0.1mm tolerance for grouping distances
 
             for (int i = 0; i < parallelFaces.Count - 1; i++)
             {
+                var n = parallelFaces[i].Normal;
+                var p1 = parallelFaces[i].PlaneOrigin;
+                if (p1 == null) continue;
+
                 for (int j = i + 1; j < parallelFaces.Count; j++)
                 {
-                    model.ClearSelection2(true);
-                    parallelFaces[i].SelectFace(selectData, false);
-                    parallelFaces[j].SelectFace(selectData, true);
+                    var p2 = parallelFaces[j].PlaneOrigin;
+                    if (p2 == null) continue;
 
-                    if (measure.Calculate(null))
+                    // Distance between parallel planes: |dot(normal, p2 - p1)|
+                    double dist = Math.Abs(
+                        n[0] * (p2[0] - p1[0]) +
+                        n[1] * (p2[1] - p1[1]) +
+                        n[2] * (p2[2] - p1[2])
+                    );
+
+                    if (dist > 1e-6) // Filter floating-point noise for coplanar faces
                     {
-                        double dist = measure.NormalDistance;
-                        if (dist > 0)
+                        if (wallThickness < 0)
+                            wallThickness = dist;
+                        else
+                            wallThickness = Math.Min(wallThickness, dist);
+
+                        maxDistance = Math.Max(maxDistance, dist);
+
+                        // Track distinct distances for validation
+                        bool isNewDistance = true;
+                        foreach (var existing in distinctDistances)
                         {
-                            if (wallThickness < 0)
-                                wallThickness = dist;
-                            else
-                                wallThickness = Math.Min(wallThickness, dist);
-
-                            maxDistance = Math.Max(maxDistance, dist);
-
-                            // Track distinct distances for validation
-                            bool isNewDistance = true;
-                            foreach (var existing in distinctDistances)
+                            if (Math.Abs(existing - dist) < DISTANCE_TOLERANCE)
                             {
-                                if (Math.Abs(existing - dist) < DISTANCE_TOLERANCE)
-                                {
-                                    isNewDistance = false;
-                                    break;
-                                }
+                                isNewDistance = false;
+                                break;
                             }
-                            if (isNewDistance)
-                            {
-                                distinctDistances.Add(dist);
-                            }
+                        }
+                        if (isNewDistance)
+                        {
+                            distinctDistances.Add(dist);
                         }
                     }
                 }
             }
-
-            model.ClearSelection2(true);
 
             if (wallThickness < 0)
                 wallThickness = 0;
