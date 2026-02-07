@@ -171,9 +171,15 @@ namespace NM.Core.Export
                     case ErpPartType.Outsourced:
                         if (part.MaterialType == MaterialType.SheetMetal)
                         {
-                            // Sheet metal: use 1 as raw weight (sheet count), F300_Length for dimension
+                            // Sheet metal: rawWeight in PS-QTY-P, 0 in PS-DIM-1 (matches VBA)
                             sw.WriteLine($"{Q(part.PartNumber)}{Q(optiMaterial)}{Q("COMMON SET")}{Q("01")}" +
-                                       $"{1:0.####} {f300Length} 2 1 1 1 20");
+                                       $"{rawWeight:0.####} 0 2 1 1 1 20");
+                        }
+                        else if (part.MaterialType == MaterialType.Tube)
+                        {
+                            // Tube/structural: weight=1, DIM-1=cutting length in inches (matches VBA)
+                            sw.WriteLine($"{Q(part.PartNumber)}{Q(optiMaterial)}{Q("COMMON SET")}{Q("01")}" +
+                                       $"1 {f300Length} 2 1 1 1 20");
                         }
                         else if (part.MaterialType == MaterialType.Insulation)
                         {
