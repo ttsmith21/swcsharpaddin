@@ -1,0 +1,149 @@
+﻿DECL(IM) ADD IM-KEY IM-DRAWING IM-DESCR IM-REV IM-TYPE IM-CLASS IM-CATALOG IM-COMMODITY IM-SAVE-DEMAND-SW IM-BUYER IM-STOCK-SW IM-PLAN-SW IM-STD-LOT IM-GL-ACCT IM-STD-MAT IM-ISSUE-SW
+END
+"GOLD_STANDARD_ASM_CLEAN" "" "GOLD STANDARD TEST" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"A6_ZeroThickness" "A6_ZeroThickness.SLDPRT" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"B1_NativeBracket_14ga_CS" "B1_NativeBracket_14ga_CS.SLDPRT" "304L PLATE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"B2_ImportedBracket_14ga_CS" "B2_ImportedBracket_14ga_CS.SLDPRT" "304L PLATE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"B3_RolledCylinder_16ga_SS" "B3_RolledCylinder_16ga_SS.SLDPRT" "304L PLATE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"C1_RoundTube_2OD_SCH40" "C1_RoundTube_2OD_SCH40.SLDPRT" "304L PIPE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"C2_RectTube_2x1" "C2_RectTube_2x1.SLDPRT" "304L RECT TUBE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"C3_SquareTube_2x2" "C3_SquareTube_2x2.SLDPRT" "304L SQ TUBE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"C4_AngleIron_2x2" "C4_AngleIron_2x2.SLDPRT" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"C5_CChannel" "C5_CChannel.SLDPRT" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"C6_IBeam" "C6_IBeam.SLDPRT" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"C7_RoundBar_1dia" "C7_RoundBar_1dia.SLDPRT" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"D10_Pipe_Reducer" "D10_Pipe_Reducer.sldprt" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"D11_Pipe_Valve" "D11_Pipe_Valve.sldprt" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"D12_Stud_Threaded" "D12_Stud_Threaded.sldprt" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"D1_MachinedBlock" "D1_MachinedBlock.SLDPRT" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"D2_ElbowFitting" "D2_ElbowFitting.sldprt" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"D6_Ubolt" "D6_Ubolt.sldprt" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"D7_Nut_No_Threads" "D7_Nut_No_Threads.sldprt" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"D8_Swagelock_T_Fitting" "D8_Swagelock_T_Fitting.sldprt" "BRASS" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"D9_Fastener_No_Threads" "D9_Fastener_No_Threads.sldprt" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"E1_ThickPlate_1in" "E1_ThickPlate_1in.SLDPRT" "304L PLATE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"E2_Foil_005" "E2_Foil_005.SLDPRT" "304L PLATE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"E3_TaperedWall" "E3_TaperedWall.SLDPRT" "304L PLATE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"E4_EccentricTube" "E4_EccentricTube.SLDPRT" "304L PIPE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"E6_HugePart" "E6_HugePart.SLDPRT" "304L PLATE" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+"HHBOLT 0.5000-13x1x1-S_HHBOLT 0.5000-13x1x1-S" "HHBOLT 0.5000-13x1x1-S_HHBOLT 0.5000-13x1x1-S.SLDPRT" "304L" "" 1 9 "" "F" 0 "2014" 0 0 1 "" 0 0
+
+DECL(ML) ML-IMKEY ML-LOCATION
+END
+"GOLD_STANDARD_ASM_CLEAN" "PRIMARY" 
+"A6_ZeroThickness" "PRIMARY" 
+"B1_NativeBracket_14ga_CS" "PRIMARY" 
+"B2_ImportedBracket_14ga_CS" "PRIMARY" 
+"B3_RolledCylinder_16ga_SS" "PRIMARY" 
+"C1_RoundTube_2OD_SCH40" "PRIMARY" 
+"C2_RectTube_2x1" "PRIMARY" 
+"C3_SquareTube_2x2" "PRIMARY" 
+"C4_AngleIron_2x2" "PRIMARY" 
+"C5_CChannel" "PRIMARY" 
+"C6_IBeam" "PRIMARY" 
+"C7_RoundBar_1dia" "PRIMARY" 
+"D10_Pipe_Reducer" "PRIMARY" 
+"D11_Pipe_Valve" "PRIMARY" 
+"D12_Stud_Threaded" "PRIMARY" 
+"D1_MachinedBlock" "PRIMARY" 
+"D2_ElbowFitting" "PRIMARY" 
+"D6_Ubolt" "PRIMARY" 
+"D7_Nut_No_Threads" "PRIMARY" 
+"D8_Swagelock_T_Fitting" "PRIMARY" 
+"D9_Fastener_No_Threads" "PRIMARY" 
+"E1_ThickPlate_1in" "PRIMARY" 
+"E2_Foil_005" "PRIMARY" 
+"E3_TaperedWall" "PRIMARY" 
+"E4_EccentricTube" "PRIMARY" 
+"E6_HugePart" "PRIMARY" 
+"HHBOLT 0.5000-13x1x1-S_HHBOLT 0.5000-13x1x1-S" "PRIMARY" 
+
+DECL(PS) ADD PS-PARENT-KEY PS-SUBORD-KEY PS-REV PS-PIECE-NO PS-QTY-P
+END
+"GOLD_STANDARD_ASM_CLEAN" "A6_ZeroThickness" "COMMON SET" "01" 1
+"GOLD_STANDARD_ASM_CLEAN" "B1_NativeBracket_14ga_CS" "COMMON SET" "02" 1
+"GOLD_STANDARD_ASM_CLEAN" "B2_ImportedBracket_14ga_CS" "COMMON SET" "03" 1
+"GOLD_STANDARD_ASM_CLEAN" "B3_RolledCylinder_16ga_SS" "COMMON SET" "04" 1
+"GOLD_STANDARD_ASM_CLEAN" "C1_RoundTube_2OD_SCH40" "COMMON SET" "05" 1
+"GOLD_STANDARD_ASM_CLEAN" "C2_RectTube_2x1" "COMMON SET" "06" 1
+"GOLD_STANDARD_ASM_CLEAN" "C3_SquareTube_2x2" "COMMON SET" "07" 1
+"GOLD_STANDARD_ASM_CLEAN" "C4_AngleIron_2x2" "COMMON SET" "08" 1
+"GOLD_STANDARD_ASM_CLEAN" "C5_CChannel" "COMMON SET" "09" 1
+"GOLD_STANDARD_ASM_CLEAN" "C6_IBeam" "COMMON SET" "10" 1
+"GOLD_STANDARD_ASM_CLEAN" "C7_RoundBar_1dia" "COMMON SET" "11" 1
+"GOLD_STANDARD_ASM_CLEAN" "D10_Pipe_Reducer" "COMMON SET" "12" 1
+"GOLD_STANDARD_ASM_CLEAN" "D11_Pipe_Valve" "COMMON SET" "13" 1
+"GOLD_STANDARD_ASM_CLEAN" "D12_Stud_Threaded" "COMMON SET" "14" 1
+"GOLD_STANDARD_ASM_CLEAN" "D1_MachinedBlock" "COMMON SET" "15" 1
+"GOLD_STANDARD_ASM_CLEAN" "D2_ElbowFitting" "COMMON SET" "16" 1
+"GOLD_STANDARD_ASM_CLEAN" "D6_Ubolt" "COMMON SET" "17" 1
+"GOLD_STANDARD_ASM_CLEAN" "D7_Nut_No_Threads" "COMMON SET" "18" 1
+"GOLD_STANDARD_ASM_CLEAN" "D8_Swagelock_T_Fitting" "COMMON SET" "19" 1
+"GOLD_STANDARD_ASM_CLEAN" "D9_Fastener_No_Threads" "COMMON SET" "20" 1
+"GOLD_STANDARD_ASM_CLEAN" "E1_ThickPlate_1in" "COMMON SET" "21" 1
+"GOLD_STANDARD_ASM_CLEAN" "E2_Foil_005" "COMMON SET" "22" 1
+"GOLD_STANDARD_ASM_CLEAN" "E3_TaperedWall" "COMMON SET" "23" 1
+"GOLD_STANDARD_ASM_CLEAN" "E4_EccentricTube" "COMMON SET" "24" 1
+"GOLD_STANDARD_ASM_CLEAN" "E6_HugePart" "COMMON SET" "25" 1
+"GOLD_STANDARD_ASM_CLEAN" "HHBOLT 0.5000-13x1x1-S_HHBOLT 0.5000-13x1x1-S" "COMMON SET" "26" 1
+
+DECL(PS) ADD PS-PARENT-KEY PS-SUBORD-KEY PS-REV PS-PIECE-NO PS-QTY-P PS-DIM-1 PS-ISSUE-SW PS-BFLOCATION-SW PS-BFQTY-SW PS-BFZEROQTY-SW PS-OP-NUM
+END
+"A6_ZeroThickness" "AISI 304" "COMMON SET" "01" 22.2294 0 2 1 1 1 20
+"B1_NativeBracket_14ga_CS" "S.304L14GA" "COMMON SET" "01" 1 24.6595024793353 2 1 1 1 20
+"B2_ImportedBracket_14ga_CS" "S.304L14GA" "COMMON SET" "01" 1 39.0250091418396 2 1 1 1 20
+"B3_RolledCylinder_16ga_SS" "S.304L14GA" "COMMON SET" "01" 1 127.960605480878 2 1 1 1 20
+"C1_RoundTube_2OD_SCH40" "P.304L12"SCH40S" "COMMON SET" "01" 25.2815 0 2 1 1 1 20
+"C2_RectTube_2x1" "AISI 304" "COMMON SET" "01" 0.5832 0 2 1 1 1 20
+"C3_SquareTube_2x2" "AISI 304" "COMMON SET" "01" 2.7556 0 2 1 1 1 20
+"C4_AngleIron_2x2" "AISI 304" "COMMON SET" "01" 0.8414 0 2 1 1 1 20
+"C5_CChannel" "AISI 304" "COMMON SET" "01" 7.6739 0 2 1 1 1 20
+"C6_IBeam" "AISI 304" "COMMON SET" "01" 4.6435 0 2 1 1 1 20
+"C7_RoundBar_1dia" "AISI 304" "COMMON SET" "01" 2.7239 0 2 1 1 1 20
+"D10_Pipe_Reducer" "AISI 304" "COMMON SET" "01" 0.8027 0 2 1 1 1 20
+"D11_Pipe_Valve" "AISI 304" "COMMON SET" "01" 3.1596 0 2 1 1 1 20
+"D12_Stud_Threaded" "AISI 304" "COMMON SET" "01" 0.0085 0 2 1 1 1 20
+"D1_MachinedBlock" "AISI 304" "COMMON SET" "01" 30.0901 0 2 1 1 1 20
+"D2_ElbowFitting" "AISI 304" "COMMON SET" "01" 4.4981 0 2 1 1 1 20
+"D6_Ubolt" "AISI 304" "COMMON SET" "01" 0.0978 0 2 1 1 1 20
+"D7_Nut_No_Threads" "AISI 304" "COMMON SET" "01" 0.0082 0 2 1 1 1 20
+"D8_Swagelock_T_Fitting" "Brass" "COMMON SET" "01" 0.0814 0 2 1 1 1 20
+"D9_Fastener_No_Threads" "AISI 304" "COMMON SET" "01" 0.4173 0 2 1 1 1 20
+"E1_ThickPlate_1in" "S.304L1IN" "COMMON SET" "01" 1 31.574875690968 2 1 1 1 20
+"E2_Foil_005" "S.304L30GA" "COMMON SET" "01" 1 12 2 1 1 1 20
+"E3_TaperedWall" "S.304L.5IN" "COMMON SET" "01" 1 36.0874886635259 2 1 1 1 20
+"E4_EccentricTube" "T.304L6"ODX.2934"" "COMMON SET" "01" 18.244 0 2 1 1 1 20
+"E6_HugePart" "S.304L.25IN" "COMMON SET" "01" 1 3937.00787401575 2 1 1 1 20
+"HHBOLT 0.5000-13x1x1-S_HHBOLT 0.5000-13x1x1-S" "AISI 304" "COMMON SET" "01" 0.1177 0 2 1 1 1 20
+
+DECL(RT) ADD RT-ITEM-KEY RT-WORKCENTER-KEY RT-OP-NUM RT-SETUP RT-RUN-STD RT-REV RT-MULT-SEQ
+END
+"B1_NativeBracket_14ga_CS" "O115" 10 0 0 "COMMON SET" 0
+"B1_NativeBracket_14ga_CS" "F115" 20 0.0138 0.0106 "COMMON SET" 0
+"B1_NativeBracket_14ga_CS" "F210" 30 0 0.0243 "COMMON SET" 0
+"B2_ImportedBracket_14ga_CS" "O115" 10 0 0 "COMMON SET" 0
+"B2_ImportedBracket_14ga_CS" "F115" 20 0.0151 0.013 "COMMON SET" 0
+"B2_ImportedBracket_14ga_CS" "F210" 30 0 0.03 "COMMON SET" 0
+"B3_RolledCylinder_16ga_SS" "O115" 10 0 0 "COMMON SET" 0
+"B3_RolledCylinder_16ga_SS" "F115" 20 0.0528 0.0377 "COMMON SET" 0
+"B3_RolledCylinder_16ga_SS" "F210" 30 0 0.0878 "COMMON SET" 0
+"C1_RoundTube_2OD_SCH40" "F210" 30 0.03 0.0017 "COMMON SET" 0
+"C1_RoundTube_2OD_SCH40" "F325" 60 0.25 0.1184 "COMMON SET" 0
+"C2_RectTube_2x1" "F210" 30 0.03 0.0017 "COMMON SET" 0
+"C2_RectTube_2x1" "F325" 60 0.25 0.0841 "COMMON SET" 0
+"C3_SquareTube_2x2" "F210" 30 0.03 0.0017 "COMMON SET" 0
+"C3_SquareTube_2x2" "F325" 60 0.25 0.0872 "COMMON SET" 0
+"E1_ThickPlate_1in" "O115" 10 0 0 "COMMON SET" 0
+"E1_ThickPlate_1in" "F115" 20 0.0156 0.2882 "COMMON SET" 0
+"E1_ThickPlate_1in" "F210" 30 0 0.0286 "COMMON SET" 0
+"E2_Foil_005" "O115" 10 0 0 "COMMON SET" 0
+"E2_Foil_005" "F115" 20 0.01 0.0028 "COMMON SET" 0
+"E2_Foil_005" "F210" 30 0 0.0089 "COMMON SET" 0
+"E3_TaperedWall" "O115" 10 0 0 "COMMON SET" 0
+"E3_TaperedWall" "F115" 20 0.0165 0.3117 "COMMON SET" 0
+"E3_TaperedWall" "F210" 30 0 0.0309 "COMMON SET" 0
+"E4_EccentricTube" "F210" 30 0.03 0.0033 "COMMON SET" 0
+"E4_EccentricTube" "F325" 60 0.25 0.1087 "COMMON SET" 0
+"E6_HugePart" "O115" 10 0 0 "COMMON SET" 0
+"E6_HugePart" "F115" 20 56.7615 6.9107 "COMMON SET" 0
+"E6_HugePart" "F210" 30 0 2.8791 "COMMON SET" 0

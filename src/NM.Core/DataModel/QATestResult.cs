@@ -218,12 +218,12 @@ namespace NM.Core.DataModel
                     if (pd.Cost.OP20_R_min > 0) result.F300_Run = pd.Cost.OP20_R_min / 60.0;
                     break;
                 case "NPUR":
-                    result.NPUR_Setup = pd.Cost.OP20_S_min / 60.0;
-                    result.NPUR_Run = pd.Cost.OP20_R_min / 60.0;
+                    if (pd.Cost.OP20_S_min > 0) result.NPUR_Setup = pd.Cost.OP20_S_min / 60.0;
+                    if (pd.Cost.OP20_R_min > 0) result.NPUR_Run = pd.Cost.OP20_R_min / 60.0;
                     break;
                 case "CUST":
-                    result.CUST_Setup = pd.Cost.OP20_S_min / 60.0;
-                    result.CUST_Run = pd.Cost.OP20_R_min / 60.0;
+                    if (pd.Cost.OP20_S_min > 0) result.CUST_Setup = pd.Cost.OP20_S_min / 60.0;
+                    if (pd.Cost.OP20_R_min > 0) result.CUST_Run = pd.Cost.OP20_R_min / 60.0;
                     break;
             }
             if (pd.Cost.F140_S_min > 0) result.F140_Setup = pd.Cost.F140_S_min / 60.0;
