@@ -549,8 +549,8 @@
                                                                                            "status":  "INTENTIONAL"
                                                                                        },
                                                                          "optiMaterial":  {
-                                                                                              "reason":  "Purchased part; VBA used custom WELDELBOW code",
-                                                                                              "status":  "NOT_IMPLEMENTED"
+                                                                                              "reason":  "Code implemented (ResolveByPartType) but test file lacks rbPartType/PurchasedPartNumber custom properties; set these in SolidWorks to verify",
+                                                                                              "status":  "BUG"
                                                                                           },
                                                                          "description":  {
                                                                                              "reason":  "Purchased part; VBA used custom description from properties",
