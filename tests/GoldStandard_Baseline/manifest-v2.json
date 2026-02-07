@@ -470,7 +470,7 @@
                                       },
                   "C7_RoundBar_1dia.sldprt":  {
                                                   "shouldPass":  true,
-                                                  "expectedClassification":  "Generic",
+                                                  "expectedClassification":  "Tube",
                                                   "vbaBaseline":  {
                                                                       "description":  "304L ROUND",
                                                                       "optiMaterial":  "R.304L1\"",
@@ -493,20 +493,12 @@
                                                                                             "reason":  "VBA used placeholder weight=1; C# computes actual mass from SolidWorks",
                                                                                             "status":  "INTENTIONAL"
                                                                                         },
-                                                                          "optiMaterial":  {
-                                                                                               "reason":  "Round bar OptiMaterial requires special logic not in static service",
-                                                                                               "status":  "NOT_IMPLEMENTED"
-                                                                                           },
-                                                                          "description":  {
-                                                                                              "reason":  "C# classifies as Generic (no suffix); VBA generated 'ROUND'",
-                                                                                              "status":  "INTENTIONAL"
-                                                                                          },
                                                                           "routing":  {
                                                                                           "reason":  "Bar routing uses F300 work center not compared by standard mappings",
                                                                                           "status":  "NOT_IMPLEMENTED"
                                                                                       }
                                                                       },
-                                                  "_note":  "Solid cylinder - no wall thickness, correctly falls back to Generic"
+                                                  "_note":  "Solid cylinder - classified as Tube (Round Bar) for OptiMaterial generation"
                                               },
                   "D1_MachinedBlock.sldprt":  {
                                                   "shouldPass":  true,
