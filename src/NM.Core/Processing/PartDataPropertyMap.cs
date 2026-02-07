@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using NM.Core.DataModel;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.Core.Processing
 {
@@ -11,15 +12,12 @@ namespace NM.Core.Processing
     {
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-        private const double M_TO_IN = 39.37007874015748;
-        private const double KG_TO_LB = 2.2046226218487757;
-
         public static IDictionary<string, string> ToProperties(PartData d)
         {
             var p = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            var thickness_in = d.Thickness_m * M_TO_IN;
-            var rawWeight_lb = d.Mass_kg * KG_TO_LB;
+            var thickness_in = d.Thickness_m * MetersToInches;
+            var rawWeight_lb = d.Mass_kg * KgToLbs;
 
             p["RawWeight"] = rawWeight_lb.ToString("0.####", Inv);
             p["SheetPercent"] = d.SheetPercent.ToString("0.####", Inv);
@@ -79,9 +77,9 @@ namespace NM.Core.Processing
             // Tube-specific properties (dimensions in inches)
             if (d.Tube.IsTube)
             {
-                p["TubeOD"] = (d.Tube.OD_m * M_TO_IN).ToString("0.####", Inv);
-                p["TubeWall"] = (d.Tube.Wall_m * M_TO_IN).ToString("0.####", Inv);
-                p["TubeLength"] = (d.Tube.Length_m * M_TO_IN).ToString("0.####", Inv);
+                p["TubeOD"] = (d.Tube.OD_m * MetersToInches).ToString("0.####", Inv);
+                p["TubeWall"] = (d.Tube.Wall_m * MetersToInches).ToString("0.####", Inv);
+                p["TubeLength"] = (d.Tube.Length_m * MetersToInches).ToString("0.####", Inv);
                 p["TubeShape"] = d.Tube.TubeShape ?? "Round";
                 if (!string.IsNullOrEmpty(d.Tube.NpsText))
                     p["TubeNPS"] = d.Tube.NpsText;
@@ -105,7 +103,7 @@ namespace NM.Core.Processing
             double D(string k) => TryD(props, k, out var x) ? x : 0.0;
             int I(string k) => TryI(props, k, out var x) ? x : 0;
 
-            d.Mass_kg = D("RawWeight") / KG_TO_LB; // RawWeight was in lb
+            d.Mass_kg = D("RawWeight") / KgToLbs; // RawWeight was in lb
             d.SheetPercent = D("SheetPercent");
 
             d.Cost.OP20_S_min = D("OP20_S");
@@ -155,7 +153,7 @@ namespace NM.Core.Processing
             d.MaterialCategory = Get(props, "MaterialCategory");
 
             var thickness_in = D("Thickness");
-            d.Thickness_m = thickness_in / M_TO_IN;
+            d.Thickness_m = thickness_in / MetersToInches;
 
             d.Sheet.IsSheetMetal = EqualsTrue(Get(props, "IsSheetMetal"));
             d.Tube.IsTube = EqualsTrue(Get(props, "IsTube"));
@@ -163,9 +161,9 @@ namespace NM.Core.Processing
             // Tube-specific properties
             if (d.Tube.IsTube)
             {
-                d.Tube.OD_m = D("TubeOD") / M_TO_IN;
-                d.Tube.Wall_m = D("TubeWall") / M_TO_IN;
-                d.Tube.Length_m = D("TubeLength") / M_TO_IN;
+                d.Tube.OD_m = D("TubeOD") / MetersToInches;
+                d.Tube.Wall_m = D("TubeWall") / MetersToInches;
+                d.Tube.Length_m = D("TubeLength") / MetersToInches;
                 d.Tube.TubeShape = Get(props, "TubeShape");
                 d.Tube.NpsText = Get(props, "TubeNPS");
                 d.Tube.ScheduleCode = Get(props, "TubeSchedule");

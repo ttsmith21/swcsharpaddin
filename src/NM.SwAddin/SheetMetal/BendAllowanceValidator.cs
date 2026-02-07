@@ -3,6 +3,7 @@ using System.IO;
 using NM.Core;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.SwAddin.SheetMetal
 {
@@ -12,7 +13,6 @@ namespace NM.SwAddin.SheetMetal
     /// </summary>
     public static class BendAllowanceValidator
     {
-        private const double M_TO_IN = 39.37007874015748;
 
         /// <summary>
         /// Validates a sheet metal feature's bend allowance setting and logs a warning
@@ -36,12 +36,12 @@ namespace NM.SwAddin.SheetMetal
                 switch (allowanceType)
                 {
                     case swBendAllowanceTypes_e.swBendAllowanceDirect:
-                        double allowanceIn = custBend.BendAllowance * M_TO_IN;
+                        double allowanceIn = custBend.BendAllowance * MetersToInches;
                         ErrorHandler.DebugLog($"[SM-WARN] {fileName}: {featName} uses Direct BendAllowance = {allowanceIn:F4} in");
                         break;
 
                     case swBendAllowanceTypes_e.swBendAllowanceDeduction:
-                        double deductionIn = custBend.BendDeduction * M_TO_IN;
+                        double deductionIn = custBend.BendDeduction * MetersToInches;
                         ErrorHandler.DebugLog($"[SM-WARN] {fileName}: {featName} uses BendDeduction = {deductionIn:F4} in");
                         break;
 

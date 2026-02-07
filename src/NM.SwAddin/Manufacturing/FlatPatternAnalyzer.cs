@@ -1,13 +1,13 @@
 using System;
 using SolidWorks.Interop.sldworks;
 using NM.Core.Manufacturing;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.SwAddin.Manufacturing
 {
     // Extracts perimeter/internal cut lengths and pierce counts from a flat pattern face
     public static class FlatPatternAnalyzer
     {
-        private const double M_TO_IN = 39.37007874015748;
 
         public static CutMetrics Extract(IModelDoc2 model, IFace2 flatFace)
         {
@@ -38,7 +38,7 @@ namespace NM.SwAddin.Manufacturing
                             double.TryParse(p[7]?.ToString(), out t);
                         }
                         double lenIn = 0;
-                        try { lenIn = c.GetLength3(s, t) * M_TO_IN; } catch { }
+                        try { lenIn = c.GetLength3(s, t) * MetersToInches; } catch { }
                         sum += lenIn;
                     }
                     loopLens[i] = sum;

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using NM.Core.DataModel;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.Core.Export
 {
@@ -13,8 +14,6 @@ namespace NM.Core.Export
     public sealed class ExportManager
     {
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
-        private const double M_TO_IN = 39.37007874015748;
-        private const double KG_TO_LB = 2.2046226218487757;
 
         public void ExportToCsv(IEnumerable<PartData> parts, string csvPath)
         {
@@ -31,8 +30,8 @@ namespace NM.Core.Export
 
                 foreach (var p in parts ?? Enumerable.Empty<PartData>())
                 {
-                    var thickness_in = p.Thickness_m * M_TO_IN;
-                    var rawWeight_lb = p.Mass_kg * KG_TO_LB;
+                    var thickness_in = p.Thickness_m * MetersToInches;
+                    var rawWeight_lb = p.Mass_kg * KgToLbs;
 
                     sw.WriteLine(string.Join(",",
                         Csv(p.PartName),

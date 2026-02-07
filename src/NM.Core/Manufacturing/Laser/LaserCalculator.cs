@@ -1,4 +1,5 @@
 using System;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.Core.Manufacturing.Laser
 {
@@ -22,7 +23,7 @@ namespace NM.Core.Manufacturing.Laser
         // Backward-compat shim: uses mass for rawWeight and assumes laser (not waterjet)
         public static LaserOpResult Compute(PartMetrics m, ILaserSpeedProvider provider)
         {
-            double rawWeightLb = (m != null && m.MassKg > 0) ? m.MassKg * 2.20462262185 : 0.0;
+            double rawWeightLb = (m != null && m.MassKg > 0) ? m.MassKg * KgToLbs : 0.0;
             return Compute(m, provider, isWaterjet: false, rawWeightLb: rawWeightLb);
         }
 

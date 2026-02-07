@@ -3,6 +3,7 @@ using System.IO;
 using NM.Core;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.SwAddin.Drawing
 {
@@ -399,8 +400,8 @@ namespace NM.SwAddin.Drawing
                 double maxY = outline[3] - outline[1];
 
                 // Convert to inches (from meters)
-                double maxXInch = maxX * 39.3701;
-                double maxYInch = maxY * 39.3701;
+                double maxXInch = maxX * MetersToInches;
+                double maxYInch = maxY * MetersToInches;
 
                 // If either dimension is under 6", mark as grain-sensitive
                 if (maxXInch <= 6 || maxYInch <= 6)

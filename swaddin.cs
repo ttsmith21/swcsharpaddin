@@ -11,6 +11,8 @@ using SolidWorksTools.File;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using NM.Core;
+using NM.Core.Config;
 using NM.SwAddin;
 using NM.SwAddin.UI;
 
@@ -151,6 +153,23 @@ namespace swcsharpaddin
 
         public bool ConnectToSW(object ThisSW, int cookie)
         {
+            // Initialize configuration from JSON files (config/nm-config.json, config/nm-tables.json)
+            try
+            {
+                NmConfigProvider.Initialize();
+                if (NmConfigProvider.LoadedConfigPath != null)
+                    ErrorHandler.DebugLog($"[Config] Loaded from: {NmConfigProvider.LoadedConfigPath}");
+                else
+                    ErrorHandler.DebugLog("[Config] Using compiled defaults (no JSON files found)");
+
+                foreach (var msg in NmConfigProvider.LastValidation)
+                    ErrorHandler.DebugLog($"[Config] {msg}");
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"[Config] Initialization failed (using defaults): {ex.Message}");
+            }
+
             iSwApp = (ISldWorks)ThisSW;
             addinID = cookie;
 

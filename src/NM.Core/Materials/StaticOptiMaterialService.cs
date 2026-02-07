@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using NM.Core.DataModel;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.Core.Materials
 {
@@ -88,8 +89,7 @@ namespace NM.Core.Materials
 
         private static string ResolveSheetMetal(PartData pd, string materialCode)
         {
-            const double M_TO_IN = 39.3701;
-            double thicknessIn = pd.Thickness_m > 0 ? pd.Thickness_m * M_TO_IN : 0;
+            double thicknessIn = pd.Thickness_m > 0 ? pd.Thickness_m * MetersToInches : 0;
             if (thicknessIn <= 0) return null;
 
             string thicknessLabel = ResolveThicknessLabel(thicknessIn);
@@ -98,8 +98,6 @@ namespace NM.Core.Materials
 
         private static string ResolveTube(PartData pd, string materialCode)
         {
-            const double M_TO_IN = 39.3701;
-
             string shape = (pd.Tube.TubeShape ?? "").Trim();
 
             // Pipe (round with NPS/schedule)
@@ -113,8 +111,8 @@ namespace NM.Core.Materials
                 }
 
                 // Round tube without NPS - use OD and wall
-                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * M_TO_IN : 0;
-                double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * M_TO_IN : 0;
+                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * MetersToInches : 0;
+                double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * MetersToInches : 0;
                 if (odIn > 0 && wallIn > 0)
                 {
                     return "T." + materialCode + FormatDim(odIn) + "ODX" + FormatDim(wallIn);
@@ -124,9 +122,9 @@ namespace NM.Core.Materials
             // Angle
             if (shape.Equals("Angle", StringComparison.OrdinalIgnoreCase))
             {
-                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * M_TO_IN : 0;
-                double idIn = pd.Tube.ID_m > 0 ? pd.Tube.ID_m * M_TO_IN : 0;
-                double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * M_TO_IN : 0;
+                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * MetersToInches : 0;
+                double idIn = pd.Tube.ID_m > 0 ? pd.Tube.ID_m * MetersToInches : 0;
+                double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * MetersToInches : 0;
                 if (odIn > 0 && wallIn > 0)
                 {
                     // VBA format: A.304L2"X2"X.125" (leg1 x leg2 x wall)
@@ -138,7 +136,7 @@ namespace NM.Core.Materials
             // Round bar (no wall thickness = solid)
             if (shape.Equals("Round Bar", StringComparison.OrdinalIgnoreCase))
             {
-                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * M_TO_IN : 0;
+                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * MetersToInches : 0;
                 if (odIn > 0)
                 {
                     return "R." + materialCode + FormatDim(odIn);
@@ -148,8 +146,8 @@ namespace NM.Core.Materials
             // Square tube
             if (shape.Equals("Square", StringComparison.OrdinalIgnoreCase))
             {
-                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * M_TO_IN : 0;
-                double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * M_TO_IN : 0;
+                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * MetersToInches : 0;
+                double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * MetersToInches : 0;
                 if (odIn > 0 && wallIn > 0)
                 {
                     return "T." + materialCode + FormatDim(odIn) + "SQX" + FormatDim(wallIn);
@@ -159,9 +157,9 @@ namespace NM.Core.Materials
             // Rectangular tube
             if (shape.Equals("Rectangle", StringComparison.OrdinalIgnoreCase))
             {
-                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * M_TO_IN : 0;
-                double idIn = pd.Tube.ID_m > 0 ? pd.Tube.ID_m * M_TO_IN : 0;
-                double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * M_TO_IN : 0;
+                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * MetersToInches : 0;
+                double idIn = pd.Tube.ID_m > 0 ? pd.Tube.ID_m * MetersToInches : 0;
+                double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * MetersToInches : 0;
                 if (odIn > 0 && wallIn > 0)
                 {
                     // For rectangular: OD is long side, need short side
@@ -176,9 +174,9 @@ namespace NM.Core.Materials
                 shape.Equals("I-Beam", StringComparison.OrdinalIgnoreCase) ||
                 shape.Equals("Beam", StringComparison.OrdinalIgnoreCase))
             {
-                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * M_TO_IN : 0;
-                double idIn = pd.Tube.ID_m > 0 ? pd.Tube.ID_m * M_TO_IN : 0;
-                double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * M_TO_IN : 0;
+                double odIn = pd.Tube.OD_m > 0 ? pd.Tube.OD_m * MetersToInches : 0;
+                double idIn = pd.Tube.ID_m > 0 ? pd.Tube.ID_m * MetersToInches : 0;
+                double wallIn = pd.Tube.Wall_m > 0 ? pd.Tube.Wall_m * MetersToInches : 0;
                 if (odIn > 0 && wallIn > 0)
                 {
                     // VBA uses C. prefix for channels, T. for I-beams

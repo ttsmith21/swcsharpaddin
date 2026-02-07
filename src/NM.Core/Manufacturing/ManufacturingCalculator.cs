@@ -1,13 +1,11 @@
 using System;
 using NM.Core;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.Core.Manufacturing
 {
     public static class ManufacturingCalculator
     {
-        private const double MetersToInches = 39.37007874015748; // precise
-        private const double KgToLb = 2.20462262185;
-
         // Standard sheet constants (inches)
         private const double STANDARD_SHEET_WIDTH = 60.0;
         private const double STANDARD_SHEET_LENGTH = 120.0;
@@ -48,7 +46,7 @@ namespace NM.Core.Manufacturing
                 // Efficiency mode: use mass if available else volume; adjust by nest efficiency and thickness multiplier
                 if ((opt?.UseMassIfAvailable != false) && m.MassKg > 0)
                 {
-                    double massLb = m.MassKg * KgToLb;
+                    double massLb = m.MassKg * KgToLbs;
                     // VBA: rawWeight = (partMass / nestEfficiency) * 100 * multiplier
                     double eff = (m.NestEfficiencyPercent > 0) ? m.NestEfficiencyPercent : 100.0;
                     rawWeightLb = (massLb / eff) * 100.0 * mult;
@@ -79,7 +77,7 @@ namespace NM.Core.Manufacturing
             res.SheetPercent = RoundTo(sheetPercent, 4);
 
             // Preferred WeightLb: if direct mass available, use that; else use rawWeight
-            double directLb = (m.MassKg > 0) ? m.MassKg * KgToLb : 0.0;
+            double directLb = (m.MassKg > 0) ? m.MassKg * KgToLbs : 0.0;
             res.WeightLb = RoundTo(directLb > 0 ? directLb : rawWeightLb, 3);
 
             // Placeholders: F115/F140 minutes will be computed by dedicated modules later (laser, brake)

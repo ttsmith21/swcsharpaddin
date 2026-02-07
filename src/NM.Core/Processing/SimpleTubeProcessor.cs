@@ -5,6 +5,7 @@ using NM.Core.Tubes;
 using NM.SwAddin.Geometry;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
+using static NM.Core.Constants.UnitConversions;
 
 namespace NM.Core.Processing
 {
@@ -366,16 +367,15 @@ namespace NM.Core.Processing
             if (od_m <= 0 || wall_m <= MIN_WALL_THICKNESS_M || length_m <= 0) return null;
 
             // Convert to inches for TubeGeometry DTO
-            const double M_TO_IN = 39.37007874015748;
             var geom = new TubeGeometry
             {
                 Shape = TubeShape.Round,
-                OuterDiameter = od_m * M_TO_IN,
-                InnerDiameter = (2 * minR_m) * M_TO_IN,
-                WallThickness = wall_m * M_TO_IN,
-                Length = length_m * M_TO_IN,
+                OuterDiameter = od_m * MetersToInches,
+                InnerDiameter = (2 * minR_m) * MetersToInches,
+                WallThickness = wall_m * MetersToInches,
+                Length = length_m * MetersToInches,
                 Axis = axis,
-                CrossSection = $"{od_m * M_TO_IN:G6}"
+                CrossSection = $"{od_m * MetersToInches:G6}"
             };
             return geom;
         }
