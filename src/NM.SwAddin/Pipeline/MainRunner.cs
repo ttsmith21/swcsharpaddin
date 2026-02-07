@@ -209,7 +209,9 @@ namespace NM.SwAddin.Pipeline
                 if (sheetProcessor != null)
                 {
                     ErrorHandler.DebugLog("[SMDBG] Step 1: Calling sheetProcessor.Process()...");
+                    PerformanceTracker.Instance.StartTimer("Classification_SheetMetal");
                     var sheetResult = sheetProcessor.Process(doc, info, options ?? new ProcessingOptions());
+                    PerformanceTracker.Instance.StopTimer("Classification_SheetMetal");
                     ErrorHandler.DebugLog($"[SMDBG] Step 1 Result: Success={sheetResult.Success}, Error={sheetResult.ErrorMessage ?? "none"}");
                     if (sheetResult.Success)
                     {
@@ -238,6 +240,7 @@ namespace NM.SwAddin.Pipeline
                     try
                     {
                         ErrorHandler.DebugLog("[SMDBG] Step 2: Calling SimpleTubeProcessor.TryGetGeometry...");
+                        PerformanceTracker.Instance.StartTimer("Classification_Tube");
                         var tube = new SimpleTubeProcessor(swApp).TryGetGeometry(doc);
                         if (tube != null)
                         {
@@ -301,6 +304,10 @@ namespace NM.SwAddin.Pipeline
                     catch (Exception ex)
                     {
                         ErrorHandler.DebugLog($"[SMDBG] Step 2: Tube detection EXCEPTION: {ex.Message}");
+                    }
+                    finally
+                    {
+                        PerformanceTracker.Instance.StopTimer("Classification_Tube");
                     }
                 }
 
@@ -668,27 +675,33 @@ namespace NM.SwAddin.Pipeline
             }
 
             // F325 Roll Form - always applies to tubes
+            PerformanceTracker.Instance.StartTimer("Cost_F325_RollForm");
             var f325Result = TubeWorkCenterRules.ComputeF325(rawWeightLb, wallIn);
             pd.Cost.F325_S_min = f325Result.SetupHours * 60.0;
             pd.Cost.F325_R_min = f325Result.RunHours * 60.0;
             pd.Cost.F325_Price = (f325Result.SetupHours + f325Result.RunHours * quantity) * CostConstants.F325_COST;
+            PerformanceTracker.Instance.StopTimer("Cost_F325_RollForm");
 
             // F140 Press Brake - only if F325 requires it (heavy tube with thick wall)
             if (f325Result.RequiresPressBrake)
             {
+                PerformanceTracker.Instance.StartTimer("Cost_F140_Brake");
                 var f140Result = TubeWorkCenterRules.ComputeF140(rawWeightLb, wallIn);
                 pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
                 pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
                 pd.Cost.F140_Price = (f140Result.SetupHours + f140Result.RunHours * quantity) * CostConstants.F140_COST;
+                PerformanceTracker.Instance.StopTimer("Cost_F140_Brake");
             }
 
             // F210 Deburr - based on tube length
             if (lengthIn > 0)
             {
+                PerformanceTracker.Instance.StartTimer("Cost_F210_Deburr");
                 var f210Result = TubeWorkCenterRules.ComputeF210(lengthIn);
                 pd.Cost.F210_S_min = f210Result.SetupHours * 60.0;
                 pd.Cost.F210_R_min = f210Result.RunHours * 60.0;
                 pd.Cost.F210_Price = (f210Result.SetupHours + f210Result.RunHours * quantity) * CostConstants.F210_COST;
+                PerformanceTracker.Instance.StopTimer("Cost_F210_Deburr");
             }
         }
 
@@ -702,6 +715,7 @@ namespace NM.SwAddin.Pipeline
             // F115 Laser Cutting - based on cut length and pierce count
             if (pd.Sheet.TotalCutLength_m > 0 && pd.Thickness_m > 0)
             {
+                PerformanceTracker.Instance.StartTimer("Cost_F115_Laser");
                 try
                 {
                     int pierceCount = 0;
@@ -728,20 +742,27 @@ namespace NM.SwAddin.Pipeline
                 {
                     ErrorHandler.HandleError("MainRunner", "F115 laser calc failed", laserEx, ErrorHandler.LogLevel.Warning);
                 }
+                finally
+                {
+                    PerformanceTracker.Instance.StopTimer("Cost_F115_Laser");
+                }
             }
 
             // F210 Deburr - based on cut perimeter
             if (pd.Sheet.TotalCutLength_m > 0)
             {
+                PerformanceTracker.Instance.StartTimer("Cost_F210_Deburr");
                 double cutPerimeterIn = pd.Sheet.TotalCutLength_m * MetersToInches;
                 double f210Hours = F210Calculator.ComputeHours(cutPerimeterIn);
                 pd.Cost.F210_R_min = f210Hours * 60.0;
                 pd.Cost.F210_Price = F210Calculator.ComputeCost(cutPerimeterIn, quantity);
+                PerformanceTracker.Instance.StopTimer("Cost_F210_Deburr");
             }
 
             // F140 Press Brake - based on bend info
             if (pd.Sheet.BendCount > 0)
             {
+                PerformanceTracker.Instance.StartTimer("Cost_F140_Brake");
                 // Longest bend line from BendAnalyzer (extracted from "Bend-Lines" sketch)
                 double longestBendIn = 0.0;
                 {
@@ -764,18 +785,21 @@ namespace NM.SwAddin.Pipeline
                 pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
                 pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
                 pd.Cost.F140_Price = f140Result.Price(quantity);
+                PerformanceTracker.Instance.StopTimer("Cost_F140_Brake");
             }
 
             // F220 Tapping - based on tapped hole count
             int tappedHoles = info.CustomProperties.TappedHoleCount;
             if (tappedHoles > 0)
             {
+                PerformanceTracker.Instance.StartTimer("Cost_F220_Tapping");
                 var f220Input = new F220Input { Setups = 1, Holes = tappedHoles };
                 var f220Result = F220Calculator.Compute(f220Input);
                 pd.Cost.F220_S_min = f220Result.SetupHours * 60.0;
                 pd.Cost.F220_R_min = f220Result.RunHours * 60.0;
                 pd.Cost.F220_RN = tappedHoles;
                 pd.Cost.F220_Price = (f220Result.SetupHours + f220Result.RunHours * quantity) * CostConstants.F220_COST;
+                PerformanceTracker.Instance.StopTimer("Cost_F220_Tapping");
             }
 
             // F325 Roll Forming - based on max bend radius (only if radius > 2 inches)
@@ -789,6 +813,7 @@ namespace NM.SwAddin.Pipeline
             }
             if (maxRadiusIn > 2.0)
             {
+                PerformanceTracker.Instance.StartTimer("Cost_F325_RollForm");
                 var f325Calc = new F325Calculator();
                 double arcLengthIn = info.CustomProperties.ArcLengthIn > 0
                     ? info.CustomProperties.ArcLengthIn
@@ -800,6 +825,7 @@ namespace NM.SwAddin.Pipeline
                     pd.Cost.F325_R_min = f325Result.RunHours * 60.0;
                     pd.Cost.F325_Price = f325Result.TotalCost;
                 }
+                PerformanceTracker.Instance.StopTimer("Cost_F325_RollForm");
             }
         }
     }
