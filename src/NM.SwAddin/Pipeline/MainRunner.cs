@@ -251,11 +251,19 @@ namespace NM.SwAddin.Pipeline
                         // - Must have a minimum length (0.5" = 12.7mm) to avoid classifying machined blocks as tubes
                         // - Must have proper aspect ratio (length > 2x wall thickness) for true extrusions
                         const double MIN_TUBE_LENGTH_IN = 0.5;
-                        bool isValidTube = tube != null &&
+
+                        // Round bars are solid cylinders (no inner face → wall=0) but still valid tube stock
+                        bool isRoundBar = tube != null &&
+                                          tube.Shape == TubeShape.Round &&
+                                          tube.WallThickness == 0 &&
+                                          tube.OuterDiameter > 0 &&
+                                          tube.Length >= MIN_TUBE_LENGTH_IN;
+
+                        bool isValidTube = (tube != null &&
                                            tube.Shape != TubeShape.None &&
                                            tube.WallThickness > 0 &&
                                            tube.Length >= MIN_TUBE_LENGTH_IN &&
-                                           tube.Length > tube.WallThickness * 2;
+                                           tube.Length > tube.WallThickness * 2) || isRoundBar;
 
                         if (!isValidTube && tube != null)
                         {
@@ -273,7 +281,7 @@ namespace NM.SwAddin.Pipeline
                                 ? tube.InnerDiameter * IN_TO_M
                                 : Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
                             pd.Tube.Length_m = tube.Length * IN_TO_M;
-                            pd.Tube.TubeShape = tube.ShapeName; // Round, Square, Rectangle, Angle, Channel
+                            pd.Tube.TubeShape = isRoundBar ? "Round Bar" : tube.ShapeName;
                             pd.Tube.CrossSection = tube.CrossSection;
                             pd.Tube.CutLength_m = tube.CutLength * IN_TO_M;
                             pd.Tube.NumberOfHoles = tube.NumberOfHoles;
