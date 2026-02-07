@@ -75,7 +75,7 @@ namespace NM.SwAddin.Processing
                 Application.DoEvents();
 
                 int step = 0;
-                bool debugMode = Configuration.Logging.EnableDebugMode;
+                bool debugMode = NM.Core.Configuration.Logging.EnableDebugMode;
 
                 // Suppress document display windows during batch opens (avoids SceneGraph overhead).
                 // DocumentVisible(false) prevents SolidWorks from allocating map textures for models

@@ -53,7 +53,7 @@ namespace NM.SwAddin.Utils
         {
             _swApp = swApp;
             _doc = doc;
-            _debugMode = debugMode ?? Configuration.Logging.EnableDebugMode;
+            _debugMode = debugMode ?? NM.Core.Configuration.Logging.EnableDebugMode;
 
             if (_swApp == null)
             {
