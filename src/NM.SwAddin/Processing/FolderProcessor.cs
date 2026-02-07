@@ -75,6 +75,25 @@ namespace NM.SwAddin.Processing
                 Application.DoEvents();
 
                 int step = 0;
+                bool debugMode = Configuration.Logging.EnableDebugMode;
+
+                // Suppress document display windows during batch opens (avoids SceneGraph overhead).
+                // DocumentVisible(false) prevents SolidWorks from allocating map textures for models
+                // we're only processing programmatically. Skipped in debug mode so the user can see files open.
+                if (!debugMode)
+                {
+                    try
+                    {
+                        _swApp.DocumentVisible(false, (int)swDocumentTypes_e.swDocPART);
+                        _swApp.DocumentVisible(false, (int)swDocumentTypes_e.swDocASSEMBLY);
+                        ErrorHandler.LogInfo("[PERF] FolderProcessor: DocumentVisible=false for batch opens");
+                    }
+                    catch (Exception dvEx)
+                    {
+                        ErrorHandler.LogInfo($"[PERF] FolderProcessor: DocumentVisible not available: {dvEx.Message}");
+                    }
+                }
+
                 // Batch performance optimization: disable graphics updates during file processing loop
                 using (new BatchPerformanceScope(_swApp, null))
                 foreach (var file in files)
@@ -138,6 +157,14 @@ namespace NM.SwAddin.Processing
             }
             finally
             {
+                // Restore DocumentVisible for both document types
+                try
+                {
+                    _swApp.DocumentVisible(true, (int)swDocumentTypes_e.swDocPART);
+                    _swApp.DocumentVisible(true, (int)swDocumentTypes_e.swDocASSEMBLY);
+                }
+                catch { }
+
                 try { if (progress != null && !progress.IsDisposed) progress.Close(); } catch { }
                 ErrorHandler.PopCallStack();
             }

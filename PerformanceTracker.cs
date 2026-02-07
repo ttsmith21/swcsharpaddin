@@ -28,6 +28,16 @@ namespace NM.Core
 
         public bool IsEnabled => Configuration.Logging.EnablePerformanceMonitoring && !Configuration.Logging.IsProductionMode;
 
+        /// <summary>
+        /// Log a mode-transition event that is always captured when logging is on.
+        /// Use for significant state changes (scope enter/exit, mode switches, batch start/end)
+        /// that an AI debugging agent needs to reconstruct the timeline of operations.
+        /// </summary>
+        public void LogModeTransition(string eventDescription)
+        {
+            ErrorHandler.LogInfo($"[PERF:MODE] {eventDescription}");
+        }
+
         /// <summary>Start a timer using the current ErrorHandler.CallStackDepth as call level.</summary>
         public void StartTimer(string timerName)
         {
@@ -226,6 +236,9 @@ namespace NM.Core
 
         /// <summary>
         /// Logs timing summary to ErrorHandler debug output.
+        /// Uses LogInfo so the summary is always captured in the log file,
+        /// even when verbose debug tracing is off. This is critical for AI
+        /// debugging agents that analyze performance after the run.
         /// </summary>
         public void LogSummary()
         {
@@ -233,8 +246,38 @@ namespace NM.Core
             var summary = PrintSummary();
             foreach (var line in summary.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
             {
-                ErrorHandler.DebugLog($"[PERF] {line}");
+                ErrorHandler.LogInfo($"[PERF] {line}");
             }
+
+            // Flag red-flag timings for AI readability
+            var summaries = GetTimingSummaries();
+            foreach (var s in summaries)
+            {
+                string flag = ClassifyTiming(s.Name, s.AvgMs);
+                if (flag != null)
+                {
+                    ErrorHandler.LogInfo($"[PERF:FLAG] {s.Name}: avg={s.AvgMs:F0}ms - {flag}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Checks a timer against known performance targets. Returns a warning
+        /// string if the timing exceeds the red-flag threshold, null otherwise.
+        /// Thresholds are from CLAUDE.md performance targets.
+        /// </summary>
+        private static string ClassifyTiming(string name, double avgMs)
+        {
+            if (name == null) return null;
+            var n = name.ToLowerInvariant();
+
+            if (n.StartsWith("insertbends2") && avgMs > 2000) return "RED FLAG: InsertBends2 target <500ms, red >2000ms";
+            if (n.StartsWith("tryflatten") && avgMs > 1000) return "RED FLAG: TryFlatten target <200ms, red >1000ms";
+            if (n.StartsWith("customproperty") && avgMs > 100) return "RED FLAG: CustomProperty target <50ms, red >100ms";
+            if (n == "getlargestface" && avgMs > 2000) return "RED FLAG: GetLargestFace target <500ms, red >2000ms";
+            if (n == "runsinglepartdata" && avgMs > 10000) return "RED FLAG: Total per-part target <3000ms, red >10000ms";
+
+            return null;
         }
 
         private static string FormatMs(double ms)
