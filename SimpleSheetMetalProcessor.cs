@@ -186,7 +186,8 @@ namespace NM.SwAddin
 
                 // Mass comparison: blankArea × thickness ≈ actualVolume (±3%)
                 body = SolidWorksApiWrapper.GetMainBody(model);
-                double biggestAreaM2 = GetLargestFaceArea(body);
+                double biggestAreaM2;
+                GetLargestFace(body, out biggestAreaM2);
                 if (biggestAreaM2 > 0 && thickness > 0)
                 {
                     double calcVolumeM3 = biggestAreaM2 * thickness;
@@ -403,33 +404,7 @@ namespace NM.SwAddin
             }
         }
 
-        /// <summary>
-        /// Gets the largest face area from a body.
-        /// </summary>
-        private static double GetLargestFaceArea(IBody2 body)
-        {
-            double maxArea = 0;
-            try
-            {
-                var faces = body?.GetFaces() as object[];
-                if (faces != null)
-                {
-                    foreach (var fo in faces)
-                    {
-                        var f = fo as IFace2;
-                        if (f == null) continue;
-                        try
-                        {
-                            double a = f.GetArea();
-                            if (a > maxArea) maxArea = a;
-                        }
-                        catch { }
-                    }
-                }
-            }
-            catch { }
-            return maxArea;
-        }
+        // GetLargestFaceArea removed — use GetLargestFace(body, out area) instead to avoid redundant face scan
 
         // NOTE: IsTubeByModelProperties and LooksLikeTube methods were REMOVED
         // VBA approach: Try InsertBends first, let geometry decide - don't pre-classify from properties
@@ -508,11 +483,16 @@ namespace NM.SwAddin
 
         private static IFace2 GetLargestFace(IBody2 body)
         {
+            return GetLargestFace(body, out _);
+        }
+
+        private static IFace2 GetLargestFace(IBody2 body, out double largestArea)
+        {
             PerformanceTracker.Instance.StartTimer("GetLargestFace");
             IFace2 best = null; double bestArea = 0.0;
             try
             {
-                var faces = body?.GetFaces() as object[]; if (faces == null) return null;
+                var faces = body?.GetFaces() as object[]; if (faces == null) { largestArea = 0; return null; }
                 foreach (var fo in faces)
                 {
                     var f = fo as IFace2; if (f == null) continue;
@@ -525,6 +505,7 @@ namespace NM.SwAddin
             {
                 PerformanceTracker.Instance.StopTimer("GetLargestFace");
             }
+            largestArea = bestArea;
             return best;
         }
 
