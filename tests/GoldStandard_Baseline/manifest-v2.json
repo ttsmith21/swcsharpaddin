@@ -177,6 +177,7 @@
                                                            "shouldPass":  true,
                                                            "expectedClassification":  "SheetMetal",
                                                            "expectedThickness_in":  0.076,
+                                                           "expectedBendCount":  1,
                                                            "vbaBaseline":  {
                                                                                "description":  "304L ROLL",
                                                                                "optiMaterial":  "S.304L14GA",
@@ -440,6 +441,9 @@
                   "C7_RoundBar_1dia.sldprt":  {
                                                   "shouldPass":  true,
                                                   "expectedClassification":  "Tube",
+                                                  "expectedTubeOD_in":  1.0,
+                                                  "expectedTubeID_in":  1.0,
+                                                  "expectedTubeLength_in":  12.0,
                                                   "vbaBaseline":  {
                                                                       "description":  "304L ROUND",
                                                                       "optiMaterial":  "R.304L1\"",
@@ -478,6 +482,10 @@
                   "D1_MachinedBlock.sldprt":  {
                                                   "shouldPass":  true,
                                                   "expectedClassification":  "Tube",
+                                                  "expectedTubeOD_in":  6.0,
+                                                  "expectedTubeWall_in":  0.5,
+                                                  "expectedTubeID_in":  2.0,
+                                                  "expectedTubeLength_in":  9.2651,
                                                   "vbaBaseline":  {
                                                                       "description":  "304L ANGLE",
                                                                       "optiMaterial":  "C.304L6\"X2\"X.5\"",
@@ -614,6 +622,7 @@
                   "E1_ThickPlate_1in.sldprt":  {
                                                    "shouldPass":  true,
                                                    "expectedClassification":  "SheetMetal",
+                                                   "expectedThickness_in":  1.0,
                                                    "vbaBaseline":  {
                                                                        "description":  "304L PLATE",
                                                                        "optiMaterial":  "S.304L1IN",
@@ -675,6 +684,7 @@
                   "E3_TaperedWall.sldprt":  {
                                                 "shouldPass":  true,
                                                 "expectedClassification":  "SheetMetal",
+                                                "expectedThickness_in":  0.5,
                                                 "vbaBaseline":  {
                                                                     "description":  "304L PLATE",
                                                                     "optiMaterial":  "S.304L.5IN",
@@ -704,6 +714,10 @@
                   "E4_EccentricTube.sldprt":  {
                                                   "shouldPass":  true,
                                                   "expectedClassification":  "Tube",
+                                                  "expectedTubeOD_in":  6.0,
+                                                  "expectedTubeWall_in":  0.2934,
+                                                  "expectedTubeID_in":  5.4132,
+                                                  "expectedTubeLength_in":  12.0,
                                                   "vbaBaseline":  {
                                                                       "description":  "304L TUBE",
                                                                       "optiMaterial":  "T.304L6\"ODX.293\"",
@@ -748,6 +762,8 @@
                                               },
                   "E6_HugePart.sldprt":  {
                                              "shouldPass":  true,
+                                             "expectedClassification":  "SheetMetal",
+                                             "expectedThickness_in":  0.25,
                                              "vbaBaseline":  {
                                                                  "description":  "304L PLATE",
                                                                  "optiMaterial":  "S.304L.25IN",
