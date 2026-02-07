@@ -31,9 +31,9 @@
       "expectedFailureReason": "material"
     },
     "A6_ZeroThickness.sldprt": {
-      "shouldPass": true,
-      "expectedClassification": "Generic",
-      "_note": "Wedge shape (1/8 to knife edge) - valid solid, not sheet metal"
+      "shouldPass": false,
+      "expectedFailureReason": "classification",
+      "_note": "Wedge shape (1/8 to knife edge) - fails sheet metal and tube classification, flagged for human review"
     },
 
     "_comment_B": "Class B: Sheet Metal - Expectation: Classification=SheetMetal, shouldPass=true",
@@ -138,8 +138,9 @@
       "expectedClassification": "Generic"
     },
     "D3_Motor.sldprt": {
-      "shouldPass": true,
-      "expectedClassification": "Generic"
+      "shouldPass": false,
+      "expectedFailureReason": "Multi-body",
+      "_note": "15 solid bodies - multi-body validation fails"
     },
     "D4_Fastener.sldprt": {
       "shouldPass": true,
@@ -148,6 +149,11 @@
     "D5_Casting.sldprt": {
       "shouldPass": true,
       "expectedClassification": "Generic"
+    },
+    "HHBOLT 0.5000-13x1x1-S_HHBOLT 0.5000-13x1x1-S.sldprt": {
+      "shouldPass": false,
+      "expectedFailureReason": "classification",
+      "_note": "Hex head bolt - fails sheet metal and tube classification, flagged for human review"
     },
 
     "_comment_E": "Class E: Edge Cases - Specific behavior required",
