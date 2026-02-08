@@ -199,10 +199,7 @@ namespace swcsharpaddin
             iCmdMgr = null;
             System.Runtime.InteropServices.Marshal.ReleaseComObject(iSwApp);
             iSwApp = null;
-            //The addin _must_ call GC.Collect() here in order to retrieve all managed code pointers 
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-
+            //The addin _must_ call GC.Collect() here in order to retrieve all managed code pointers
             GC.Collect();
             GC.WaitForPendingFinalizers();
 
@@ -393,10 +390,7 @@ namespace swcsharpaddin
         {
             try
             {
-                SwEventPtr.ActiveDocChangeNotify += new DSldWorksEvents_ActiveDocChangeNotifyEventHandler(OnDocChange);
-                SwEventPtr.DocumentLoadNotify2 += new DSldWorksEvents_DocumentLoadNotify2EventHandler(OnDocLoad);
                 SwEventPtr.FileNewNotify2 += new DSldWorksEvents_FileNewNotify2EventHandler(OnFileNew);
-                SwEventPtr.ActiveModelDocChangeNotify += new DSldWorksEvents_ActiveModelDocChangeNotifyEventHandler(OnModelChange);
                 SwEventPtr.FileOpenPostNotify += new DSldWorksEvents_FileOpenPostNotifyEventHandler(FileOpenPostNotify);
                 return true;
             }
@@ -413,10 +407,7 @@ namespace swcsharpaddin
         {
             try
             {
-                SwEventPtr.ActiveDocChangeNotify -= new DSldWorksEvents_ActiveDocChangeNotifyEventHandler(OnDocChange);
-                SwEventPtr.DocumentLoadNotify2 -= new DSldWorksEvents_DocumentLoadNotify2EventHandler(OnDocLoad);
                 SwEventPtr.FileNewNotify2 -= new DSldWorksEvents_FileNewNotify2EventHandler(OnFileNew);
-                SwEventPtr.ActiveModelDocChangeNotify -= new DSldWorksEvents_ActiveModelDocChangeNotifyEventHandler(OnModelChange);
                 SwEventPtr.FileOpenPostNotify -= new DSldWorksEvents_FileOpenPostNotifyEventHandler(FileOpenPostNotify);
                 return true;
             }
@@ -510,17 +501,6 @@ namespace swcsharpaddin
         #endregion
 
         #region Event Handlers
-        //Events
-        public int OnDocChange()
-        {
-            return 0;
-        }
-
-        public int OnDocLoad(string docTitle, string docPath)
-        {
-            return 0;
-        }
-
         int FileOpenPostNotify(string FileName)
         {
             AttachEventsToAllDocuments();
@@ -530,11 +510,6 @@ namespace swcsharpaddin
         public int OnFileNew(object newDoc, int docType, string templateName)
         {
             AttachEventsToAllDocuments();
-            return 0;
-        }
-
-        public int OnModelChange()
-        {
             return 0;
         }
 

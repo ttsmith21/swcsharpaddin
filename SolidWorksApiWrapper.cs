@@ -7,87 +7,12 @@ namespace NM.SwAddin
 {
     #region Enums
     /// <summary>
-    /// Document types (matches SolidWorks API swDocumentTypes_e)
-    /// </summary>
-    public enum SwDocumentTypes
-    {
-        SwDocNone = 0,
-        SwDocPart = 1,
-        SwDocAssembly = 2,
-        SwDocDrawing = 3
-    }
-
-    /// <summary>
-    /// Open doc options (matches swOpenDocOptions_e)
-    /// </summary>
-    public enum SwOpenDocOptions
-    {
-        Default = 0,
-        Silent = 1,
-        ReadOnly = 2,
-        LoadLightweight = 4
-    }
-
-    /// <summary>
-    /// Errors when opening a doc (matches swFileLoadError_e)
-    /// </summary>
-    public enum SwFileLoadError
-    {
-        SwGenericError = 1,
-        SwFileNotFoundError = 2,
-        SwFileRequiresRepairError = 3,
-        SwFileLoadWarning = 5,
-        SwFileLoadError_AlreadyOpen = 8
-    }
-
-    /// <summary>
-    /// Errors when saving a doc (matches swFileSaveError_e)
-    /// </summary>
-    public enum SwFileSaveError
-    {
-        SwGenericSaveError = 1,
-        SwFileSaveError_DiskFull = 2,
-        SwFileSaveError_ReadOnly = 3,
-        SwFileSaveError_AlreadyOpen = 4,
-        SwFileSaveError_ReplaceFailed = 6,
-        SwFileSaveError_ReferencedDocumentNotFound = 7
-    }
-
-    /// <summary>
-    /// Save As options (matches swSaveAsOptions_e)
-    /// </summary>
-    public enum SwSaveAsOptions
-    {
-        SwSaveAsOptions_None = 0,
-        SwSaveAsOptions_Silent = 1,
-        SwSaveAsOptions_Copy = 2
-    }
-
-    /// <summary>
-    /// Save As version options (matches swSaveAsVersion_e)
-    /// </summary>
-    public enum SwSaveAsVersion
-    {
-        SwSaveAsCurrentVersion = 0
-    }
-
-    /// <summary>
     /// Rebuild options (custom for ForceRebuildDoc)
     /// </summary>
     public enum SwRebuildOptions
     {
         SwRebuildActiveOnly = 0,
         SwForceRebuildAll = 1
-    }
-
-    /// <summary>
-    /// Custom properties data types (matches swCustomInfoType_e)
-    /// </summary>
-    public enum SwCustomInfoType
-    {
-        SwCustomInfoText = 30,
-        SwCustomInfoDate = 64,
-        SwCustomInfoNumber = 3
     }
 
     /// <summary>
@@ -868,18 +793,6 @@ namespace NM.SwAddin
         #endregion
 
         #region Performance Control Methods
-        /// <summary>
-        /// Graphics update control is not available on ModelDocExtension in SolidWorks 2022.
-        /// This method is a placeholder for future versions or alternative implementations.
-        /// Use CommandInProgress and FeatureTree controls instead.
-        /// </summary>
-        public static void SetGraphicsUpdate(IModelDoc2 model, bool enabled)
-        {
-            // Note: EnableGraphicsUpdate property is not available on ModelDocExtension in SW 2022 API
-            // This method is kept for API compatibility but has no effect
-            ErrorHandler.DebugLog($"[PERF] SetGraphicsUpdate({enabled}) - no-op in SW 2022");
-        }
-
         /// <summary>
         /// Sets CommandInProgress flag on the application.
         /// Setting true prevents undo record consolidation during batch ops.

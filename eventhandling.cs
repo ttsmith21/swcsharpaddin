@@ -104,7 +104,6 @@ namespace swcsharpaddin
 		override public bool AttachEventHandlers()
 		{
 			doc.DestroyNotify += new DPartDocEvents_DestroyNotifyEventHandler(OnDestroy);
-			doc.NewSelectionNotify += new DPartDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
 
 			ConnectModelViews();
 
@@ -114,7 +113,6 @@ namespace swcsharpaddin
 		override public bool DetachEventHandlers()
 		{
 			doc.DestroyNotify -= new DPartDocEvents_DestroyNotifyEventHandler(OnDestroy);
-			doc.NewSelectionNotify -= new DPartDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
 
 			DisconnectModelViews();
 
@@ -126,11 +124,6 @@ namespace swcsharpaddin
 		public int OnDestroy()
 		{
 			DetachEventHandlers();
-			return 0;
-		}
-
-		public int OnNewSelection()
-		{
 			return 0;
 		}
 	}
@@ -150,7 +143,6 @@ namespace swcsharpaddin
 		override public bool AttachEventHandlers()
 		{
 			doc.DestroyNotify += new DAssemblyDocEvents_DestroyNotifyEventHandler(OnDestroy);
-			doc.NewSelectionNotify += new DAssemblyDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
             doc.ComponentStateChangeNotify2 += new DAssemblyDocEvents_ComponentStateChangeNotify2EventHandler(ComponentStateChangeNotify2);
             doc.ComponentStateChangeNotify += new DAssemblyDocEvents_ComponentStateChangeNotifyEventHandler(ComponentStateChangeNotify);
             doc.ComponentVisualPropertiesChangeNotify += new DAssemblyDocEvents_ComponentVisualPropertiesChangeNotifyEventHandler(ComponentVisualPropertiesChangeNotify);
@@ -163,7 +155,6 @@ namespace swcsharpaddin
 		override public bool DetachEventHandlers()
 		{
 			doc.DestroyNotify -= new DAssemblyDocEvents_DestroyNotifyEventHandler(OnDestroy);
-			doc.NewSelectionNotify -= new DAssemblyDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
             doc.ComponentStateChangeNotify2 -= new DAssemblyDocEvents_ComponentStateChangeNotify2EventHandler(ComponentStateChangeNotify2);
             doc.ComponentStateChangeNotify  -= new DAssemblyDocEvents_ComponentStateChangeNotifyEventHandler(ComponentStateChangeNotify);
             doc.ComponentVisualPropertiesChangeNotify -= new DAssemblyDocEvents_ComponentVisualPropertiesChangeNotifyEventHandler(ComponentVisualPropertiesChangeNotify);
@@ -180,11 +171,6 @@ namespace swcsharpaddin
 			DetachEventHandlers();
 			return 0;
 		}
-
-        public int OnNewSelection()
-        {
-            return 0;
-        }
 
         //attach events to a component if it becomes resolved
         protected int ComponentStateChange (object componentModel , short newCompState)
@@ -269,7 +255,6 @@ namespace swcsharpaddin
 		override public bool AttachEventHandlers()
 		{
 			doc.DestroyNotify += new DDrawingDocEvents_DestroyNotifyEventHandler(OnDestroy);
-			doc.NewSelectionNotify += new DDrawingDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
 
 			ConnectModelViews();
 
@@ -279,7 +264,6 @@ namespace swcsharpaddin
 		override public bool DetachEventHandlers()
 		{
 			doc.DestroyNotify -= new DDrawingDocEvents_DestroyNotifyEventHandler(OnDestroy);
-			doc.NewSelectionNotify -= new DDrawingDocEvents_NewSelectionNotifyEventHandler(OnNewSelection);
 
 			DisconnectModelViews();
 
@@ -291,11 +275,6 @@ namespace swcsharpaddin
 		public int OnDestroy()
 		{
 			DetachEventHandlers();
-			return 0;
-		}
-
-		public int OnNewSelection()
-		{
 			return 0;
 		}
 	}
