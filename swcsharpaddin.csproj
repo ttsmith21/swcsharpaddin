@@ -253,6 +253,17 @@
     <Compile Include="src\NM.Core\AI\Models\VisionAnalysisResult.cs" />
     <Compile Include="src\NM.Core\AI\Models\VisionConfig.cs" />
     <Compile Include="src\NM.Core\AI\Models\VisionContext.cs" />
+    <!-- Reconciliation Engine (Phase 3) -->
+    <Compile Include="src\NM.Core\Reconciliation\Models\ReconciliationResult.cs" />
+    <Compile Include="src\NM.Core\Reconciliation\Models\DataConflict.cs" />
+    <Compile Include="src\NM.Core\Reconciliation\Models\GapFill.cs" />
+    <Compile Include="src\NM.Core\Reconciliation\Models\RoutingSuggestion.cs" />
+    <Compile Include="src\NM.Core\Reconciliation\Models\RenameSuggestion.cs" />
+    <Compile Include="src\NM.Core\Reconciliation\ReconciliationEngine.cs" />
+    <Compile Include="src\NM.Core\Reconciliation\RoutingNoteInterpreter.cs" />
+    <!-- Property Suggestion Service (Phase 4) -->
+    <Compile Include="src\NM.Core\Reconciliation\Models\PropertySuggestion.cs" />
+    <Compile Include="src\NM.Core\Reconciliation\PropertySuggestionService.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->
