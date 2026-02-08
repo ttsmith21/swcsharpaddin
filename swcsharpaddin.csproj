@@ -240,6 +240,12 @@
     <!-- Property Suggestion Service (Phase 4) -->
     <Compile Include="src\NM.Core\Reconciliation\Models\PropertySuggestion.cs" />
     <Compile Include="src\NM.Core\Reconciliation\PropertySuggestionService.cs" />
+    <!-- Property Writeback (Phase 5) -->
+    <Compile Include="src\NM.Core\Writeback\PropertyWritebackExecutor.cs" />
+    <Compile Include="src\NM.Core\Writeback\FileRenameValidator.cs" />
+    <Compile Include="src\NM.Core\Writeback\Models\WritebackEntry.cs" />
+    <Compile Include="src\NM.Core\Writeback\Models\WritebackResult.cs" />
+    <Compile Include="src\NM.Core\Writeback\Models\FileRenameValidation.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->
