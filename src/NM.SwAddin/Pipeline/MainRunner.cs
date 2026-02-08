@@ -1093,6 +1093,12 @@ namespace NM.SwAddin.Pipeline
                 // Run time from Mazak ExternalStart library - cannot replicate, remains 0
             }
 
+            // OP20 Cost: apply work center rate to setup + run hours
+            double op20SetupHrs = pd.Cost.OP20_S_min / 60.0;
+            double op20RunHrs = pd.Cost.OP20_R_min / 60.0;
+            double op20Rate = GetOP20Rate(pd.Cost.OP20_WorkCenter);
+            pd.Cost.F115_Price = (op20SetupHrs + op20RunHrs * quantity) * op20Rate;
+
             // F325 Roll Form - always applies to tubes
             PerformanceTracker.Instance.StartTimer("Cost_F325_RollForm");
             var f325Result = TubeWorkCenterRules.ComputeF325(rawWeightLb, wallIn);
@@ -1121,6 +1127,22 @@ namespace NM.SwAddin.Pipeline
                 pd.Cost.F210_R_min = f210Result.RunHours * 60.0;
                 pd.Cost.F210_Price = (f210Result.SetupHours + f210Result.RunHours * quantity) * CostConstants.F210_COST;
                 PerformanceTracker.Instance.StopTimer("Cost_F210_Deburr");
+            }
+        }
+
+        /// <summary>
+        /// Maps OP20 work center code to its hourly rate.
+        /// F110 (bandsaw) uses F300 material handling rate since no dedicated F110 rate exists.
+        /// </summary>
+        private static double GetOP20Rate(string workCenter)
+        {
+            switch (workCenter)
+            {
+                case "F115": return CostConstants.F115_COST;
+                case "F300": return CostConstants.F300_COST;
+                case "N145": return CostConstants.F145_COST;
+                case "F110": return CostConstants.F300_COST; // Bandsaw uses material handling rate
+                default:     return CostConstants.F300_COST;
             }
         }
 
