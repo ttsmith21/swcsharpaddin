@@ -165,7 +165,7 @@
 | 48 | `FlattenPart()` - SetBendState | `BendStateManager.FlattenPart()` | **PRESERVED** | Same API call |
 | 49 | `UnFlattenPart()` | `BendStateManager.UnFlattenPart()` | **PRESERVED** | Restore folded state |
 | 50 | `SelectFlatPattern()` - feature search | `BendStateManager.FindFlatPatternFeature()` | **PRESERVED** | GetTypeName2() == "FlatPattern" |
-| 51 | `GetFixedFace()` - from flat pattern | `SolidWorksApiWrapper.GetFixedFace()` | **PRESERVED** | FlatPatternFeatureData.FixedFace |
+| 51 | `GetFixedFace()` - from flat pattern | `SwGeometryHelper.GetFixedFace()` | **PRESERVED** | FlatPatternFeatureData.FixedFace |
 | 52 | `LengthWidth()` - face bounding box | `FlatPatternAnalyzer.GetBlankDimensions()` | **ADAPTED** | Uses body bounding box |
 | 53 | `GetSelectedFace()` - validate selection | Not directly ported | **ADAPTED** | Face auto-selected in C# |
 | 54 | `FlipPart()` - user prompt | Not ported | **MISSING** | Manual flip not in workflow |
@@ -346,7 +346,7 @@ The VBA `sheetmetal1.bas` module is primarily a **validation and logging** modul
 | 11 | `UnsuppressFlatten()` | `BendStateManager.FlattenPart()` | **PRESERVED** | Unsuppress flat pattern |
 | 12 | `CompareMass()` | `MassValidator.Compare()` | **PRESERVED** | Volume validation ±0.5% |
 | 13 | `ValidateFlatPattern()` | `PartPreflight.Run()` | **PRESERVED** | Validation pipeline |
-| 14 | `GetLargestFace()` | `SolidWorksApiWrapper.GetFixedFace()` | **PRESERVED** | Face selection |
+| 14 | `GetLargestFace()` | `SwGeometryHelper.GetFixedFace()` | **PRESERVED** | Face selection |
 | 15 | `GetLinearEdge()` | `SimpleTubeProcessor.FindLongestLinearEdge()` | **PRESERVED** | Edge selection |
 | 16 | Material type assignment | `SetMaterialPropertyName2()` | **PRESERVED** | Same API |
 | 17 | OP20 auto-assignment | Custom property write | **PRESERVED** | Laser work center |

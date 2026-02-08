@@ -80,8 +80,12 @@
     <Compile Include="PerformanceTracker.cs" />
     <Compile Include="ProcessingOptions.cs" />
     <Compile Include="SolidWorksApiWrapper.cs" />
+    <Compile Include="SwPropertyHelper.cs" />
+    <Compile Include="SwGeometryHelper.cs" />
+    <Compile Include="SwDocumentHelper.cs" />
+    <Compile Include="SwSketchHelper.cs" />
+    <Compile Include="SwMassPropertiesHelper.cs" />
     <Compile Include="SolidWorksFileOperations.cs" />
-    <Compile Include="SolidWorksFileOps.cs" />
     <Compile Include="SolidWorksModel.cs" />
     <Compile Include="SwAddin.cs" />
     <Compile Include="TimerInfo.cs" />
@@ -112,11 +116,8 @@
     <Compile Include="src\NM.Core\Tubes\TubeWorkCenterRules.cs" />
     <Compile Include="src\NM.Core\Export\ExportManager.cs" />
     <Compile Include="BendTableResolver.cs" />
-    <Compile Include="MainRunner.cs" />
     <Compile Include="ProblemPartInfo.cs" />
-    <Compile Include="ProblemPartTracker.cs" />
     <Compile Include="SimpleSheetMetalProcessor.cs" />
-    <Compile Include="StepFileCleanupService.cs" />
     <Compile Include="src\NM.SwAddin\ExternalStartAdapter.cs" />
     <Compile Include="src\NM.SwAddin\Assembly\AssemblyComponentQuantifier.cs" />
     <Compile Include="src\NM.SwAddin\Assembly\AssemblyPreprocessor.cs" />
@@ -137,7 +138,6 @@
     <Compile Include="src\NM.SwAddin\Processing\FolderProcessor.cs" />
     <Compile Include="src\NM.SwAddin\Processing\GenericPartProcessor.cs" />
     <Compile Include="src\NM.SwAddin\Processing\IPartProcessor.cs" />
-    <Compile Include="src\NM.SwAddin\Processing\ProcessingCoordinator.cs" />
     <Compile Include="src\NM.SwAddin\Processing\ProcessorFactory.cs" />
     <Compile Include="src\NM.SwAddin\Processing\TubePartProcessor.cs" />
     <Compile Include="src\NM.SwAddin\Properties\CustomPropertiesService.cs" />
@@ -168,7 +168,6 @@
     <Compile Include="src\NM.Core\Export\ReportGenerator.cs" />
     <Compile Include="src\NM.SwAddin\Drawing\DrawingGenerator.cs" />
     <Compile Include="src\NM.SwAddin\Export\ReportService.cs" />
-    <Compile Include="src\NM.SwAddin\Pipeline\QuoteWorkflow.cs" />
     <Compile Include="src\NM.SwAddin\Export\EDrawingExporter.cs" />
     <Compile Include="src\NM.Core\Processing\TubeProfile.cs" />
     <Compile Include="src\NM.SwAddin\Geometry\FaceWrapper.cs" />
@@ -180,7 +179,6 @@
     <Compile Include="src\NM.SwAddin\Pipeline\WorkflowContext.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\WorkflowDispatcher.cs" />
     <Compile Include="src\NM.SwAddin\Validation\BatchValidator.cs" />
-    <Compile Include="src\NM.SwAddin\Processing\ClassificationPipeline.cs" />
     <Compile Include="src\NM.Core\DataModel\QATestResult.cs" />
     <Compile Include="src\NM.Core\Testing\ComparisonResult.cs" />
     <Compile Include="src\NM.Core\Testing\GoldStandardComparator.cs" />
@@ -207,6 +205,7 @@
     <Compile Include="src\NM.Core\Configuration\Sections\ProcessingDefaults.cs" />
     <Compile Include="src\NM.Core\Configuration\Tables\NmTables.cs" />
     <Compile Include="src\NM.Core\Configuration\Tables\NmTablesProvider.cs" />
+    <Compile Include="src\NM.SwAddin\UI\ProblemSuggestionProvider.cs" />
     <Compile Include="src\NM.SwAddin\UI\ProblemWizardForm.cs">
       <SubType>Form</SubType>
     </Compile>

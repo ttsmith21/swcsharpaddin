@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using NM.Core.Models;
@@ -253,91 +252,11 @@ namespace NM.SwAddin.UI
         private void LoadSuggestions(ProblemPartManager.ProblemItem item)
         {
             _lstSuggestions.Items.Clear();
-            var suggestions = GetSuggestions(item.Category, item.ProblemDescription);
+            var suggestions = ProblemSuggestionProvider.GetSuggestions(item.Category, item.ProblemDescription);
             foreach (var s in suggestions)
             {
                 _lstSuggestions.Items.Add(s);
             }
-        }
-
-        private List<string> GetSuggestions(ProblemPartManager.ProblemCategory category, string error)
-        {
-            var list = new List<string>();
-            var errLower = (error ?? "").ToLowerInvariant();
-
-            switch (category)
-            {
-                case ProblemPartManager.ProblemCategory.GeometryValidation:
-                    if (errLower.Contains("multi-body"))
-                    {
-                        list.Add("Insert > Features > Combine to merge bodies");
-                        list.Add("Delete unwanted bodies from FeatureManager");
-                        list.Add("Check if bodies came from imported geometry");
-                    }
-                    else if (errLower.Contains("surface") || errLower.Contains("no solid"))
-                    {
-                        list.Add("Part may be surface-only - needs solid geometry");
-                        list.Add("Use Insert > Surface > Thicken to create solid");
-                        list.Add("Check if part file is corrupted or empty");
-                    }
-                    else
-                    {
-                        list.Add("Review part geometry in SolidWorks");
-                        list.Add("Check for invalid features or geometry errors");
-                    }
-                    break;
-
-                case ProblemPartManager.ProblemCategory.MaterialMissing:
-                    list.Add("Right-click part in FeatureManager > Material > Edit Material");
-                    list.Add("Or: Click the material icon in FeatureManager tree");
-                    list.Add("Assign appropriate material (e.g., AISI 304, Plain Carbon Steel)");
-                    break;
-
-                case ProblemPartManager.ProblemCategory.SheetMetalConversion:
-                    list.Add("Check that part has uniform wall thickness");
-                    list.Add("Verify parallel faces exist for sheet metal conversion");
-                    list.Add("Ensure no complex features block conversion");
-                    list.Add("Try using Insert > Sheet Metal > Insert Bends manually");
-                    break;
-
-                case ProblemPartManager.ProblemCategory.FileAccess:
-                    list.Add("Verify file exists at the shown path");
-                    list.Add("Check file is not read-only or locked");
-                    list.Add("Ensure file is not open in another application");
-                    break;
-
-                case ProblemPartManager.ProblemCategory.Suppressed:
-                    list.Add("Component is suppressed in assembly");
-                    list.Add("Right-click component > Set to Resolved");
-                    list.Add("Check if component was intentionally excluded");
-                    break;
-
-                case ProblemPartManager.ProblemCategory.Lightweight:
-                    list.Add("Component is in Lightweight mode");
-                    list.Add("Right-click > Set to Resolved");
-                    list.Add("Or: Tools > Options > Assemblies > uncheck Lightweight");
-                    break;
-
-                case ProblemPartManager.ProblemCategory.MixedBody:
-                    list.Add("Part has both solid and surface bodies");
-                    list.Add("Delete surface bodies: FeatureManager > right-click Surface Body > Delete");
-                    list.Add("If this is a purchased/catalog part, click PUR button below");
-                    list.Add("Surface bodies can interfere with geometry analysis");
-                    break;
-
-                case ProblemPartManager.ProblemCategory.ThicknessExtraction:
-                    list.Add("Could not determine sheet metal thickness");
-                    list.Add("Check that part has uniform wall thickness");
-                    list.Add("May need manual thickness specification");
-                    break;
-
-                default:
-                    list.Add("Review part in SolidWorks");
-                    list.Add("Check error message for specific guidance");
-                    break;
-            }
-
-            return list;
         }
 
         private void UpdateNavigationButtons()
@@ -393,7 +312,7 @@ namespace NM.SwAddin.UI
 
             try
             {
-                SolidWorksApiWrapper.SaveDocument(_currentDoc);
+                SwDocumentHelper.SaveDocument(_currentDoc);
             }
             catch (Exception ex)
             {
@@ -402,7 +321,7 @@ namespace NM.SwAddin.UI
 
             try
             {
-                SolidWorksApiWrapper.CloseDocument(_swApp, _currentDoc);
+                SwDocumentHelper.CloseDocument(_swApp, _currentDoc);
             }
             catch (Exception ex)
             {
@@ -427,7 +346,7 @@ namespace NM.SwAddin.UI
             try
             {
                 int errs = 0, warns = 0;
-                int docType = GuessDocType(item.FilePath);
+                int docType = SwDocumentHelper.GuessDocType(item.FilePath);
 
                 _currentDoc = _swApp.OpenDoc6(item.FilePath, docType, 0, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
                 if (_currentDoc == null || errs != 0)
@@ -479,11 +398,11 @@ namespace NM.SwAddin.UI
             // Write rbPartType=1 and rbPartTypeSub to the part's custom properties
             if (_currentDoc != null)
             {
-                SolidWorksApiWrapper.AddCustomProperty(_currentDoc, "rbPartType",
+                SwPropertyHelper.AddCustomProperty(_currentDoc, "rbPartType",
                     swCustomInfoType_e.swCustomInfoNumber, "1", "");
-                SolidWorksApiWrapper.AddCustomProperty(_currentDoc, "rbPartTypeSub",
+                SwPropertyHelper.AddCustomProperty(_currentDoc, "rbPartTypeSub",
                     swCustomInfoType_e.swCustomInfoNumber, ((int)typeOverride).ToString(), "");
-                SolidWorksApiWrapper.SaveDocument(_currentDoc);
+                SwDocumentHelper.SaveDocument(_currentDoc);
             }
 
             // Mark as resolved - it's classified now
@@ -526,7 +445,7 @@ namespace NM.SwAddin.UI
                 if (model == null || !string.Equals(model.GetPathName(), item.FilePath, StringComparison.OrdinalIgnoreCase))
                 {
                     int errs = 0, warns = 0;
-                    model = _swApp.OpenDoc6(item.FilePath, GuessDocType(item.FilePath), 0, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
+                    model = _swApp.OpenDoc6(item.FilePath, SwDocumentHelper.GuessDocType(item.FilePath), 0, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
                 }
 
                 if (model == null)
@@ -613,7 +532,7 @@ namespace NM.SwAddin.UI
                 string reason = item.ProblemDescription ?? "Unknown";
                 string value = $"{reason} [Skipped {DateTime.Now:yyyy-MM-dd HH:mm}]";
 
-                SolidWorksApiWrapper.AddCustomProperty(
+                SwPropertyHelper.AddCustomProperty(
                     _currentDoc,
                     "NM_SkippedReason",
                     swCustomInfoType_e.swCustomInfoText,
@@ -640,15 +559,6 @@ namespace NM.SwAddin.UI
             SaveAndCloseCurrentPart();
             SelectedAction = ProblemAction.Cancel;
             Close();
-        }
-
-        private static int GuessDocType(string path)
-        {
-            var ext = (Path.GetExtension(path) ?? "").ToLowerInvariant();
-            if (ext == ".sldprt") return (int)swDocumentTypes_e.swDocPART;
-            if (ext == ".sldasm") return (int)swDocumentTypes_e.swDocASSEMBLY;
-            if (ext == ".slddrw") return (int)swDocumentTypes_e.swDocDRAWING;
-            return (int)swDocumentTypes_e.swDocPART;
         }
 
         #region Tube Diagnostics

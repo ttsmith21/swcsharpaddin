@@ -48,7 +48,7 @@ namespace NM.SwAddin.Pipeline
                 }
 
                 // Basic geometry sanity check
-                var body = SolidWorksApiWrapper.GetMainBody(doc);
+                var body = SwGeometryHelper.GetMainBody(doc);
                 if (body == null)
                 {
                     return new RunResult { Success = false, Message = "No solid body detected" };
@@ -198,10 +198,10 @@ namespace NM.SwAddin.Pipeline
                 // ====== PURCHASED/OVERRIDE EARLY-OUT ======
                 // If part has rbPartType=1 (set by user via PUR/MACH/CUST buttons or pre-existing),
                 // skip the entire classification pipeline. These are known non-fabricated parts.
-                string rbPartTypeEarly = SolidWorksApiWrapper.GetCustomPropertyValue(doc, "rbPartType");
+                string rbPartTypeEarly = SwPropertyHelper.GetCustomPropertyValue(doc, "rbPartType");
                 if (rbPartTypeEarly == "1")
                 {
-                    string rbSubVal = SolidWorksApiWrapper.GetCustomPropertyValue(doc, "rbPartTypeSub");
+                    string rbSubVal = SwPropertyHelper.GetCustomPropertyValue(doc, "rbPartTypeSub");
                     pd.Classification = PartType.Purchased;
                     pd.IsPurchased = true;
                     pd.Extra["rbPartType"] = "1";
@@ -215,7 +215,7 @@ namespace NM.SwAddin.Pipeline
                     ErrorHandler.DebugLog($"[SMDBG] rbPartType=1 detected (sub={rbSubVal}) - skipping classification, work center={pd.Cost.OP20_WorkCenter}");
 
                     // Still collect mass for material costing
-                    var purchMass = SolidWorksApiWrapper.GetModelMass(doc);
+                    var purchMass = SwMassPropertiesHelper.GetModelMass(doc);
                     if (purchMass >= 0) pd.Mass_kg = purchMass;
                     pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
                     pd.Status = ProcessingStatus.Success;
@@ -484,7 +484,7 @@ namespace NM.SwAddin.Pipeline
                 if (pd.Classification == PartType.Unknown) pd.Classification = PartType.Generic;
 
                 // Mass (kg)
-                var mass = SolidWorksApiWrapper.GetModelMass(doc);
+                var mass = SwMassPropertiesHelper.GetModelMass(doc);
                 if (mass >= 0) pd.Mass_kg = mass;
 
                 // Bounding box (inches -> meters)

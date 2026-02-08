@@ -35,7 +35,7 @@ namespace NM.SwAddin.Properties
                 // 1) Global properties
                 if (includeGlobal)
                 {
-                    if (SolidWorksApiWrapper.GetCustomProperties(model, "", out var names, out var types, out var values))
+                    if (SwPropertyHelper.GetCustomProperties(model, "", out var names, out var types, out var values))
                     {
                         OverlayIntoCache(cache, names, types, values);
                     }
@@ -45,7 +45,7 @@ namespace NM.SwAddin.Properties
                 string cfg = info.ConfigurationName ?? string.Empty;
                 if (includeConfig && !string.IsNullOrWhiteSpace(cfg))
                 {
-                    if (SolidWorksApiWrapper.GetCustomProperties(model, cfg, out var names, out var types, out var values))
+                    if (SwPropertyHelper.GetCustomProperties(model, cfg, out var names, out var types, out var values))
                     {
                         OverlayIntoCache(cache, names, types, values);
                     }
@@ -116,15 +116,15 @@ namespace NM.SwAddin.Properties
                         case PropertyState.Added:
                         case PropertyState.Modified:
                             if (writeGlobal)
-                                SolidWorksApiWrapper.AddCustomProperty(model, name, (swCustomInfoType_e)swType, value, "");
+                                SwPropertyHelper.AddCustomProperty(model, name, (swCustomInfoType_e)swType, value, "");
                             if (writeConfig && !string.IsNullOrWhiteSpace(cfgName))
-                                SolidWorksApiWrapper.AddCustomProperty(model, name, (swCustomInfoType_e)swType, value, cfgName);
+                                SwPropertyHelper.AddCustomProperty(model, name, (swCustomInfoType_e)swType, value, cfgName);
                             break;
                         case PropertyState.Deleted:
                             if (writeGlobal)
-                                SolidWorksApiWrapper.DeleteCustomProperty(model, name, "");
+                                SwPropertyHelper.DeleteCustomProperty(model, name, "");
                             if (writeConfig && !string.IsNullOrWhiteSpace(cfgName))
-                                SolidWorksApiWrapper.DeleteCustomProperty(model, name, cfgName);
+                                SwPropertyHelper.DeleteCustomProperty(model, name, cfgName);
                             break;
                     }
                 }

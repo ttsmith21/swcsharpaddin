@@ -177,7 +177,7 @@ namespace NM.SwAddin.UI
             try
             {
                 int errs = 0, warns = 0;
-                int docType = GuessDocType(item.FilePath);
+                int docType = SwDocumentHelper.GuessDocType(item.FilePath);
 
                 // Open visibly
                 var model = _swApp.OpenDoc6(item.FilePath, docType, 0, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
@@ -213,7 +213,7 @@ namespace NM.SwAddin.UI
             try
             {
                 int errs = 0, warns = 0;
-                int docType = GuessDocType(item.FilePath);
+                int docType = SwDocumentHelper.GuessDocType(item.FilePath);
 
                 // Try to get already-open doc first
                 var model = _swApp.ActiveDoc as IModelDoc2;
@@ -256,15 +256,6 @@ namespace NM.SwAddin.UI
             {
                 _lblStatus.Text = $"Retry failed: {ex.Message}";
             }
-        }
-
-        private static int GuessDocType(string path)
-        {
-            var ext = (Path.GetExtension(path) ?? "").ToLowerInvariant();
-            if (ext == ".sldprt") return (int)swDocumentTypes_e.swDocPART;
-            if (ext == ".sldasm") return (int)swDocumentTypes_e.swDocASSEMBLY;
-            if (ext == ".slddrw") return (int)swDocumentTypes_e.swDocDRAWING;
-            return (int)swDocumentTypes_e.swDocPART;
         }
 
         private void OnRetrySelected(object sender, EventArgs e)
@@ -365,15 +356,15 @@ namespace NM.SwAddin.UI
                     try
                     {
                         int errs = 0, warns = 0;
-                        int docType = GuessDocType(item.FilePath);
+                        int docType = SwDocumentHelper.GuessDocType(item.FilePath);
                         var model = _swApp.OpenDoc6(item.FilePath, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
                         if (model != null && errs == 0)
                         {
-                            SolidWorksApiWrapper.AddCustomProperty(model, "rbPartType",
+                            SwPropertyHelper.AddCustomProperty(model, "rbPartType",
                                 swCustomInfoType_e.swCustomInfoNumber, "1", "");
-                            SolidWorksApiWrapper.AddCustomProperty(model, "rbPartTypeSub",
+                            SwPropertyHelper.AddCustomProperty(model, "rbPartTypeSub",
                                 swCustomInfoType_e.swCustomInfoNumber, ((int)typeOverride).ToString(), "");
-                            SolidWorksApiWrapper.SaveDocument(model);
+                            SwDocumentHelper.SaveDocument(model);
                         }
                     }
                     catch (Exception ex)

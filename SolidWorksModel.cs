@@ -40,7 +40,7 @@ namespace NM.SwAddin
 
                 swDocumentTypes_e type = GetDocumentType();
                 int err, warn;
-                Document = SolidWorksApiWrapper.OpenDocument(Application, Info.FilePath, type, swOpenDocOptions_e.swOpenDocOptions_Silent, out err, out warn);
+                Document = SwDocumentHelper.OpenDocument(Application, Info.FilePath, type, swOpenDocOptions_e.swOpenDocOptions_Silent, out err, out warn);
                 if (Document == null)
                 {
                     Info.CurrentState = ModelInfo.ModelState.Problem;
@@ -72,7 +72,7 @@ namespace NM.SwAddin
                 {
                     if (!OpenDocument()) return false;
                 }
-                bool ok = SolidWorksApiWrapper.SaveDocument(Document, swSaveAsOptions_e.swSaveAsOptions_Silent);
+                bool ok = SwDocumentHelper.SaveDocument(Document, swSaveAsOptions_e.swSaveAsOptions_Silent);
                 if (ok)
                 {
                     Info.CurrentState = ModelInfo.ModelState.Processed;
@@ -97,7 +97,7 @@ namespace NM.SwAddin
             {
                 if (IsDocumentOpen)
                 {
-                    SolidWorksApiWrapper.CloseDocument(Application, Document);
+                    SwDocumentHelper.CloseDocument(Application, Document);
                     Document = null;
                     Info.CurrentState = ModelInfo.ModelState.Idle;
                 }
@@ -150,7 +150,7 @@ namespace NM.SwAddin
 
                 string config = Info.ConfigurationName ?? string.Empty;
                 ErrorHandler.DebugLog($"Loading properties from config '{config}' (empty = document-level) for '{Document?.GetTitle()}'");
-                if (!SolidWorksApiWrapper.GetCustomProperties(Document, config, out var names, out var types, out var values))
+                if (!SwPropertyHelper.GetCustomProperties(Document, config, out var names, out var types, out var values))
                 {
                     Info.CurrentState = ModelInfo.ModelState.Problem;
                     Info.ProblemDescription = "Failed to retrieve properties";
@@ -215,16 +215,16 @@ namespace NM.SwAddin
                     {
                         case PropertyState.Added:
                             ErrorHandler.DebugLog($"Add prop '{name}'='{val}'");
-                            ok &= SolidWorksApiWrapper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, config);
+                            ok &= SwPropertyHelper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, config);
                             break;
                         case PropertyState.Modified:
                             // VBA pattern: Always delete-then-add for reliability
                             ErrorHandler.DebugLog($"Modify prop '{name}'='{val}' (using delete+add)");
-                            ok &= SolidWorksApiWrapper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, config);
+                            ok &= SwPropertyHelper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, config);
                             break;
                         case PropertyState.Deleted:
                             ErrorHandler.DebugLog($"Delete prop '{name}'");
-                            ok &= SolidWorksApiWrapper.DeleteCustomProperty(Document, name, config);
+                            ok &= SwPropertyHelper.DeleteCustomProperty(Document, name, config);
                             break;
                     }
                 }
@@ -243,7 +243,7 @@ namespace NM.SwAddin
                 var path = Document?.GetPathName() ?? string.Empty;
                 if (!string.IsNullOrWhiteSpace(path))
                 {
-                    if (!SolidWorksApiWrapper.SaveDocument(Document, swSaveAsOptions_e.swSaveAsOptions_Silent))
+                    if (!SwDocumentHelper.SaveDocument(Document, swSaveAsOptions_e.swSaveAsOptions_Silent))
                     {
                         Info.CurrentState = ModelInfo.ModelState.Problem;
                         Info.ProblemDescription = "Failed to save document";
@@ -278,7 +278,7 @@ namespace NM.SwAddin
         {
             if (IsDocumentOpen)
             {
-                SolidWorksApiWrapper.ForceRebuildDoc(Document);
+                SwDocumentHelper.ForceRebuildDoc(Document);
             }
         }
 
