@@ -182,49 +182,6 @@ namespace NM.Core
             }
         }
 
-        /// <summary>
-        /// Back-compat overload using string severity (5 args). Maps to LogLevel and forwards to the new overload.
-        /// </summary>
-        [Obsolete("Use LogLevel overload of HandleError")]
-        public static void HandleError(
-            string procedureName,
-            string errorDesc,
-            Exception ex,
-            string severity,
-            string context)
-        {
-            var level = MapSeverity(severity);
-            HandleError(procedureName, errorDesc, ex, level, context);
-        }
-
-        /// <summary>
-        /// Back-compat overload using string severity (4 args). Maps to LogLevel and forwards to the new overload.
-        /// </summary>
-        [Obsolete("Use LogLevel overload of HandleError")]
-        public static void HandleError(
-            string procedureName,
-            string errorDesc,
-            Exception ex,
-            string severity)
-        {
-            var level = MapSeverity(severity);
-            HandleError(procedureName, errorDesc, ex, level, "");
-        }
-
-        private static LogLevel MapSeverity(string severity)
-        {
-            var s = severity?.Trim().ToLowerInvariant();
-            switch (s)
-            {
-                case "info": return LogLevel.Info;
-                case "warning":
-                case "warn": return LogLevel.Warning;
-                case "critical": return LogLevel.Critical;
-                case "error":
-                default: return LogLevel.Error;
-            }
-        }
-
         /// <summary>Returns the current call stack depth for performance tracking.</summary>
         public static int CallStackDepth
         {

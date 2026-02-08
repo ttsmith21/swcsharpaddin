@@ -171,25 +171,6 @@ namespace NM.SwAddin
         }
 
         /// <summary>
-        /// Validates that a double value falls within a specified range.
-        /// </summary>
-        /// <param name="value">The value to validate.</param>
-        /// <param name="min">The minimum allowed value (inclusive).</param>
-        /// <param name="max">The maximum allowed value (inclusive).</param>
-        /// <param name="procedureName">The name of the calling procedure for error context.</param>
-        /// <param name="paramName">The name of the parameter for the error message.</param>
-        /// <returns>True if the value is in range, false otherwise.</returns>
-        public static bool ValidateDoubleRange(double value, double min, double max, string procedureName, string paramName = "value")
-        {
-            if (value < min || value > max)
-            {
-                ErrorHandler.HandleError(procedureName, $"{paramName} out of range [{min}..{max}]");
-                return false;
-            }
-            return true;
-        }
-
-        /// <summary>
         /// Validates that a configuration exists in the specified model.
         /// </summary>
         /// <param name="swModel">The model to check.</param>
@@ -1060,17 +1041,6 @@ namespace NM.SwAddin
             }
         }
 
-        /// <summary>
-        /// Validates configuration name contains only legal characters.
-        /// </summary>
-        /// <param name="configName">The name to validate.</param>
-        /// <returns>True if name is valid, false if contains illegal chars.</returns>
-        public static bool IsValidConfigName(string configName)
-        {
-            const string illegalChars = "/\\:*?\"<>|";
-            return !string.IsNullOrEmpty(configName) && 
-                   configName.IndexOfAny(illegalChars.ToCharArray()) == -1;
-        }
         #endregion
 
         #region Material Methods
