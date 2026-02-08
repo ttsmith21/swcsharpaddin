@@ -823,7 +823,7 @@ namespace NM.SwAddin
 
         private static double SafeGetVolume(IModelDoc2 model)
         {
-            try { return SolidWorksApiWrapper.GetModelVolume(model); } catch { return 0.0; }
+            try { return SwMassPropertiesHelper.GetModelVolume(model); } catch { return 0.0; }
         }
 
         private static void Fail(ModelInfo info, string reason, Exception ex = null)

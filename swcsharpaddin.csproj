@@ -83,6 +83,8 @@
     <Compile Include="SwPropertyHelper.cs" />
     <Compile Include="SwGeometryHelper.cs" />
     <Compile Include="SwDocumentHelper.cs" />
+    <Compile Include="SwSketchHelper.cs" />
+    <Compile Include="SwMassPropertiesHelper.cs" />
     <Compile Include="SolidWorksFileOperations.cs" />
     <Compile Include="SolidWorksModel.cs" />
     <Compile Include="SwAddin.cs" />
@@ -203,6 +205,7 @@
     <Compile Include="src\NM.Core\Configuration\Sections\ProcessingDefaults.cs" />
     <Compile Include="src\NM.Core\Configuration\Tables\NmTables.cs" />
     <Compile Include="src\NM.Core\Configuration\Tables\NmTablesProvider.cs" />
+    <Compile Include="src\NM.SwAddin\UI\ProblemSuggestionProvider.cs" />
     <Compile Include="src\NM.SwAddin\UI\ProblemWizardForm.cs">
       <SubType>Form</SubType>
     </Compile>

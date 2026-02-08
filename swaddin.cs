@@ -774,10 +774,10 @@ namespace swcsharpaddin
                     // Sketch: On Top Plane, draw a short line, then exit
                     try
                     {
-                        if (SolidWorksApiWrapper.StartSketchOnPlane(doc, "Top Plane"))
+                        if (SwSketchHelper.StartSketchOnPlane(doc, "Top Plane"))
                         {
-                            var seg = SolidWorksApiWrapper.CreateSketchLine(doc, 0, 0, 0.02, 0.02);
-                            bool ended = SolidWorksApiWrapper.EndSketch(doc);
+                            var seg = SwSketchHelper.CreateSketchLine(doc, 0, 0, 0.02, 0.02);
+                            bool ended = SwSketchHelper.EndSketch(doc);
                             sb.AppendLine($"Sketch: line={(seg != null ? "OK" : "FAIL")}, end={(ended ? "OK" : "FAIL")}");
                         }
                         else

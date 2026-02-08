@@ -74,7 +74,7 @@ namespace NM.SwAddin.Manufacturing
 
             try
             {
-                if (SolidWorksApiWrapper.GetAllMassProperties(doc, out var massKg, out var volM3, out var _, out var __, out var ___))
+                if (SwMassPropertiesHelper.GetAllMassProperties(doc, out var massKg, out var volM3, out var _, out var __, out var ___))
                 {
                     pm.MassKg = massKg;
                     pm.VolumeM3 = volM3;

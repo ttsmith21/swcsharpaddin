@@ -215,7 +215,7 @@ namespace NM.SwAddin.Pipeline
                     ErrorHandler.DebugLog($"[SMDBG] rbPartType=1 detected (sub={rbSubVal}) - skipping classification, work center={pd.Cost.OP20_WorkCenter}");
 
                     // Still collect mass for material costing
-                    var purchMass = SolidWorksApiWrapper.GetModelMass(doc);
+                    var purchMass = SwMassPropertiesHelper.GetModelMass(doc);
                     if (purchMass >= 0) pd.Mass_kg = purchMass;
                     pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
                     pd.Status = ProcessingStatus.Success;
@@ -433,7 +433,7 @@ namespace NM.SwAddin.Pipeline
                 if (pd.Classification == PartType.Unknown) pd.Classification = PartType.Generic;
 
                 // Mass (kg)
-                var mass = SolidWorksApiWrapper.GetModelMass(doc);
+                var mass = SwMassPropertiesHelper.GetModelMass(doc);
                 if (mass >= 0) pd.Mass_kg = mass;
 
                 // Bounding box (inches -> meters)
