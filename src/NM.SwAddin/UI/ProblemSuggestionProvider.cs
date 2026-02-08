@@ -92,8 +92,8 @@ namespace NM.SwAddin.UI
                     break;
 
                 case ProblemPartManager.ProblemCategory.NestingEfficiencyOverride:
-                    list.Add("Part fills less than 80% of its bounding rectangle (high scrap ratio)");
-                    list.Add("Weight calculation switched from 80% nesting efficiency to bounding-box L\u00d7W mode");
+                    list.Add("Part fills less than 50% of its bounding rectangle (high scrap ratio)");
+                    list.Add("Weight calculation switched from default nesting efficiency to bounding-box L\u00d7W mode");
                     list.Add("Click 'Revert to 80%' if this part nests well with other parts on the same sheet");
                     list.Add("Otherwise, accept the override for a more accurate material estimate");
                     break;

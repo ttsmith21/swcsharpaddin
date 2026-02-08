@@ -894,18 +894,30 @@ namespace NM.SwAddin.Pipeline
                             evalResult.BlankWidthIn.ToString("F3", System.Globalization.CultureInfo.InvariantCulture),
                             CustomPropertyType.Number);
 
+                        // Write directly to SW document at GLOBAL scope so Tab Builder sees them.
+                        // SavePropertiesToSolidWorks writes to config scope, but Tab Builder
+                        // reads from global (ApplyTo="Global" in the XML template).
+                        string blankLStr = evalResult.BlankLengthIn.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+                        string blankWStr = evalResult.BlankWidthIn.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
+                        SwPropertyHelper.AddCustomProperty(doc, "rbWeightCalc",
+                            swCustomInfoType_e.swCustomInfoText, "1", "");
+                        SwPropertyHelper.AddCustomProperty(doc, "Length",
+                            swCustomInfoType_e.swCustomInfoNumber, blankLStr, "");
+                        SwPropertyHelper.AddCustomProperty(doc, "Width",
+                            swCustomInfoType_e.swCustomInfoNumber, blankWStr, "");
+
                         // Store the computed efficiency for diagnostics
                         pd.Extra["NestingEfficiency_BBox"] = evalResult.BBoxEfficiencyPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
                         pd.Extra["NestingEfficiency_Override"] = "true";
 
-                        ErrorHandler.DebugLog($"[NEST] Auto-override: bbox efficiency {evalResult.BBoxEfficiencyPercent:F1}% < 80%. " +
+                        ErrorHandler.DebugLog($"[NEST] Auto-override: bbox efficiency {evalResult.BBoxEfficiencyPercent:F1}% < 50%. " +
                             $"Blank: {evalResult.BlankLengthIn:F2}\" x {evalResult.BlankWidthIn:F2}\". Switched to L×W mode.");
 
                         // Flag for user review via problem parts workflow
                         ProblemPartManager.Instance.AddProblemPart(
                             info.FilePath, info.ConfigurationName, string.Empty,
                             $"Nesting efficiency auto-override: bounding-box efficiency is {evalResult.BBoxEfficiencyPercent:F1}% " +
-                            $"(below default 80%). Switched to L×W mode ({evalResult.BlankLengthIn:F2}\" × {evalResult.BlankWidthIn:F2}\"). " +
+                            $"(below 50% threshold). Switched to L×W mode ({evalResult.BlankLengthIn:F2}\" × {evalResult.BlankWidthIn:F2}\"). " +
                             $"Revert if this part nests with others on the sheet.",
                             ProblemPartManager.ProblemCategory.NestingEfficiencyOverride);
                     }

@@ -15,6 +15,7 @@ namespace NM.Core.Manufacturing
         public static double BorderInches { get; set; } = 0.25;
 
         private const double DEFAULT_NEST_EFFICIENCY = 80.0; // percent
+        private const double OVERRIDE_THRESHOLD = 50.0; // percent — only flag parts below this
 
         public sealed class EvalResult
         {
@@ -38,8 +39,8 @@ namespace NM.Core.Manufacturing
         }
 
         /// <summary>
-        /// Evaluates whether the bounding-box efficiency is below the default 80%
-        /// threshold and the user has not customised the weight-calc settings.
+        /// Evaluates whether the bounding-box efficiency is below the override threshold
+        /// (50%) and the user has not customised the weight-calc settings.
         /// </summary>
         /// <param name="partMassLb">Finished part mass in pounds.</param>
         /// <param name="bboxLengthIn">Flat-pattern bounding-box length in inches (already ≥ width).</param>
@@ -95,16 +96,16 @@ namespace NM.Core.Manufacturing
             double bboxEfficiency = (partMassLb / blankWeightLb) * 100.0;
             result.BBoxEfficiencyPercent = bboxEfficiency;
 
-            if (bboxEfficiency < DEFAULT_NEST_EFFICIENCY)
+            if (bboxEfficiency < OVERRIDE_THRESHOLD)
             {
                 result.ShouldOverride = true;
-                result.Reason = $"Bounding-box efficiency {bboxEfficiency:F1}% is below default {DEFAULT_NEST_EFFICIENCY:F0}%. " +
+                result.Reason = $"Bounding-box efficiency {bboxEfficiency:F1}% is below override threshold {OVERRIDE_THRESHOLD:F0}%. " +
                                 $"Blank size: {blankL:F2}\" x {blankW:F2}\". " +
                                 $"Switching to L×W mode to avoid underestimating material cost.";
             }
             else
             {
-                result.Reason = $"Bounding-box efficiency {bboxEfficiency:F1}% meets or exceeds default {DEFAULT_NEST_EFFICIENCY:F0}%. No override needed.";
+                result.Reason = $"Bounding-box efficiency {bboxEfficiency:F1}% meets or exceeds override threshold {OVERRIDE_THRESHOLD:F0}%. No override needed.";
             }
 
             return result;
