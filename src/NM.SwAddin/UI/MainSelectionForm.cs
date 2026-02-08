@@ -38,7 +38,7 @@ namespace NM.SwAddin.UI
         private TextBox txtKFactor;
 
         // Output Options
-        private CheckBox chkCreateDXF, chkCreateDrawing, chkReport, chkSolidWorksVisible;
+        private CheckBox chkCreateDXF, chkCreateDrawing, chkReport, chkErpExport, chkSolidWorksVisible;
 
         // Advanced Settings
         private ComboBox cboMode;
@@ -185,9 +185,10 @@ namespace NM.SwAddin.UI
             chkCreateDXF = new CheckBox { Text = "Create DXF", Left = 15, Top = 20, AutoSize = true };
             chkCreateDrawing = new CheckBox { Text = "Create Drawing", Left = 120, Top = 20, AutoSize = true };
             chkReport = new CheckBox { Text = "Report", Left = 250, Top = 20, AutoSize = true, Checked = true };
-            chkSolidWorksVisible = new CheckBox { Text = "SolidWorks Visible", Left = 340, Top = 20, AutoSize = true };
+            chkErpExport = new CheckBox { Text = "ERP Export", Left = 340, Top = 20, AutoSize = true, Checked = true };
+            chkSolidWorksVisible = new CheckBox { Text = "SW Visible", Left = 450, Top = 20, AutoSize = true };
 
-            gbOutput.Controls.AddRange(new Control[] { chkCreateDXF, chkCreateDrawing, chkReport, chkSolidWorksVisible });
+            gbOutput.Controls.AddRange(new Control[] { chkCreateDXF, chkCreateDrawing, chkReport, chkErpExport, chkSolidWorksVisible });
             Controls.Add(gbOutput);
             y += 58;
 
@@ -378,6 +379,7 @@ namespace NM.SwAddin.UI
             o.CreateDXF = chkCreateDXF.Checked;
             o.CreateDrawing = chkCreateDrawing.Checked;
             o.GenerateReport = chkReport.Checked;
+            o.GenerateErpExport = chkErpExport.Checked;
             o.SolidworksVisible = chkSolidWorksVisible.Checked;
 
             // Advanced Settings

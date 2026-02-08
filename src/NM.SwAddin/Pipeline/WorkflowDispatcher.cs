@@ -51,6 +51,8 @@ namespace NM.SwAddin.Pipeline
             options = options ?? new ProcessingOptions();
             _options = options;
             var context = new WorkflowContext();
+            context.GenerateErpExport = options.GenerateErpExport;
+            context.Customer = options.Customer ?? "";
             context.StartTiming();
 
             try
