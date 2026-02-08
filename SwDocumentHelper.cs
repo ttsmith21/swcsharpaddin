@@ -196,5 +196,16 @@ namespace NM.SwAddin
                 ErrorHandler.PopCallStack();
             }
         }
+        /// <summary>
+        /// Determines the SolidWorks document type from a file extension.
+        /// </summary>
+        public static int GuessDocType(string path)
+        {
+            var ext = (System.IO.Path.GetExtension(path) ?? "").ToLowerInvariant();
+            if (ext == ".sldprt") return (int)swDocumentTypes_e.swDocPART;
+            if (ext == ".sldasm") return (int)swDocumentTypes_e.swDocASSEMBLY;
+            if (ext == ".slddrw") return (int)swDocumentTypes_e.swDocDRAWING;
+            return (int)swDocumentTypes_e.swDocPART;
+        }
     }
 }

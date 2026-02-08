@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using NM.Core.Processing;
@@ -125,31 +124,7 @@ namespace NM.SwAddin.UI
 
         private void LoadSuggestions()
         {
-            var suggestions = new List<string>();
-            switch (_item.Category)
-            {
-                case ProblemPartManager.ProblemCategory.SheetMetalConversion:
-                    suggestions.Add("� Check if part has uniform thickness");
-                    suggestions.Add("� Verify parallel faces exist");
-                    suggestions.Add("� Ensure no complex features prevent conversion");
-                    break;
-                case ProblemPartManager.ProblemCategory.MaterialMissing:
-                    suggestions.Add("� Open part and assign material");
-                    suggestions.Add("� Check material database is accessible");
-                    break;
-                case ProblemPartManager.ProblemCategory.FileAccess:
-                    suggestions.Add("� Verify file exists at path");
-                    suggestions.Add("� Check file is not read-only");
-                    suggestions.Add("� Ensure file is not open in another session");
-                    break;
-                case ProblemPartManager.ProblemCategory.Lightweight:
-                    suggestions.Add("� Open assembly and resolve component");
-                    suggestions.Add("� Check if Large Assembly Mode is enabled");
-                    break;
-                default:
-                    suggestions.Add("� Review part manually and adjust settings");
-                    break;
-            }
+            var suggestions = ProblemSuggestionProvider.GetSuggestions(_item.Category, _item.ProblemDescription);
             _lstSuggestions.Items.Clear();
             _lstSuggestions.Items.AddRange(suggestions.Cast<object>().ToArray());
         }
@@ -165,7 +140,7 @@ namespace NM.SwAddin.UI
                     return;
                 }
                 int errs = 0, warns = 0;
-                int docType = GuessDocType(_item.FilePath);
+                int docType = SwDocumentHelper.GuessDocType(_item.FilePath);
 
                 // Open without Silent flag so it displays properly
                 var model = sw.OpenDoc6(_item.FilePath, docType, 0, _item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
@@ -203,7 +178,7 @@ namespace NM.SwAddin.UI
             try
             {
                 int errs = 0, warns = 0;
-                int docType = GuessDocType(_item.FilePath);
+                int docType = SwDocumentHelper.GuessDocType(_item.FilePath);
                 if (docType != (int)swDocumentTypes_e.swDocPART)
                 {
                     MessageBox.Show(this, "Confirm Fix supports parts only. Open individual part and retry.", "Info", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -252,19 +227,6 @@ namespace NM.SwAddin.UI
             }
         }
 
-        private static int GuessDocType(string path)
-        {
-            try
-            {
-                var ext = (Path.GetExtension(path) ?? string.Empty).ToLowerInvariant();
-                if (ext == ".sldprt") return (int)swDocumentTypes_e.swDocPART;
-                if (ext == ".sldasm") return (int)swDocumentTypes_e.swDocASSEMBLY;
-                if (ext == ".slddrw") return (int)swDocumentTypes_e.swDocDRAWING;
-            }
-            catch { }
-            return (int)swDocumentTypes_e.swDocPART;
-        }
-
         #region Tube Diagnostic Event Handlers
 
         private bool EnsurePartOpenAndExtractDiagnostics()
@@ -285,7 +247,7 @@ namespace NM.SwAddin.UI
                 if (_openedModel == null || !string.Equals(_openedModel.GetPathName(), _item.FilePath, StringComparison.OrdinalIgnoreCase))
                 {
                     int errs = 0, warns = 0;
-                    int docType = GuessDocType(_item.FilePath);
+                    int docType = SwDocumentHelper.GuessDocType(_item.FilePath);
                     if (docType != (int)swDocumentTypes_e.swDocPART)
                     {
                         _lblDiagStatus.Text = "Tube diagnostics only work on parts.";
