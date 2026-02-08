@@ -209,6 +209,17 @@
     <Compile Include="src\NM.SwAddin\UI\ProblemWizardForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <!-- PDF Drawing Analysis (Phase 1) -->
+    <Compile Include="src\NM.Core\Pdf\Models\DrawingData.cs" />
+    <Compile Include="src\NM.Core\Pdf\Models\DrawingNote.cs" />
+    <Compile Include="src\NM.Core\Pdf\Models\BomEntry.cs" />
+    <Compile Include="src\NM.Core\Pdf\Models\GdtCallout.cs" />
+    <Compile Include="src\NM.Core\Pdf\Models\RoutingHint.cs" />
+    <Compile Include="src\NM.Core\Pdf\Models\TitleBlockInfo.cs" />
+    <Compile Include="src\NM.Core\Pdf\PdfTextExtractor.cs" />
+    <Compile Include="src\NM.Core\Pdf\TitleBlockParser.cs" />
+    <Compile Include="src\NM.Core\Pdf\DrawingNoteExtractor.cs" />
+    <Compile Include="src\NM.Core\Pdf\PdfDrawingAnalyzer.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->
@@ -250,6 +261,8 @@
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
+    <!-- PDF Analysis -->
+    <PackageReference Include="UglyToad.PdfPig" Version="0.1.9" />
     <!-- Static Analyzers -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.12.0">
