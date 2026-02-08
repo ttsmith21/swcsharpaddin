@@ -260,6 +260,8 @@
     <Compile Include="src\NM.SwAddin\Pipeline\BatchAnalysisRunner.cs" />
     <!-- Spec/Standard Recognition Database -->
     <Compile Include="src\NM.Core\Pdf\SpecRecognizer.cs" />
+    <!-- Tolerance Analysis (general, specific, surface finish, cost flags) -->
+    <Compile Include="src\NM.Core\Pdf\ToleranceAnalyzer.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->

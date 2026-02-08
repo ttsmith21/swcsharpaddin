@@ -44,6 +44,9 @@ namespace NM.Core.Pdf.Models
         // Recognized specifications (ASTM, AMS, MIL-SPEC, AWS, etc.)
         public List<SpecMatch> RecognizedSpecs { get; } = new List<SpecMatch>();
 
+        // Tolerance analysis results (general, specific, surface finish, cost flags)
+        public ToleranceAnalysisResult ToleranceAnalysis { get; set; }
+
         // Source tracking
         public string SourcePdfPath { get; set; }
         public int PageCount { get; set; }

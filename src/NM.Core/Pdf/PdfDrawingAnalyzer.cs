@@ -23,6 +23,7 @@ namespace NM.Core.Pdf
         private readonly TitleBlockParser _titleBlockParser;
         private readonly DrawingNoteExtractor _noteExtractor;
         private readonly SpecRecognizer _specRecognizer;
+        private readonly ToleranceAnalyzer _toleranceAnalyzer;
         private readonly IDrawingVisionService _visionService;
 
         /// <summary>
@@ -42,6 +43,7 @@ namespace NM.Core.Pdf
             _titleBlockParser = new TitleBlockParser();
             _noteExtractor = new DrawingNoteExtractor();
             _specRecognizer = new SpecRecognizer();
+            _toleranceAnalyzer = new ToleranceAnalyzer();
             _visionService = visionService ?? new OfflineVisionService();
         }
 
@@ -157,6 +159,14 @@ namespace NM.Core.Pdf
 
                     // Store recognized specs for downstream use
                     result.RecognizedSpecs.AddRange(specMatches);
+                }
+
+                // Step 3c: Tolerance analysis (general + specific + surface finish)
+                var tolResult = _toleranceAnalyzer.Analyze(result.RawText, result.ToleranceGeneral);
+                result.ToleranceAnalysis = tolResult;
+                if (tolResult.CostFlags.Count > 0)
+                {
+                    result.RoutingHints.AddRange(_toleranceAnalyzer.ToRoutingHints(tolResult));
                 }
 
                 // Step 4: Generate routing hints from notes

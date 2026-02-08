@@ -18,6 +18,7 @@ namespace NM.Core.Pdf
         private readonly TitleBlockParser _titleBlockParser;
         private readonly DrawingNoteExtractor _noteExtractor;
         private readonly SpecRecognizer _specRecognizer;
+        private readonly ToleranceAnalyzer _toleranceAnalyzer;
 
         public DrawingPackageScanner()
         {
@@ -25,6 +26,7 @@ namespace NM.Core.Pdf
             _titleBlockParser = new TitleBlockParser();
             _noteExtractor = new DrawingNoteExtractor();
             _specRecognizer = new SpecRecognizer();
+            _toleranceAnalyzer = new ToleranceAnalyzer();
         }
 
         /// <summary>
@@ -166,6 +168,17 @@ namespace NM.Core.Pdf
             foreach (var hint in hints)
             {
                 pageInfo.RoutingHints.Add(hint);
+            }
+
+            // Tolerance analysis
+            var tolResult = _toleranceAnalyzer.Analyze(page.FullText, titleBlock.ToleranceGeneral);
+            pageInfo.ToleranceAnalysis = tolResult;
+            if (tolResult.CostFlags.Count > 0)
+            {
+                foreach (var tolHint in _toleranceAnalyzer.ToRoutingHints(tolResult))
+                {
+                    pageInfo.RoutingHints.Add(tolHint);
+                }
             }
 
             // Detect BOM presence (indicates assembly-level page)
