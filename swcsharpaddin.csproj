@@ -244,6 +244,15 @@
     <Compile Include="src\NM.Core\Pdf\TitleBlockParser.cs" />
     <Compile Include="src\NM.Core\Pdf\DrawingNoteExtractor.cs" />
     <Compile Include="src\NM.Core\Pdf\PdfDrawingAnalyzer.cs" />
+    <!-- AI Vision Service (Phase 2) -->
+    <Compile Include="src\NM.Core\AI\IDrawingVisionService.cs" />
+    <Compile Include="src\NM.Core\AI\ClaudeVisionService.cs" />
+    <Compile Include="src\NM.Core\AI\OfflineVisionService.cs" />
+    <Compile Include="src\NM.Core\AI\VisionPrompts.cs" />
+    <Compile Include="src\NM.Core\AI\VisionResponseParser.cs" />
+    <Compile Include="src\NM.Core\AI\Models\VisionAnalysisResult.cs" />
+    <Compile Include="src\NM.Core\AI\Models\VisionConfig.cs" />
+    <Compile Include="src\NM.Core\AI\Models\VisionContext.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->
