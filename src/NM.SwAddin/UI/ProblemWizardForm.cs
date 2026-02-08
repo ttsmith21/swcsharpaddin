@@ -25,6 +25,7 @@ namespace NM.SwAddin.UI
     {
         private readonly List<ProblemPartManager.ProblemItem> _problems;
         private readonly List<ProblemPartManager.ProblemItem> _fixedProblems = new List<ProblemPartManager.ProblemItem>();
+        private readonly HashSet<ProblemPartManager.ProblemItem> _reviewedItems = new HashSet<ProblemPartManager.ProblemItem>();
         private readonly ISldWorks _swApp;
         private int _currentIndex;
         private int _initialGoodCount;
@@ -289,15 +290,27 @@ namespace NM.SwAddin.UI
         private void UpdateProgress()
         {
             int total = _problems.Count;
-            int remaining = _problems.Count(p => !_fixedProblems.Contains(p));
+            int reviewed = _reviewedItems.Count;
             int fixedCount = _fixedProblems.Count;
+            int skipped = reviewed - fixedCount;
 
             _progressBar.Maximum = total > 0 ? total : 1;
-            _progressBar.Value = Math.Min(fixedCount, _progressBar.Maximum);
+            _progressBar.Value = Math.Min(reviewed, _progressBar.Maximum);
 
-            _lblFixedCount.Text = $"{fixedCount} / {total} fixed";
-
-            _btnFinish.Text = remaining == 0 ? "Finish" : $"Finish ({_initialGoodCount + fixedCount} ready)";
+            if (reviewed >= total && total > 0)
+            {
+                _lblFixedCount.Text = $"Done: {fixedCount} fixed, {skipped} skipped";
+                _lblStatus.Text = $"All {total} problems reviewed. Click Finish to continue.";
+                _lblStatus.ForeColor = Color.DarkGreen;
+                _btnFinish.Text = "Finish";
+                _btnFinish.BackColor = Color.LightGreen;
+                _btnFinish.Font = new Font(_btnFinish.Font, FontStyle.Bold);
+            }
+            else
+            {
+                _lblFixedCount.Text = $"{reviewed} / {total} reviewed ({fixedCount} fixed)";
+                _btnFinish.Text = $"Finish ({_initialGoodCount + fixedCount} ready)";
+            }
         }
 
         private void DisableActions()
@@ -371,6 +384,7 @@ namespace NM.SwAddin.UI
             var item = _problems[_currentIndex];
 
             var result = ProblemPartActions.ClassifyPart(item, typeOverride, _currentDoc, _fixedProblems);
+            _reviewedItems.Add(item);
 
             _lblStatus.Text = result.Message;
             _txtError.BackColor = Color.LightGoldenrodYellow;
@@ -392,6 +406,7 @@ namespace NM.SwAddin.UI
 
             if (result.Success)
             {
+                _reviewedItems.Add(item);
                 _lblStatus.Text = result.Message;
                 _txtError.BackColor = Color.LightGreen;
                 _txtError.Text = $"Successfully processed as {classification}";
@@ -420,6 +435,7 @@ namespace NM.SwAddin.UI
 
             if (result.Success)
             {
+                _reviewedItems.Add(item);
                 _lblStatus.Text = result.Message;
                 _txtError.BackColor = Color.LightGreen;
                 _txtError.Text = result.Message;
@@ -461,7 +477,7 @@ namespace NM.SwAddin.UI
             }
             else
             {
-                _lblStatus.Text += " - All problems reviewed!";
+                UpdateProgress();
             }
         }
 
@@ -477,6 +493,7 @@ namespace NM.SwAddin.UI
 
             if (result.Success)
             {
+                _reviewedItems.Add(item);
                 _lblStatus.Text = result.Message;
                 _txtError.BackColor = Color.LightGreen;
                 _txtError.Text = "Validation passed!";
@@ -492,7 +509,7 @@ namespace NM.SwAddin.UI
                 }
                 else
                 {
-                    _lblStatus.Text += " - All problems reviewed!";
+                    UpdateProgress();
                 }
             }
             else
@@ -507,17 +524,22 @@ namespace NM.SwAddin.UI
         private void OnSkip(object sender, EventArgs e)
         {
             if (_problems.Count > 0 && _currentIndex < _problems.Count)
-                ProblemPartActions.MarkAsSkipped(_problems[_currentIndex], _currentDoc);
+            {
+                var item = _problems[_currentIndex];
+                ProblemPartActions.MarkAsSkipped(item, _currentDoc);
+                _reviewedItems.Add(item);
+            }
 
             if (_currentIndex < _problems.Count - 1)
             {
+                UpdateProgress();
                 _currentIndex++;
                 LoadCurrentProblem();
             }
             else
             {
                 SaveAndCloseCurrentPart();
-                _lblStatus.Text = "No more problems. Click Finish to continue.";
+                UpdateProgress();
             }
         }
 
@@ -549,6 +571,7 @@ namespace NM.SwAddin.UI
 
                 // Mark as resolved
                 _fixedProblems.Add(item);
+                _reviewedItems.Add(item);
                 ProblemPartManager.Instance.RemoveResolvedPart(item);
 
                 _lblStatus.Text = $"Reverted to 80% efficiency: {item.DisplayName}";
@@ -556,20 +579,7 @@ namespace NM.SwAddin.UI
                 _txtError.Text = "Reverted to default 80% nesting efficiency mode. Part will use standard material estimate.";
 
                 UpdateProgress();
-
-                // Auto-advance
-                if (_currentIndex < _problems.Count - 1)
-                {
-                    _lblStatus.Text += " - Moving to next problem...";
-                    Application.DoEvents();
-                    System.Threading.Thread.Sleep(500);
-                    _currentIndex++;
-                    LoadCurrentProblem();
-                }
-                else
-                {
-                    _lblStatus.Text += " - All problems reviewed!";
-                }
+                AutoAdvance();
             }
             catch (Exception ex)
             {

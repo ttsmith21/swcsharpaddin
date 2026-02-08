@@ -26,6 +26,7 @@ namespace NM.SwAddin.UI
         private ISldWorks _swApp;
         private List<ProblemPartManager.ProblemItem> _problems;
         private readonly List<ProblemPartManager.ProblemItem> _fixedProblems = new List<ProblemPartManager.ProblemItem>();
+        private readonly HashSet<ProblemPartManager.ProblemItem> _reviewedItems = new HashSet<ProblemPartManager.ProblemItem>();
         private int _currentIndex;
         private int _initialGoodCount;
         private IModelDoc2 _currentDoc;
@@ -109,6 +110,7 @@ namespace NM.SwAddin.UI
         {
             _problems = problems ?? new List<ProblemPartManager.ProblemItem>();
             _fixedProblems.Clear();
+            _reviewedItems.Clear();
             _initialGoodCount = initialGoodCount;
             _currentIndex = 0;
             SelectedAction = ProblemAction.Cancel;
@@ -132,6 +134,7 @@ namespace NM.SwAddin.UI
             SaveAndCloseCurrentPart();
             _problems = null;
             _fixedProblems.Clear();
+            _reviewedItems.Clear();
             ShowPlaceholder();
         }
 
@@ -370,7 +373,7 @@ namespace NM.SwAddin.UI
             var item = _problems[_currentIndex];
 
             _lblProgress.Text = $"{_currentIndex + 1} / {_problems.Count}";
-            _lblHeader.Text = $"Problem Parts ({_problems.Count - _fixedProblems.Count} remaining)";
+            _lblHeader.Text = $"Problem Parts ({_problems.Count - _reviewedItems.Count} remaining)";
             _lblFileName.Text = item.DisplayName ?? "(Unknown)";
             _lblConfig.Text = $"Config: {item.Configuration ?? "(default)"}";
             _lblCategory.Text = $"Category: {item.Category}";
@@ -405,12 +408,27 @@ namespace NM.SwAddin.UI
         private void UpdateProgress()
         {
             int total = _problems?.Count ?? 0;
+            int reviewed = _reviewedItems.Count;
             int fixedCount = _fixedProblems.Count;
+            int skipped = reviewed - fixedCount;
 
             _progressBar.Maximum = total > 0 ? total : 1;
-            _progressBar.Value = Math.Min(fixedCount, _progressBar.Maximum);
-            _lblFixedCount.Text = $"{fixedCount} / {total} fixed";
-            _lblHeader.Text = $"Problem Parts ({total - fixedCount} remaining)";
+            _progressBar.Value = Math.Min(reviewed, _progressBar.Maximum);
+
+            if (reviewed >= total && total > 0)
+            {
+                _lblFixedCount.Text = $"Done: {fixedCount} fixed, {skipped} skipped";
+                _lblHeader.Text = "Problem Parts (all reviewed)";
+                _lblStatus.Text = $"All {total} problems reviewed. Click Continue.";
+                _lblStatus.ForeColor = Color.DarkGreen;
+                _btnContinue.BackColor = Color.LightGreen;
+                _btnContinue.Font = new Font(_btnContinue.Font, FontStyle.Bold);
+            }
+            else
+            {
+                _lblFixedCount.Text = $"{reviewed} / {total} reviewed ({fixedCount} fixed)";
+                _lblHeader.Text = $"Problem Parts ({total - reviewed} remaining)";
+            }
 
             int ready = _initialGoodCount + fixedCount;
             _btnContinue.Text = $"Continue ({ready})";
@@ -482,6 +500,7 @@ namespace NM.SwAddin.UI
             var item = _problems[_currentIndex];
 
             var result = ProblemPartActions.ClassifyPart(item, typeOverride, _currentDoc, _fixedProblems);
+            _reviewedItems.Add(item);
             _lblStatus.Text = result.Message;
             _txtError.BackColor = Color.LightGoldenrodYellow;
             _txtError.Text = $"Classified as {typeOverride}";
@@ -502,6 +521,7 @@ namespace NM.SwAddin.UI
 
             if (result.Success)
             {
+                _reviewedItems.Add(item);
                 _lblStatus.Text = result.Message;
                 _txtError.BackColor = Color.LightGreen;
                 _txtError.Text = $"Processed as {classification}";
@@ -530,6 +550,7 @@ namespace NM.SwAddin.UI
 
             if (result.Success)
             {
+                _reviewedItems.Add(item);
                 _lblStatus.Text = result.Message;
                 _txtError.BackColor = Color.LightGreen;
                 _txtError.Text = result.Message;
@@ -571,6 +592,7 @@ namespace NM.SwAddin.UI
 
             if (result.Success)
             {
+                _reviewedItems.Add(item);
                 _lblStatus.Text = result.Message;
                 _txtError.BackColor = Color.LightGreen;
                 _txtError.Text = "Validation passed!";
@@ -589,17 +611,22 @@ namespace NM.SwAddin.UI
         private void OnSkip(object sender, EventArgs e)
         {
             if (_problems != null && _problems.Count > 0 && _currentIndex < _problems.Count)
-                ProblemPartActions.MarkAsSkipped(_problems[_currentIndex], _currentDoc);
+            {
+                var item = _problems[_currentIndex];
+                ProblemPartActions.MarkAsSkipped(item, _currentDoc);
+                _reviewedItems.Add(item);
+            }
 
             if (_currentIndex < _problems.Count - 1)
             {
+                UpdateProgress();
                 _currentIndex++;
                 LoadCurrentProblem();
             }
             else
             {
                 SaveAndCloseCurrentPart();
-                _lblStatus.Text = "No more problems. Click Continue.";
+                UpdateProgress();
             }
         }
 
@@ -629,7 +656,7 @@ namespace NM.SwAddin.UI
             }
             else
             {
-                _lblStatus.Text += " - All reviewed!";
+                UpdateProgress();
             }
         }
 
