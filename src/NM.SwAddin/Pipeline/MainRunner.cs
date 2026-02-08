@@ -580,6 +580,39 @@ namespace NM.SwAddin.Pipeline
                             pd.Extra["CutMetrics_PierceCount"] = cutMetrics.PierceCount.ToString();
                             pd.Extra["CutMetrics_HoleCount"] = cutMetrics.HoleCount.ToString();
                         }
+
+                        // DFM Check: Holes/cutouts too close to bend lines
+                        if (pd.Sheet.BendCount > 0 && pd.Thickness_m > 0 && flatFace != null)
+                        {
+                            try
+                            {
+                                PerformanceTracker.Instance.StartTimer("HoleNearBendAnalysis");
+                                var holeNearBendResult = HoleNearBendAnalyzer.Analyze(
+                                    doc, flatFace, pd.Thickness_m, pd.Material);
+
+                                if (holeNearBendResult.HasViolations)
+                                {
+                                    pd.Extra["HolesNearBends"] = holeNearBendResult.ViolationCount.ToString();
+                                    pd.Extra["HolesNearBends_Detail"] = holeNearBendResult.Violations[0].Description;
+
+                                    ProblemPartManager.Instance.AddProblemPart(
+                                        info.FilePath, info.ConfigurationName, pd.PartName ?? string.Empty,
+                                        $"DFM: {holeNearBendResult.ViolationCount} cutout(s) too close to bend line - {holeNearBendResult.Violations[0].Description}",
+                                        ProblemPartManager.ProblemCategory.ManufacturingWarning);
+
+                                    ErrorHandler.DebugLog($"[SMDBG] Hole-near-bend: {holeNearBendResult.ViolationCount} violation(s)");
+                                }
+                            }
+                            catch (Exception hnbEx)
+                            {
+                                ErrorHandler.HandleError("MainRunner",
+                                    "Hole-near-bend analysis failed", hnbEx, ErrorHandler.LogLevel.Warning);
+                            }
+                            finally
+                            {
+                                PerformanceTracker.Instance.StopTimer("HoleNearBendAnalysis");
+                            }
+                        }
                     }
                 }
                 catch (Exception flatEx)

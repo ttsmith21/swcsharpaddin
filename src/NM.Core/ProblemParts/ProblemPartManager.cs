@@ -28,6 +28,7 @@ namespace NM.Core.ProblemParts
             MixedBody,
             ProcessingError,
             ClassificationFailed,
+            ManufacturingWarning,
             Fatal
         }
 
