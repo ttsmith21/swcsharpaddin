@@ -88,6 +88,31 @@ namespace NM.SwAddin.AssemblyProcessing
             return allResolved;
         }
 
+        /// <summary>
+        /// Fixes (grounds) all floating components in an assembly.
+        /// Components imported from STEP files are often not fixed/grounded.
+        /// </summary>
+        public int FixFloatingComponents(IAssemblyDoc assembly)
+        {
+            var comps = assembly?.GetComponents(false) as object[];
+            if (comps == null) return 0;
+            int fixedCount = 0;
+            foreach (var compObj in comps)
+            {
+                var comp = compObj as IComponent2;
+                if (comp == null || comp.IsSuppressed()) continue;
+                if (!comp.IsFixed())
+                {
+                    comp.Select4(true, null, false);
+                    assembly.FixComponent();
+                    fixedCount++;
+                }
+            }
+            if (fixedCount > 0)
+                ErrorHandler.DebugLog($"[ASSEMBLY] Fixed {fixedCount} floating component(s)");
+            return fixedCount;
+        }
+
         private static T Safe<T>(System.Func<T> f) { try { return f(); } catch { return default(T); } }
     }
 }

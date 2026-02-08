@@ -51,6 +51,9 @@ namespace NM.SwAddin.Pipeline
 
             try
             {
+                // Step 0: Save all unsaved documents before pipeline
+                SaveAllUnsavedDocuments();
+
                 // Step 1: Detect what's open and collect models
                 DetectContext(context);
                 if (context.UserCanceled)
@@ -119,6 +122,14 @@ namespace NM.SwAddin.Pipeline
                         ErrorHandler.DebugLog($"[WORKFLOW]   BatchProblem: {m.FileName} Reason={m.ProblemDescription}");
                     }
                 }
+
+                // Deduplicate problem models (same file+config = one entry)
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                context.ProblemModels.RemoveAll(m =>
+                {
+                    var key = (m.FilePath ?? "") + "|" + (m.Configuration ?? "");
+                    return !seen.Add(key);
+                });
 
                 // Step 3: Show problems if any
                 ErrorHandler.DebugLog($"[WORKFLOW] Before ShowProblemPartsDialog check: ProblemModels.Count={context.ProblemModels.Count}");
@@ -268,6 +279,9 @@ namespace NM.SwAddin.Pipeline
                                 modelInfo.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
                             openedHere = doc != null;
                         }
+
+                        // Set display mode and zoom to fit
+                        PreparePartView(doc);
 
                         var partData = MainRunner.RunSinglePartData(_swApp, doc, options);
                         modelInfo.ProcessingResult = partData;  // Store for cost aggregation
@@ -505,6 +519,11 @@ namespace NM.SwAddin.Pipeline
                 return;
             }
 
+            // Step 0: Resolve lightweight + fix floating components
+            var preprocessor = new AssemblyPreprocessor();
+            preprocessor.EnsureComponentsResolved(assyDoc);
+            preprocessor.FixFloatingComponents(assyDoc);
+
             // Step 1: Get BOM quantities FIRST (the authoritative source)
             PerformanceTracker.Instance.StartTimer("BomQuantification");
             var quantifier = new AssemblyComponentQuantifier();
@@ -681,6 +700,50 @@ namespace NM.SwAddin.Pipeline
         private void ShowMessage(string message, string title)
         {
             MessageBox.Show(message, title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+
+        /// <summary>
+        /// Saves all open documents that have unsaved changes.
+        /// </summary>
+        private void SaveAllUnsavedDocuments()
+        {
+            try
+            {
+                var docs = _swApp.GetDocuments() as object[];
+                if (docs == null) return;
+                int saved = 0;
+                foreach (var docObj in docs)
+                {
+                    var doc = docObj as IModelDoc2;
+                    if (doc != null && doc.GetSaveFlag())
+                    {
+                        SwDocumentHelper.SaveDocument(doc);
+                        saved++;
+                    }
+                }
+                if (saved > 0)
+                    ErrorHandler.DebugLog($"[WORKFLOW] Saved {saved} unsaved document(s) before pipeline start");
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"[WORKFLOW] SaveAll failed: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Sets display mode to Shaded with Edges and zooms to fit.
+        /// </summary>
+        private static void PreparePartView(IModelDoc2 doc)
+        {
+            if (doc == null) return;
+            try
+            {
+                var view = doc.ActiveView as IModelView;
+                if (view != null)
+                    view.DisplayMode = (int)swViewDisplayMode_e.swViewDisplayMode_ShadedWithEdges;
+                doc.ViewZoomtofit2();
+            }
+            catch { }
         }
     }
 

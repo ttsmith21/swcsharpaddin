@@ -79,7 +79,11 @@ namespace NM.Core.ProblemParts
             {
                 existing.RetryCount = Math.Max(existing.RetryCount + 1, 1);
                 existing.LastAttempted = DateTime.Now;
-                existing.ProblemDescription = reason ?? existing.ProblemDescription;
+                // Aggregate reasons instead of replacing
+                if (!string.IsNullOrEmpty(reason) && (existing.ProblemDescription == null || !existing.ProblemDescription.Contains(reason)))
+                    existing.ProblemDescription = string.IsNullOrEmpty(existing.ProblemDescription)
+                        ? reason
+                        : existing.ProblemDescription + "; " + reason;
                 existing.Category = category;
                 ErrorHandler.HandleError(nameof(ProblemPartManager), $"Problem part retry #{existing.RetryCount}: {existing.DisplayName}", null, ErrorHandler.LogLevel.Warning);
             }

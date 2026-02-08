@@ -84,6 +84,13 @@ namespace NM.Core
         public bool EnablePerformanceMonitoring { get; set; }
 
         // Export options
+        /// <summary>
+        /// Force classification to a specific type ("SheetMetal" or "Tube"),
+        /// skipping heuristics and auto-classification.
+        /// Set by SM/TUBE buttons in the problem wizard.
+        /// </summary>
+        public string ForceClassification { get; set; }
+
         /// <summary>Generate ERP Import.prn file at end of workflow.</summary>
         public bool GenerateErpExport { get; set; }
         /// <summary>Path for ERP export output. If null, uses working folder.</summary>

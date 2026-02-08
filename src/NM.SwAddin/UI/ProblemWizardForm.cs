@@ -47,6 +47,8 @@ namespace NM.SwAddin.UI
         private Button _btnMarkPUR;
         private Button _btnMarkMACH;
         private Button _btnMarkCUST;
+        private Button _btnMarkSM;
+        private Button _btnMarkTUBE;
 
         // Tube diagnostics
         private GroupBox _grpTubeDiag;
@@ -81,7 +83,7 @@ namespace NM.SwAddin.UI
 
             Text = "Problem Part Wizard";
             Width = 600;
-            Height = 680;
+            Height = 720;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
@@ -132,22 +134,28 @@ namespace NM.SwAddin.UI
             var lblSuggestions = new Label { Left = 20, Top = 205, Width = 150, Text = "Suggestions:", Font = new Font(Font.FontFamily, 9, FontStyle.Bold) };
             _lstSuggestions = new ListBox { Left = 20, Top = 225, Width = 550, Height = 80 };
 
-            // Part type classification group (PUR/MACH/CUST)
-            _grpPartType = new GroupBox { Left = 20, Top = 310, Width = 550, Height = 55, Text = "Classify As (skips processing)" };
+            // Part type classification group (PUR/MACH/CUST + SM/TUBE)
+            _grpPartType = new GroupBox { Left = 20, Top = 310, Width = 550, Height = 90, Text = "Classify As" };
 
-            _btnMarkPUR = new Button { Left = 10, Top = 20, Width = 130, Height = 28, Text = "PUR (Purchased)", BackColor = Color.LightYellow };
+            _btnMarkPUR = new Button { Left = 10, Top = 20, Width = 100, Height = 28, Text = "PUR (Purchased)", BackColor = Color.LightYellow };
             _btnMarkPUR.Click += (s, e) => MarkAsPartType(ProblemPartManager.PartTypeOverride.Purchased);
 
-            _btnMarkMACH = new Button { Left = 150, Top = 20, Width = 130, Height = 28, Text = "MACH (Machined)", BackColor = Color.LightYellow };
+            _btnMarkMACH = new Button { Left = 115, Top = 20, Width = 105, Height = 28, Text = "MACH (Machined)", BackColor = Color.LightYellow };
             _btnMarkMACH.Click += (s, e) => MarkAsPartType(ProblemPartManager.PartTypeOverride.Machined);
 
-            _btnMarkCUST = new Button { Left = 290, Top = 20, Width = 150, Height = 28, Text = "CUST (Customer Supplied)", BackColor = Color.LightYellow };
+            _btnMarkCUST = new Button { Left = 225, Top = 20, Width = 135, Height = 28, Text = "CUST (Customer)", BackColor = Color.LightYellow };
             _btnMarkCUST.Click += (s, e) => MarkAsPartType(ProblemPartManager.PartTypeOverride.CustomerSupplied);
 
-            _grpPartType.Controls.AddRange(new Control[] { _btnMarkPUR, _btnMarkMACH, _btnMarkCUST });
+            _btnMarkSM = new Button { Left = 10, Top = 55, Width = 160, Height = 28, Text = "Sheet Metal (convert)", BackColor = Color.LightSteelBlue };
+            _btnMarkSM.Click += (s, e) => RunAsClassification("SheetMetal");
 
-            // Tube diagnostics group (shifted down 60px)
-            _grpTubeDiag = new GroupBox { Left = 20, Top = 375, Width = 550, Height = 90, Text = "Tube Diagnostics (for tube/structural parts)" };
+            _btnMarkTUBE = new Button { Left = 180, Top = 55, Width = 160, Height = 28, Text = "Tube (convert)", BackColor = Color.LightSteelBlue };
+            _btnMarkTUBE.Click += (s, e) => RunAsClassification("Tube");
+
+            _grpPartType.Controls.AddRange(new Control[] { _btnMarkPUR, _btnMarkMACH, _btnMarkCUST, _btnMarkSM, _btnMarkTUBE });
+
+            // Tube diagnostics group
+            _grpTubeDiag = new GroupBox { Left = 20, Top = 410, Width = 550, Height = 90, Text = "Tube Diagnostics (for tube/structural parts)" };
 
             _btnShowCutLength = new Button { Left = 10, Top = 22, Width = 80, Height = 26, Text = "Cut Length" };
             _btnShowCutLength.Click += OnShowCutLengthEdges;
@@ -172,26 +180,26 @@ namespace NM.SwAddin.UI
             _grpTubeDiag.Controls.AddRange(new Control[] { _btnShowCutLength, _btnShowHoles, _btnShowBoundary, _btnShowProfile, _btnShowAll, _btnClearSelection, _lblDiagStatus });
 
             // Separator
-            var separator2 = new Label { Left = 20, Top = 475, Width = 550, Height = 2, BorderStyle = BorderStyle.Fixed3D };
+            var separator2 = new Label { Left = 20, Top = 510, Width = 550, Height = 2, BorderStyle = BorderStyle.Fixed3D };
 
             // Action buttons
-            _btnRetry = new Button { Left = 20, Top = 485, Width = 130, Height = 35, Text = "Retry && Validate", BackColor = Color.LightGreen };
+            _btnRetry = new Button { Left = 20, Top = 520, Width = 130, Height = 35, Text = "Retry && Validate", BackColor = Color.LightGreen };
             _btnRetry.Click += OnRetry;
 
-            _btnSkip = new Button { Left = 160, Top = 485, Width = 90, Height = 35, Text = "Skip" };
+            _btnSkip = new Button { Left = 160, Top = 520, Width = 90, Height = 35, Text = "Skip" };
             _btnSkip.Click += OnSkip;
 
-            _btnFinish = new Button { Left = 260, Top = 485, Width = 90, Height = 35, Text = "Finish" };
+            _btnFinish = new Button { Left = 260, Top = 520, Width = 90, Height = 35, Text = "Finish" };
             _btnFinish.Click += OnFinish;
 
-            _btnCancel = new Button { Left = 360, Top = 485, Width = 90, Height = 35, Text = "Cancel" };
+            _btnCancel = new Button { Left = 360, Top = 520, Width = 90, Height = 35, Text = "Cancel" };
             _btnCancel.Click += OnCancel;
 
             // Progress section
-            _progressBar = new ProgressBar { Left = 20, Top = 535, Width = 400, Height = 22 };
-            _lblFixedCount = new Label { Left = 430, Top = 538, Width = 140, Height = 20 };
+            _progressBar = new ProgressBar { Left = 20, Top = 570, Width = 400, Height = 22 };
+            _lblFixedCount = new Label { Left = 430, Top = 573, Width = 140, Height = 20 };
 
-            _lblStatus = new Label { Left = 20, Top = 565, Width = 550, Height = 40, ForeColor = Color.DarkBlue };
+            _lblStatus = new Label { Left = 20, Top = 600, Width = 550, Height = 40, ForeColor = Color.DarkBlue };
 
             // Add all controls
             Controls.AddRange(new Control[]
@@ -359,6 +367,9 @@ namespace NM.SwAddin.UI
                 int activateErr = 0;
                 _swApp.ActivateDoc3(_currentDoc.GetTitle(), true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref activateErr);
 
+                // Set display mode and zoom to fit
+                PreparePartView(_currentDoc);
+
                 _lblDiagStatus.Text = "Part is open. Use buttons above to highlight geometry for debugging.";
             }
             catch (Exception ex)
@@ -428,6 +439,76 @@ namespace NM.SwAddin.UI
             {
                 _lblStatus.Text += " - All problems reviewed!";
             }
+        }
+
+        /// <summary>
+        /// Runs the part through MainRunner with a forced classification (SheetMetal or Tube).
+        /// </summary>
+        private void RunAsClassification(string classification)
+        {
+            if (_currentDoc == null || _problems.Count == 0 || _currentIndex >= _problems.Count) return;
+            var item = _problems[_currentIndex];
+
+            _lblStatus.Text = $"Processing as {classification}...";
+            Application.DoEvents();
+
+            try
+            {
+                var options = new NM.Core.ProcessingOptions { ForceClassification = classification };
+                var result = MainRunner.RunSinglePartData(_swApp, _currentDoc, options);
+
+                if (result?.Status == NM.Core.DataModel.ProcessingStatus.Success)
+                {
+                    SwDocumentHelper.SaveDocument(_currentDoc);
+                    _fixedProblems.Add(item);
+                    ProblemPartManager.Instance.RemoveResolvedPart(item);
+                    _lblStatus.Text = $"Processed as {classification}: {item.DisplayName}";
+                    _txtError.BackColor = Color.LightGreen;
+                    _txtError.Text = $"Successfully processed as {classification}";
+                    UpdateProgress();
+
+                    // Auto-advance
+                    if (_currentIndex < _problems.Count - 1)
+                    {
+                        _lblStatus.Text += " - Moving to next problem...";
+                        Application.DoEvents();
+                        System.Threading.Thread.Sleep(500);
+                        _currentIndex++;
+                        LoadCurrentProblem();
+                    }
+                    else
+                    {
+                        _lblStatus.Text += " - All problems reviewed!";
+                    }
+                }
+                else
+                {
+                    _lblStatus.Text = $"Failed as {classification}: {result?.FailureReason}";
+                    _txtError.BackColor = Color.LightSalmon;
+                    _txtError.Text = result?.FailureReason ?? "Processing failed";
+                }
+            }
+            catch (Exception ex)
+            {
+                _lblStatus.Text = $"Error: {ex.Message}";
+                _txtError.BackColor = Color.LightSalmon;
+            }
+        }
+
+        /// <summary>
+        /// Sets display mode to Shaded with Edges and zooms to fit.
+        /// </summary>
+        private static void PreparePartView(IModelDoc2 doc)
+        {
+            if (doc == null) return;
+            try
+            {
+                var view = doc.ActiveView as IModelView;
+                if (view != null)
+                    view.DisplayMode = (int)swViewDisplayMode_e.swViewDisplayMode_ShadedWithEdges;
+                doc.ViewZoomtofit2();
+            }
+            catch { }
         }
 
         private void OnRetry(object sender, EventArgs e)

@@ -43,11 +43,32 @@ namespace NM.SwAddin.Validation
                     MassKg = res.MassKg,
                     FaceCount = res.FaceCount,
                     EdgeCount = res.EdgeCount,
+                    BBoxMaxDimM = res.BBoxMaxDimM,
+                    BBoxMinDimM = res.BBoxMinDimM,
                     FileName = Path.GetFileName(modelInfo.FilePath ?? string.Empty)
                 };
                 var hResult = PurchasedPartHeuristics.Analyze(hInput);
                 if (hResult.LikelyPurchased)
                     purchasedHint = hResult.Reason;
+            }
+
+            // Pre-screen for oversize parts using 3D bounding box
+            if (res.BBoxMaxDimM > 0 && !res.IsProblem)
+            {
+                const double MAX_SHEET_LENGTH_M = 240.0 * 0.0254;  // 240" = 6.096m
+
+                if (res.BBoxMaxDimM > MAX_SHEET_LENGTH_M)
+                {
+                    double maxDimIn = res.BBoxMaxDimM / 0.0254;
+                    ValidationStats.Record(false);
+                    var oversizeResult = NM.Core.Validation.ValidationResult.Fail(
+                        $"Oversize part ({maxDimIn:F1}\" exceeds 240\" max) - may need splitting");
+                    oversizeResult.PurchasedHint = purchasedHint;
+                    oversizeResult.FaceCount = res.FaceCount;
+                    oversizeResult.EdgeCount = res.EdgeCount;
+                    oversizeResult.MassKg = res.MassKg;
+                    return oversizeResult;
+                }
             }
 
             if (res.IsProblem)

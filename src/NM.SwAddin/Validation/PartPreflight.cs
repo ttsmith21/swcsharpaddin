@@ -91,6 +91,21 @@ namespace NM.SwAddin.Validation
                 }
                 catch { /* Non-fatal - mass is optional for heuristics */ }
 
+                // Extract bounding box for oversize pre-screening and heuristics
+                try
+                {
+                    double[] box = (double[])mainBody.GetBodyBox();
+                    if (box != null && box.Length >= 6)
+                    {
+                        double dx = Math.Abs(box[3] - box[0]);
+                        double dy = Math.Abs(box[4] - box[1]);
+                        double dz = Math.Abs(box[5] - box[2]);
+                        result.BBoxMaxDimM = Math.Max(dx, Math.Max(dy, dz));
+                        result.BBoxMinDimM = Math.Min(dx, Math.Min(dy, dz));
+                    }
+                }
+                catch { /* Non-fatal - bbox is optional for heuristics */ }
+
                 return result;
             }
             catch (Exception ex)
@@ -114,5 +129,7 @@ namespace NM.SwAddin.Validation
         public int FaceCount { get; set; }
         public int EdgeCount { get; set; }
         public double MassKg { get; set; }
+        public double BBoxMaxDimM { get; set; }
+        public double BBoxMinDimM { get; set; }
     }
 }

@@ -155,9 +155,22 @@ namespace NM.SwAddin.Validation
 
                 if (vr.Success)
                 {
-                    model.MarkValidated(true);
-                    result.GoodModels.Add(model);
-                    ErrorHandler.DebugLog($"[BATCHVAL]   Added to GoodModels, count now: {result.GoodModels.Count}");
+                    // If heuristic flagged as likely purchased, route to ProblemModels
+                    // so user can review in the wizard instead of silently processing
+                    if (!string.IsNullOrEmpty(vr.PurchasedHint))
+                    {
+                        ErrorHandler.DebugLog($"[BATCHVAL]   Purchased hint detected: {vr.PurchasedHint} - routing to ProblemModels");
+                        var purchasedReason = $"Likely purchased: {vr.PurchasedHint}";
+                        MarkAsProblem(model, purchasedReason, ProblemPartManager.ProblemCategory.ClassificationFailed, vr.PurchasedHint);
+                        result.ProblemModels.Add(model);
+                        ErrorHandler.DebugLog($"[BATCHVAL]   Added to ProblemModels, count now: {result.ProblemModels.Count}");
+                    }
+                    else
+                    {
+                        model.MarkValidated(true);
+                        result.GoodModels.Add(model);
+                        ErrorHandler.DebugLog($"[BATCHVAL]   Added to GoodModels, count now: {result.GoodModels.Count}");
+                    }
                 }
                 else
                 {

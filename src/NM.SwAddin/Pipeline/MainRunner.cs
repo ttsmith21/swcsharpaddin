@@ -225,6 +225,108 @@ namespace NM.SwAddin.Pipeline
                     return pd;
                 }
 
+                // ====== FORCED CLASSIFICATION ======
+                // When user clicks SM/TUBE in the problem wizard, skip heuristics and auto-classification
+                var opts2 = options ?? new ProcessingOptions();
+                if (!string.IsNullOrEmpty(opts2.ForceClassification))
+                {
+                    ErrorHandler.DebugLog($"[SMDBG] ForceClassification={opts2.ForceClassification} - skipping heuristics and auto-classification");
+                    PerformanceTracker.Instance.StartTimer("Classification");
+
+                    var factory2 = new ProcessorFactory(swApp);
+                    bool forcedSuccess = false;
+
+                    if (opts2.ForceClassification == "SheetMetal")
+                    {
+                        var sheetProc = factory2.Get(ProcessorType.SheetMetal);
+                        if (sheetProc != null)
+                        {
+                            var sheetRes = sheetProc.Process(doc, info, opts2);
+                            if (sheetRes.Success)
+                            {
+                                pd.Classification = PartType.SheetMetal;
+                                forcedSuccess = true;
+                                BendAllowanceValidator.ValidateAllFeatures(doc);
+                            }
+                            else
+                            {
+                                PerformanceTracker.Instance.StopTimer("Classification");
+                                pd.Status = ProcessingStatus.Failed;
+                                pd.FailureReason = $"Sheet metal conversion failed: {sheetRes.ErrorMessage}";
+                                return pd;
+                            }
+                        }
+                    }
+                    else if (opts2.ForceClassification == "Tube")
+                    {
+                        var tubeProc = factory2.Get(ProcessorType.Tube);
+                        if (tubeProc != null)
+                        {
+                            var tubeRes = tubeProc.Process(doc, info, opts2);
+                            if (tubeRes.Success)
+                            {
+                                pd.Classification = PartType.Tube;
+                                forcedSuccess = true;
+                                // Extract tube geometry
+                                try
+                                {
+                                    var tube = new SimpleTubeProcessor(swApp).TryGetGeometry(doc);
+                                    if (tube != null)
+                                    {
+                                        const double IN_TO_M = 0.0254;
+                                        pd.Tube.IsTube = true;
+                                        pd.Tube.OD_m = tube.OuterDiameter * IN_TO_M;
+                                        pd.Tube.Wall_m = tube.WallThickness * IN_TO_M;
+                                        pd.Tube.ID_m = tube.InnerDiameter > 0
+                                            ? tube.InnerDiameter * IN_TO_M
+                                            : Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
+                                        pd.Tube.Length_m = tube.Length * IN_TO_M;
+                                        pd.Tube.TubeShape = tube.ShapeName;
+                                    }
+                                }
+                                catch { }
+                            }
+                            else
+                            {
+                                PerformanceTracker.Instance.StopTimer("Classification");
+                                pd.Status = ProcessingStatus.Failed;
+                                pd.FailureReason = $"Tube processing failed: {tubeRes.ErrorMessage}";
+                                return pd;
+                            }
+                        }
+                    }
+
+                    PerformanceTracker.Instance.StopTimer("Classification");
+
+                    if (forcedSuccess)
+                    {
+                        pd.Status = ProcessingStatus.Success;
+                        bool isSheetMetal2 = pd.Classification == PartType.SheetMetal;
+                        bool isTube2 = pd.Classification == PartType.Tube;
+                        ExtractMetrics(doc, info, pd, isSheetMetal2);
+                        AnalyzeTappedHoles(doc, info, pd, isSheetMetal2, options);
+                        ValidateDimensions(pd, isSheetMetal2, isTube2);
+
+                        // Unflatten sheet metal parts before saving
+                        if (isSheetMetal2)
+                        {
+                            try
+                            {
+                                var bendMgr2 = new BendStateManager();
+                                if (bendMgr2.IsFlattened(doc))
+                                {
+                                    bendMgr2.UnFlattenPart(doc);
+                                    ErrorHandler.DebugLog("[SMDBG] Unflattened part after forced SM metrics extraction");
+                                }
+                            }
+                            catch { }
+                        }
+
+                        FinalizeAndWriteProperties(doc, info, pd, swModel, options);
+                        return pd;
+                    }
+                }
+
                 // ====== PURCHASED PART HEURISTIC CHECK ======
                 // Pre-filter likely purchased parts (fasteners, fittings) before expensive sheet metal conversion
                 var facesObj = body.GetFaces() as object[];
@@ -490,6 +592,25 @@ namespace NM.SwAddin.Pipeline
                 ExtractMetrics(doc, info, pd, isSheetMetal);
                 AnalyzeTappedHoles(doc, info, pd, isSheetMetal, options);
                 ValidateDimensions(pd, isSheetMetal, isTube);
+
+                // Unflatten sheet metal parts before saving so they aren't left flat
+                if (isSheetMetal)
+                {
+                    try
+                    {
+                        var bendMgr = new BendStateManager();
+                        if (bendMgr.IsFlattened(doc))
+                        {
+                            bendMgr.UnFlattenPart(doc);
+                            ErrorHandler.DebugLog("[SMDBG] Unflattened part after metrics extraction");
+                        }
+                    }
+                    catch (Exception unflatEx)
+                    {
+                        ErrorHandler.DebugLog($"[SMDBG] Unflatten failed: {unflatEx.Message}");
+                    }
+                }
+
                 FinalizeAndWriteProperties(doc, info, pd, swModel, options);
 
                 return pd;
