@@ -12,6 +12,62 @@ using SolidWorks.Interop.sldworks;
 namespace NM.SwAddin.UI
 {
     /// <summary>
+    /// Forwards keyboard messages to the focused WinForms control when
+    /// the task pane has focus. Without this, SolidWorks' accelerator table
+    /// intercepts keystrokes (numbers, letters, etc.) before they reach WinForms.
+    /// </summary>
+    internal sealed class TaskPaneKeyboardFilter : IMessageFilter
+    {
+        private const int WM_KEYDOWN = 0x0100;
+        private const int WM_KEYUP = 0x0101;
+        private const int WM_CHAR = 0x0102;
+        private const int WM_SYSKEYDOWN = 0x0104;
+        private const int WM_SYSKEYUP = 0x0105;
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        private readonly Control _host;
+
+        public TaskPaneKeyboardFilter(Control host)
+        {
+            _host = host;
+        }
+
+        public bool PreFilterMessage(ref Message m)
+        {
+            if (m.Msg == WM_KEYDOWN || m.Msg == WM_KEYUP || m.Msg == WM_CHAR ||
+                m.Msg == WM_SYSKEYDOWN || m.Msg == WM_SYSKEYUP)
+            {
+                // Only intercept when our host (or a child) has focus
+                if (_host.ContainsFocus)
+                {
+                    var focused = FindFocusedControl(_host);
+                    if (focused != null && focused.IsHandleCreated)
+                    {
+                        // Forward the message directly to the focused control
+                        SendMessage(focused.Handle, m.Msg, m.WParam, m.LParam);
+                        return true; // Mark handled so SolidWorks doesn't consume it
+                    }
+                }
+            }
+            return false;
+        }
+
+        private static Control FindFocusedControl(Control parent)
+        {
+            if (parent == null || !parent.ContainsFocus) return null;
+            foreach (Control child in parent.Controls)
+            {
+                if (child.Focused) return child;
+                if (child.ContainsFocus)
+                    return FindFocusedControl(child);
+            }
+            return parent.Focused ? parent : null;
+        }
+    }
+
+    /// <summary>
     /// COM-visible UserControl hosted in the SolidWorks Task Pane.
     /// Provides the same problem-part wizard functionality as ProblemWizardForm
     /// but docked in the right-hand panel alongside the Custom Property Editor.
@@ -21,6 +77,14 @@ namespace NM.SwAddin.UI
     [Guid("A7E3F8B1-4C2D-4E9A-B6F5-1D8A3C7E9F02")]
     public sealed class ProblemPartsTaskPaneControl : UserControl
     {
+        // WM_GETDLGCODE constants - tells Windows we want all keyboard input
+        private const int WM_GETDLGCODE = 0x0087;
+        private const int DLGC_WANTALLKEYS = 0x0004;
+        private const int DLGC_WANTARROWS = 0x0001;
+        private const int DLGC_WANTTAB = 0x0002;
+        private const int DLGC_WANTCHARS = 0x0080;
+
+        private TaskPaneKeyboardFilter _keyboardFilter;
         public const string PROGID = "NM.SwAddin.ProblemPartsTaskPane";
 
         private ISldWorks _swApp;
@@ -90,8 +154,44 @@ namespace NM.SwAddin.UI
 
         public ProblemPartsTaskPaneControl()
         {
+            _keyboardFilter = new TaskPaneKeyboardFilter(this);
             BuildUI();
             ShowPlaceholder();
+        }
+
+        /// <summary>
+        /// Tell Windows this control wants ALL keyboard input, preventing
+        /// SolidWorks from consuming keystrokes via its accelerator table.
+        /// </summary>
+        protected override void WndProc(ref Message m)
+        {
+            if (m.Msg == WM_GETDLGCODE)
+            {
+                m.Result = (IntPtr)(DLGC_WANTALLKEYS | DLGC_WANTARROWS | DLGC_WANTTAB | DLGC_WANTCHARS);
+                return;
+            }
+            base.WndProc(ref m);
+        }
+
+        protected override void OnEnter(EventArgs e)
+        {
+            base.OnEnter(e);
+            Application.AddMessageFilter(_keyboardFilter);
+        }
+
+        protected override void OnLeave(EventArgs e)
+        {
+            Application.RemoveMessageFilter(_keyboardFilter);
+            base.OnLeave(e);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                Application.RemoveMessageFilter(_keyboardFilter);
+            }
+            base.Dispose(disposing);
         }
 
         /// <summary>
