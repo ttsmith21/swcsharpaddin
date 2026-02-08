@@ -209,6 +209,11 @@
     <Compile Include="src\NM.SwAddin\UI\ProblemWizardForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <!-- AI Drawing Analysis UI + Pipeline (Phase 6) -->
+    <Compile Include="src\NM.SwAddin\UI\PropertyReviewWizard.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="src\NM.SwAddin\Pipeline\DrawingAnalysisRunner.cs" />
     <!-- PDF Drawing Analysis (Phase 1) -->
     <Compile Include="src\NM.Core\Pdf\Models\DrawingData.cs" />
     <Compile Include="src\NM.Core\Pdf\Models\DrawingNote.cs" />
