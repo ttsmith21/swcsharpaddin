@@ -7,7 +7,9 @@ using System.Text.RegularExpressions;
 using NM.Core;
 using NM.Core.DataModel;
 using NM.Core.Export;
+using System.Linq;
 using NM.SwAddin.AssemblyProcessing;
+using NM.SwAddin.Import;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
@@ -268,6 +270,212 @@ namespace NM.SwAddin.Pipeline
             finally
             {
                 // Always clear the additional log path when done
+                ErrorHandler.AdditionalDebugLogPath = null;
+                ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Import a STEP assembly, enumerate components, and run the pipeline on each externalized part.
+        /// Returns a QARunSummary with assembly + per-part results.
+        /// </summary>
+        public QARunSummary RunStepImport(string stepFilePath, string outputDir)
+        {
+            const string proc = nameof(QARunner) + ".RunStepImport";
+            ErrorHandler.PushCallStack(proc);
+
+            var summary = new QARunSummary
+            {
+                RunId = DateTime.Now.ToString("yyyyMMdd_HHmmss"),
+                StartedAt = DateTime.UtcNow
+            };
+
+            // Initialize QA debug log in output directory
+            if (!string.IsNullOrWhiteSpace(outputDir))
+            {
+                if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
+                _qaDebugLogPath = Path.Combine(outputDir, "debug.log");
+                ErrorHandler.AdditionalDebugLogPath = _qaDebugLogPath;
+                try { File.WriteAllText(_qaDebugLogPath, $"=== STEP QA Debug Log Started {DateTime.Now:yyyy-MM-dd HH:mm:ss} ==={System.Environment.NewLine}"); }
+                catch { }
+            }
+
+            try
+            {
+                var sw = Stopwatch.StartNew();
+
+                // 1. Import STEP as assembly
+                QALog($"[{proc}] Importing STEP file: {stepFilePath}");
+                var importer = new StepImportHandler(_swApp);
+                string asmPath = importer.ImportToAssembly(stepFilePath, overwrite: true);
+                if (string.IsNullOrEmpty(asmPath) || !File.Exists(asmPath))
+                {
+                    QALog($"[{proc}] STEP import failed - no assembly produced");
+                    summary.Errors = 1;
+                    summary.TotalFiles = 1;
+                    summary.Results.Add(new QATestResult
+                    {
+                        FileName = Path.GetFileName(stepFilePath),
+                        FilePath = stepFilePath,
+                        Status = "Error",
+                        Message = "STEP import failed - no assembly produced",
+                        IsAssembly = true,
+                        Classification = "Assembly",
+                        ElapsedMs = sw.Elapsed.TotalMilliseconds
+                    });
+                    return summary;
+                }
+                QALog($"[{proc}] STEP imported to: {asmPath}");
+
+                // 2. Open the resulting assembly
+                int errs = 0, warns = 0;
+                var asmDoc = _swApp.OpenDoc6(asmPath,
+                    (int)swDocumentTypes_e.swDocASSEMBLY,
+                    (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+                    "", ref errs, ref warns);
+
+                if (asmDoc == null)
+                {
+                    QALog($"[{proc}] Failed to open imported assembly: {asmPath} (errs={errs})");
+                    summary.Errors = 1;
+                    summary.TotalFiles = 1;
+                    summary.Results.Add(new QATestResult
+                    {
+                        FileName = Path.GetFileName(asmPath),
+                        FilePath = asmPath,
+                        Status = "Error",
+                        Message = $"Failed to open imported assembly (errs={errs}, warns={warns})",
+                        IsAssembly = true,
+                        Classification = "Assembly",
+                        ElapsedMs = sw.Elapsed.TotalMilliseconds
+                    });
+                    return summary;
+                }
+
+                // 3. Enumerate components
+                Dictionary<string, AssemblyComponentQuantifier.ComponentQuantity> components = null;
+                var compQty = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                int uniquePartCount = 0, subAssemblyCount = 0, totalComponentCount = 0;
+
+                try
+                {
+                    var asm = asmDoc as IAssemblyDoc;
+                    if (asm != null)
+                    {
+                        var quantifier = new AssemblyComponentQuantifier();
+                        components = quantifier.CollectViaRecursion(asm);
+
+                        foreach (var kvp in components)
+                        {
+                            totalComponentCount += kvp.Value.Quantity;
+                            var path = kvp.Value.FilePath ?? "";
+                            if (path.EndsWith(".SLDASM", StringComparison.OrdinalIgnoreCase) ||
+                                path.EndsWith(".sldasm", StringComparison.OrdinalIgnoreCase))
+                                subAssemblyCount++;
+                            else
+                                uniquePartCount++;
+
+                            var compFileName = Path.GetFileName(kvp.Value.FilePath);
+                            if (!string.IsNullOrEmpty(compFileName))
+                                compQty[compFileName] = kvp.Value.Quantity;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    QALog($"[{proc}] WARNING: Component enumeration failed: {ex.Message}");
+                }
+
+                // Close the assembly before processing individual parts
+                CloseDocument(asmDoc);
+
+                QALog($"[{proc}] Assembly: {totalComponentCount} total components, {uniquePartCount} unique parts, {subAssemblyCount} sub-assemblies");
+
+                // Record assembly-level result
+                var assyResult = new QATestResult
+                {
+                    FileName = Path.GetFileName(asmPath),
+                    FilePath = asmPath,
+                    Status = "Success",
+                    Classification = "Assembly",
+                    IsAssembly = true,
+                    TotalComponentCount = totalComponentCount,
+                    UniquePartCount = uniquePartCount,
+                    SubAssemblyCount = subAssemblyCount,
+                    ComponentQuantities = compQty,
+                    ElapsedMs = sw.Elapsed.TotalMilliseconds
+                };
+                summary.Results.Add(assyResult);
+                summary.Passed++;
+
+                // 4. Find all externalized .sldprt files in the output directory
+                var partFiles = Directory.GetFiles(outputDir, "*.sldprt", SearchOption.TopDirectoryOnly);
+                QALog($"[{proc}] Found {partFiles.Length} externalized .sldprt files to process");
+
+                summary.TotalFiles = 1 + partFiles.Length; // assembly + parts
+
+                var options = new ProcessingOptions { SaveChanges = false };
+                int partIndex = 0;
+
+                using (var swProgress = new Utils.SwProgressBar(_swApp, partFiles.Length, "NM STEP QA"))
+                {
+                    foreach (var partPath in partFiles)
+                    {
+                        partIndex++;
+                        swProgress.Update(partIndex, $"STEP QA {partIndex}/{partFiles.Length}: {Path.GetFileName(partPath)}");
+
+                        var result = ProcessSingleFile(partPath, options, summary.PartDataCollection);
+                        summary.Results.Add(result);
+
+                        switch (result.Status)
+                        {
+                            case "Success":
+                                summary.Passed++;
+                                break;
+                            case "Failed":
+                                summary.Failed++;
+                                break;
+                            default:
+                                summary.Errors++;
+                                break;
+                        }
+                    }
+                }
+
+                // 5. Stamp BomQty from assembly component quantities onto part results
+                foreach (var partResult in summary.Results)
+                {
+                    if (partResult.IsAssembly == true) continue;
+                    if (compQty.TryGetValue(partResult.FileName, out int qty))
+                        partResult.BomQty = qty;
+                }
+
+                sw.Stop();
+                summary.TotalElapsedMs = sw.Elapsed.TotalMilliseconds;
+                summary.CompletedAt = DateTime.UtcNow;
+
+                // 6. Export timing data
+                var resultsPath = Path.Combine(outputDir, "results.json");
+                ExportTimingData(summary, resultsPath);
+
+                // 7. Write results
+                WriteResults(summary, resultsPath);
+
+                QALog($"");
+                QALog($"========== STEP QA Run Complete ==========");
+                QALog($"[{proc}] Passed: {summary.Passed}, Failed: {summary.Failed}, Errors: {summary.Errors}");
+                QALog($"[{proc}] Results written to: {resultsPath}");
+
+                return summary;
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError(proc, "STEP QA run failed", ex, ErrorHandler.LogLevel.Error);
+                summary.CompletedAt = DateTime.UtcNow;
+                return summary;
+            }
+            finally
+            {
                 ErrorHandler.AdditionalDebugLogPath = null;
                 ErrorHandler.PopCallStack();
             }

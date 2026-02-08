@@ -40,6 +40,10 @@ namespace NM.BatchRunner
                     {
                         return RunQA(swApp);
                     }
+                    else if (args[0] == "--step-qa")
+                    {
+                        return RunStepQA(swApp, args);
+                    }
                     else if (args[0] == "--pipeline")
                     {
                         return RunPipeline(swApp, args);
@@ -94,6 +98,10 @@ namespace NM.BatchRunner
             Console.WriteLine("      Run QA tests on parts specified in config file");
             Console.WriteLine("      Default config: C:\\Temp\\nm_qa_config.json");
             Console.WriteLine();
+            Console.WriteLine("  NM.BatchRunner.exe --step-qa [--file <path>]");
+            Console.WriteLine("      Import a STEP assembly, externalize components, run pipeline on each part");
+            Console.WriteLine("      Default file: tests\\GoldStandard_Inputs - Copy\\Large\\6 hours.step");
+            Console.WriteLine();
             Console.WriteLine("  NM.BatchRunner.exe --pipeline --file <path>");
             Console.WriteLine("      Run processing pipeline on a single file");
             Console.WriteLine();
@@ -119,6 +127,65 @@ namespace NM.BatchRunner
             // Write summary for scripts to read
             File.WriteAllText(@"C:\Temp\nm_qa_summary.txt",
                 $"QA Complete: Total={summary.TotalFiles}, Passed={summary.Passed}, Failed={summary.Failed}, Errors={summary.Errors}, Time={summary.TotalElapsedMs:F0}ms");
+
+            return (summary.Failed > 0 || summary.Errors > 0) ? 1 : 0;
+        }
+
+        static int RunStepQA(ISldWorks swApp, string[] args)
+        {
+            // Parse optional --file override
+            string stepFile = null;
+            for (int i = 1; i < args.Length - 1; i++)
+            {
+                if (args[i] == "--file")
+                {
+                    stepFile = args[i + 1];
+                    break;
+                }
+            }
+
+            // Default source path
+            if (string.IsNullOrEmpty(stepFile))
+            {
+                var repoRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\"));
+                stepFile = Path.Combine(repoRoot, @"tests\GoldStandard_Inputs - Copy\Large\6 hours.step");
+            }
+
+            if (!File.Exists(stepFile))
+            {
+                Console.Error.WriteLine($"Error: STEP file not found: {stepFile}");
+                return 1;
+            }
+
+            Console.WriteLine($"STEP QA source: {stepFile}");
+
+            // Create timestamped run folder
+            var repoRootForOutput = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\"));
+            var runFolder = Path.Combine(repoRootForOutput, "tests",
+                $"Run_StepQA_{DateTime.Now:yyyyMMdd_HHmmss}");
+            Directory.CreateDirectory(runFolder);
+
+            // Copy STEP file into run folder
+            var destStep = Path.Combine(runFolder, Path.GetFileName(stepFile));
+            File.Copy(stepFile, destStep, overwrite: true);
+            Console.WriteLine($"Copied STEP to: {destStep}");
+            Console.WriteLine($"Run folder: {runFolder}");
+
+            // Run the STEP QA pipeline
+            var runner = new NM.SwAddin.Pipeline.QARunner(swApp);
+            var summary = runner.RunStepImport(destStep, runFolder);
+
+            Console.WriteLine();
+            Console.WriteLine("=== STEP QA Results ===");
+            Console.WriteLine($"Total:   {summary.TotalFiles}");
+            Console.WriteLine($"Passed:  {summary.Passed}");
+            Console.WriteLine($"Failed:  {summary.Failed}");
+            Console.WriteLine($"Errors:  {summary.Errors}");
+            Console.WriteLine($"Time:    {summary.TotalElapsedMs:F0}ms");
+
+            // Write summary for scripts to read
+            File.WriteAllText(Path.Combine(runFolder, "summary.txt"),
+                $"STEP QA Complete: Total={summary.TotalFiles}, Passed={summary.Passed}, Failed={summary.Failed}, Errors={summary.Errors}, Time={summary.TotalElapsedMs:F0}ms");
 
             return (summary.Failed > 0 || summary.Errors > 0) ? 1 : 0;
         }
