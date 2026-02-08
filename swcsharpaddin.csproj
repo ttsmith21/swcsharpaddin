@@ -112,7 +112,6 @@
     <Compile Include="src\NM.Core\Tubes\TubeWorkCenterRules.cs" />
     <Compile Include="src\NM.Core\Export\ExportManager.cs" />
     <Compile Include="BendTableResolver.cs" />
-    <Compile Include="MainRunner.cs" />
     <Compile Include="ProblemPartInfo.cs" />
     <Compile Include="ProblemPartTracker.cs" />
     <Compile Include="SimpleSheetMetalProcessor.cs" />
