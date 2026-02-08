@@ -28,11 +28,14 @@ namespace NM.SwAddin.Pipeline
     {
         private readonly ISldWorks _swApp;
         private readonly BatchValidator _validator;
+        private readonly TaskPaneManager _taskPaneManager;
+        private ProcessingOptions _options;
 
-        public WorkflowDispatcher(ISldWorks swApp)
+        public WorkflowDispatcher(ISldWorks swApp, TaskPaneManager taskPaneManager = null)
         {
             _swApp = swApp ?? throw new ArgumentNullException(nameof(swApp));
             _validator = new BatchValidator(swApp);
+            _taskPaneManager = taskPaneManager;
         }
 
         /// <summary>
@@ -46,6 +49,7 @@ namespace NM.SwAddin.Pipeline
             ErrorHandler.PushCallStack(proc);
 
             options = options ?? new ProcessingOptions();
+            _options = options;
             var context = new WorkflowContext();
             context.StartTiming();
 
@@ -653,24 +657,59 @@ namespace NM.SwAddin.Pipeline
                     category);
             }
 
-            // Use wizard for step-by-step problem resolution
-            var wizard = new ProblemWizardForm(
-                ProblemPartManager.Instance.GetProblemParts(),
-                _swApp,
-                context.GoodModels.Count);
+            var problems = ProblemPartManager.Instance.GetProblemParts();
+            int goodCount = context.GoodModels.Count;
 
-            // Show as non-modal so user can interact with SolidWorks
-            wizard.Show();
+            // Use Task Pane if user opted in and it's available
+            bool useTaskPane = _options != null && _options.UseTaskPane
+                && _taskPaneManager != null && _taskPaneManager.IsCreated;
 
-            // Wait for wizard to close while allowing SolidWorks interaction
-            while (wizard.Visible)
+            ProblemAction action;
+            List<ProblemPartManager.ProblemItem> fixedProblems;
+
+            if (useTaskPane)
             {
-                Application.DoEvents();
-                System.Threading.Thread.Sleep(50);
+                _taskPaneManager.LoadProblems(problems, goodCount);
+
+                while (_taskPaneManager.IsWaitingForAction)
+                {
+                    Application.DoEvents();
+                    System.Threading.Thread.Sleep(50);
+                }
+
+                action = _taskPaneManager.LastAction;
+                fixedProblems = _taskPaneManager.FixedProblems;
+                _taskPaneManager.ClearProblems();
+            }
+            else
+            {
+                var wizard = new ProblemWizardForm(problems, _swApp, goodCount);
+                wizard.Show();
+
+                while (wizard.Visible)
+                {
+                    Application.DoEvents();
+                    System.Threading.Thread.Sleep(50);
+                }
+
+                action = wizard.SelectedAction;
+                fixedProblems = wizard.FixedProblems;
+                wizard.Dispose();
             }
 
             // Update good/processed counts based on fixed problems
-            foreach (var fixedItem in wizard.FixedProblems)
+            TransferFixedProblems(context, fixedProblems);
+
+            return action;
+        }
+
+        /// <summary>
+        /// Moves fixed problem items back into the appropriate context lists.
+        /// Shared between wizard and task pane code paths.
+        /// </summary>
+        private void TransferFixedProblems(WorkflowContext context, List<ProblemPartManager.ProblemItem> fixedProblems)
+        {
+            foreach (var fixedItem in fixedProblems)
             {
                 var match = context.ProblemModels.FirstOrDefault(m =>
                     string.Equals(m.FilePath, fixedItem.FilePath, StringComparison.OrdinalIgnoreCase));
@@ -707,11 +746,6 @@ namespace NM.SwAddin.Pipeline
                     context.GoodModels.Add(match);
                 }
             }
-
-            var action = wizard.SelectedAction;
-            wizard.Dispose();
-
-            return action;
         }
 
         private static ProblemPartManager.ProblemCategory GuessProblemCategory(string reason)

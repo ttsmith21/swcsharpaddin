@@ -232,6 +232,11 @@
     <Compile Include="src\NM.Core\Configuration\Sections\ProcessingDefaults.cs" />
     <Compile Include="src\NM.Core\Configuration\Tables\NmTables.cs" />
     <Compile Include="src\NM.Core\Configuration\Tables\NmTablesProvider.cs" />
+    <Compile Include="src\NM.SwAddin\UI\ProblemPartActions.cs" />
+    <Compile Include="src\NM.SwAddin\UI\ProblemPartsTaskPaneControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="src\NM.SwAddin\UI\TaskPaneManager.cs" />
     <Compile Include="src\NM.SwAddin\UI\ProblemSuggestionProvider.cs" />
     <Compile Include="src\NM.SwAddin\UI\ProblemWizardForm.cs">
       <SubType>Form</SubType>
