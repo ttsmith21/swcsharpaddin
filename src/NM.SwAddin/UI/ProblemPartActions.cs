@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using NM.Core;
 using NM.Core.DataModel;
@@ -189,6 +190,37 @@ namespace NM.SwAddin.UI
                         if (subDoc != null)
                         {
                             try { swApp.CloseDoc(subDoc.GetTitle()); } catch { }
+                        }
+                    }
+                }
+
+                // Insert the new sub-assembly into the parent assembly at origin.
+                // Bodies carry original global coordinates, so origin placement is correct.
+                var parentDoc = FindParentAssembly(swApp, splitResult.AssemblyPath);
+                if (parentDoc != null)
+                {
+                    int actErrors = 0;
+                    swApp.ActivateDoc3(parentDoc.GetTitle(), true,
+                        (int)swRebuildOnActivation_e.swUserDecision, ref actErrors);
+
+                    var assyDoc = parentDoc as IAssemblyDoc;
+                    if (assyDoc != null)
+                    {
+                        var inserted = assyDoc.AddComponent5(
+                            splitResult.AssemblyPath,
+                            (int)swAddComponentConfigOptions_e.swAddComponentConfigOptions_CurrentSelectedConfig,
+                            "", false, "", 0, 0, 0);
+
+                        if (inserted != null)
+                        {
+                            SwDocumentHelper.SaveDocument(parentDoc);
+                            statusCallback?.Invoke(
+                                $"Inserted {Path.GetFileName(splitResult.AssemblyPath)} into assembly.");
+                        }
+                        else
+                        {
+                            ErrorHandler.DebugLog(
+                                $"[SPLIT] AddComponent5 returned null for {splitResult.AssemblyPath}");
                         }
                     }
                 }
@@ -402,6 +434,29 @@ namespace NM.SwAddin.UI
             {
                 return "Select failed: " + ex.Message;
             }
+        }
+
+        /// <summary>
+        /// Finds the parent assembly among open documents (skipping the split sub-assembly itself).
+        /// </summary>
+        private static IModelDoc2 FindParentAssembly(ISldWorks swApp, string splitAssyPath)
+        {
+            var docs = swApp.GetDocuments() as object[];
+            if (docs == null) return null;
+
+            foreach (var obj in docs)
+            {
+                var doc = obj as IModelDoc2;
+                if (doc == null) continue;
+                if (doc.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY) continue;
+
+                string docPath = doc.GetPathName() ?? "";
+                if (string.Equals(docPath, splitAssyPath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                return doc;
+            }
+            return null;
         }
 
         /// <summary>
