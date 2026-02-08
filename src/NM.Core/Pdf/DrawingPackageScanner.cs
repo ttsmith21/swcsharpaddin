@@ -17,12 +17,14 @@ namespace NM.Core.Pdf
         private readonly PdfTextExtractor _textExtractor;
         private readonly TitleBlockParser _titleBlockParser;
         private readonly DrawingNoteExtractor _noteExtractor;
+        private readonly SpecRecognizer _specRecognizer;
 
         public DrawingPackageScanner()
         {
             _textExtractor = new PdfTextExtractor();
             _titleBlockParser = new TitleBlockParser();
             _noteExtractor = new DrawingNoteExtractor();
+            _specRecognizer = new SpecRecognizer();
         }
 
         /// <summary>
@@ -146,7 +148,20 @@ namespace NM.Core.Pdf
                 pageInfo.Notes.Add(note);
             }
 
-            // Generate routing hints
+            // Recognize formal specifications
+            var specMatches = _specRecognizer.Recognize(page.FullText);
+            if (specMatches.Count > 0)
+            {
+                pageInfo.RecognizedSpecs.AddRange(specMatches);
+
+                var specHints = _specRecognizer.ToRoutingHints(specMatches);
+                foreach (var hint in specHints)
+                {
+                    pageInfo.RoutingHints.Add(hint);
+                }
+            }
+
+            // Generate routing hints from notes
             var hints = _noteExtractor.GenerateRoutingHints(notes);
             foreach (var hint in hints)
             {

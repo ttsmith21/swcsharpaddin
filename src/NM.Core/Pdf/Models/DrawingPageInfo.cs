@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NM.Core.Pdf;
 
 namespace NM.Core.Pdf.Models
 {
@@ -43,6 +44,9 @@ namespace NM.Core.Pdf.Models
 
         /// <summary>Routing hints derived from notes on this page.</summary>
         public List<RoutingHint> RoutingHints { get; } = new List<RoutingHint>();
+
+        /// <summary>Recognized formal specifications (ASTM, AMS, MIL-SPEC, etc.).</summary>
+        public List<SpecMatch> RecognizedSpecs { get; } = new List<SpecMatch>();
 
         /// <summary>Confidence in the title block extraction (0.0 - 1.0).</summary>
         public double Confidence { get; set; }

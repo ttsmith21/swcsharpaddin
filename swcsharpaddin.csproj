@@ -258,6 +258,8 @@
     <Compile Include="src\NM.Core\Pdf\DrawingPackageScanner.cs" />
     <Compile Include="src\NM.Core\Pdf\ComponentDrawingMatcher.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\BatchAnalysisRunner.cs" />
+    <!-- Spec/Standard Recognition Database -->
+    <Compile Include="src\NM.Core\Pdf\SpecRecognizer.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->

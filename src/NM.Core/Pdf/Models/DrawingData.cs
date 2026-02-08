@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using NM.Core.Pdf;
 
 namespace NM.Core.Pdf.Models
 {
@@ -39,6 +40,9 @@ namespace NM.Core.Pdf.Models
 
         // Routing hints derived from notes
         public List<RoutingHint> RoutingHints { get; } = new List<RoutingHint>();
+
+        // Recognized specifications (ASTM, AMS, MIL-SPEC, AWS, etc.)
+        public List<SpecMatch> RecognizedSpecs { get; } = new List<SpecMatch>();
 
         // Source tracking
         public string SourcePdfPath { get; set; }

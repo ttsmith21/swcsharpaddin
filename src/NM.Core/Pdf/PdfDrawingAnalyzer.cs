@@ -22,6 +22,7 @@ namespace NM.Core.Pdf
         private readonly PdfTextExtractor _textExtractor;
         private readonly TitleBlockParser _titleBlockParser;
         private readonly DrawingNoteExtractor _noteExtractor;
+        private readonly SpecRecognizer _specRecognizer;
         private readonly IDrawingVisionService _visionService;
 
         /// <summary>
@@ -40,6 +41,7 @@ namespace NM.Core.Pdf
             _textExtractor = new PdfTextExtractor();
             _titleBlockParser = new TitleBlockParser();
             _noteExtractor = new DrawingNoteExtractor();
+            _specRecognizer = new SpecRecognizer();
             _visionService = visionService ?? new OfflineVisionService();
         }
 
@@ -135,6 +137,26 @@ namespace NM.Core.Pdf
                 {
                     var notes = _noteExtractor.ExtractNotes(page.FullText, page.PageNumber);
                     result.Notes.AddRange(notes);
+                }
+
+                // Step 3b: Recognize formal specifications (ASTM, AMS, MIL-SPEC, AWS, etc.)
+                var specMatches = _specRecognizer.Recognize(result.RawText);
+                if (specMatches.Count > 0)
+                {
+                    // Add spec-derived notes (deduplicated against existing notes)
+                    var existingTexts = new HashSet<string>(
+                        result.Notes.Select(n => n.Text), StringComparer.OrdinalIgnoreCase);
+                    foreach (var specNote in _specRecognizer.ToDrawingNotes(specMatches))
+                    {
+                        if (!existingTexts.Contains(specNote.Text))
+                            result.Notes.Add(specNote);
+                    }
+
+                    // Add spec-derived routing hints
+                    result.RoutingHints.AddRange(_specRecognizer.ToRoutingHints(specMatches));
+
+                    // Store recognized specs for downstream use
+                    result.RecognizedSpecs.AddRange(specMatches);
                 }
 
                 // Step 4: Generate routing hints from notes
