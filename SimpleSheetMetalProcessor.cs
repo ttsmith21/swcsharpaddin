@@ -309,7 +309,9 @@ namespace NM.SwAddin
                     PerformanceTracker.Instance.StopTimer("TryFlatten_Final");
                     if (!finalFlattened)
                     {
-                        ErrorHandler.DebugLog("[SMDBG] FAIL: Final TryFlatten failed");
+                        ErrorHandler.DebugLog("[SMDBG] FAIL: Final TryFlatten failed - undoing InsertBends2");
+                        try { model.EditUndo2(2); } catch { }
+                        try { model.EditRebuild3(); } catch { }
                         return false;
                     }
                     ErrorHandler.DebugLog("[SMDBG] Final flatten: SUCCESS");

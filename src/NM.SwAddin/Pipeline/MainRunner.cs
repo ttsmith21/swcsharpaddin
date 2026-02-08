@@ -224,6 +224,57 @@ namespace NM.SwAddin.Pipeline
                     goto ErpPropertyCopy;
                 }
 
+                // ====== PURCHASED PART HEURISTIC CHECK ======
+                // Pre-filter likely purchased parts (fasteners, fittings) before expensive sheet metal conversion
+                var facesObj = body.GetFaces() as object[];
+                var edgesObj = body.GetEdges() as object[];
+                int faceCount = facesObj?.Length ?? 0;
+                int edgeCount = edgesObj?.Length ?? 0;
+                double heuristicMass = SolidWorksApiWrapper.GetModelMass(doc);
+                // Get bounding box max dimension
+                double bboxMax = 0;
+                try
+                {
+                    var bbox = (double[])body.GetBodyBox();
+                    if (bbox != null && bbox.Length >= 6)
+                    {
+                        double dx = Math.Abs(bbox[3] - bbox[0]);
+                        double dy = Math.Abs(bbox[4] - bbox[1]);
+                        double dz = Math.Abs(bbox[5] - bbox[2]);
+                        bboxMax = Math.Max(dx, Math.Max(dy, dz));
+                    }
+                }
+                catch { }
+
+                var hInput = new PurchasedPartHeuristics.HeuristicInput
+                {
+                    MassKg = heuristicMass >= 0 ? heuristicMass : 0,
+                    FaceCount = faceCount,
+                    EdgeCount = edgeCount,
+                    BBoxMaxDimM = bboxMax,
+                    FileName = System.IO.Path.GetFileNameWithoutExtension(pathOrTitle)
+                };
+                var hResult = PurchasedPartHeuristics.Analyze(hInput);
+
+                if (hResult.LikelyPurchased)
+                {
+                    ErrorHandler.DebugLog($"[SMDBG] Heuristic: Likely purchased (confidence={hResult.Confidence:F2}, reason={hResult.Reason}) - skipping classification");
+                    ProblemPartManager.Instance.AddProblemPart(
+                        pathOrTitle, cfg, System.IO.Path.GetFileName(pathOrTitle),
+                        $"Likely purchased part: {hResult.Reason}",
+                        ProblemPartManager.ProblemCategory.ClassificationFailed);
+                    pd.Status = ProcessingStatus.Failed;
+                    pd.FailureReason = $"Likely purchased part: {hResult.Reason}";
+                    pd.Classification = PartType.Purchased;
+                    pd.IsPurchased = true;
+                    pd.Mass_kg = heuristicMass >= 0 ? heuristicMass : 0;
+                    return pd;
+                }
+                else if (hResult.Confidence > 0)
+                {
+                    ErrorHandler.DebugLog($"[SMDBG] Heuristic: Low confidence ({hResult.Confidence:F2}) - proceeding with classification. Reasons: {hResult.Reason}");
+                }
+
                 // ====== CLASSIFICATION ======
                 // VBA Logic: Try sheet metal FIRST, only fall back to tube if sheet metal fails
                 PerformanceTracker.Instance.StartTimer("Classification");
