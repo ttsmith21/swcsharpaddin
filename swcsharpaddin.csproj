@@ -237,6 +237,9 @@
     <Compile Include="src\NM.Core\Reconciliation\Models\RenameSuggestion.cs" />
     <Compile Include="src\NM.Core\Reconciliation\ReconciliationEngine.cs" />
     <Compile Include="src\NM.Core\Reconciliation\RoutingNoteInterpreter.cs" />
+    <!-- Property Suggestion Service (Phase 4) -->
+    <Compile Include="src\NM.Core\Reconciliation\Models\PropertySuggestion.cs" />
+    <Compile Include="src\NM.Core\Reconciliation\PropertySuggestionService.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->
