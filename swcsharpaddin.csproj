@@ -251,6 +251,13 @@
     <Compile Include="src\NM.Core\Writeback\Models\WritebackEntry.cs" />
     <Compile Include="src\NM.Core\Writeback\Models\WritebackResult.cs" />
     <Compile Include="src\NM.Core\Writeback\Models\FileRenameValidation.cs" />
+    <!-- Drawing Package Batch Processing (Phase 7) -->
+    <Compile Include="src\NM.Core\Pdf\Models\DrawingPageInfo.cs" />
+    <Compile Include="src\NM.Core\Pdf\Models\DrawingPackageIndex.cs" />
+    <Compile Include="src\NM.Core\Pdf\Models\BatchAnalysisResult.cs" />
+    <Compile Include="src\NM.Core\Pdf\DrawingPackageScanner.cs" />
+    <Compile Include="src\NM.Core\Pdf\ComponentDrawingMatcher.cs" />
+    <Compile Include="src\NM.SwAddin\Pipeline\BatchAnalysisRunner.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->
