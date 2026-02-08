@@ -44,6 +44,7 @@ namespace swcsharpaddin
         public const int mainItemID4 = 3;   // Run Pipeline
         public const int mainItemID5 = 4;   // QA Runner (DEBUG)
         public const int mainItemID6 = 5;   // Review Problems
+        public const int mainItemID7 = 6;   // Analyze Drawing (AI)
 
         #region Event Handler Variables
         Hashtable openDocs = new Hashtable();
@@ -237,9 +238,9 @@ namespace swcsharpaddin
 
             // All command IDs that will be registered - must match exactly
 #if DEBUG
-            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID5, mainItemID3 };
+            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID5, mainItemID3 };
 #else
-            int[] knownIDs = new int[] { mainItemID4, mainItemID6 };
+            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7 };
 #endif
 
             if (getDataResult)
@@ -279,6 +280,11 @@ namespace swcsharpaddin
                 "Review and fix problem parts from the last pipeline run", "Review Problems",
                 1, "ReviewProblems", "ReviewProblemsEnable", mainItemID6, menuToolbarOption);
 
+            int cmdIndexAnalyze = cmdGroup.AddCommandItem2("Analyze Drawing", -1,
+                "AI-powered PDF drawing analysis: extract properties, routing notes, and cross-validate with 3D model",
+                "Analyze Drawing",
+                0, "AnalyzeDrawing", "", mainItemID7, menuToolbarOption);
+
 #if DEBUG
             int cmdIndexQA = cmdGroup.AddCommandItem2("Run QA", -1,
                 "Run Gold Standard QA tests", "Run QA",
@@ -310,8 +316,8 @@ namespace swcsharpaddin
                     CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
 
 #if DEBUG
-                    int[] cmdIDs = new int[4];
-                    int[] TextType = new int[4];
+                    int[] cmdIDs = new int[5];
+                    int[] TextType = new int[5];
 
                     cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
                     TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
@@ -319,20 +325,26 @@ namespace swcsharpaddin
                     cmdIDs[1] = cmdGroup.get_CommandID(cmdIndexReview);
                     TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                    cmdIDs[2] = cmdGroup.get_CommandID(cmdIndexQA);
+                    cmdIDs[2] = cmdGroup.get_CommandID(cmdIndexAnalyze);
                     TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                    cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexQA);
                     TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[4] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    TextType[4] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #else
-                    int[] cmdIDs = new int[2];
-                    int[] TextType = new int[2];
+                    int[] cmdIDs = new int[3];
+                    int[] TextType = new int[3];
 
                     cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
                     TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
                     cmdIDs[1] = cmdGroup.get_CommandID(cmdIndexReview);
                     TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[2] = cmdGroup.get_CommandID(cmdIndexAnalyze);
+                    TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #endif
 
                     cmdBox.AddCommands(cmdIDs, TextType);
@@ -650,6 +662,31 @@ namespace swcsharpaddin
             catch
             {
                 return 1; // On error, keep enabled so user can click and see a message
+            }
+        }
+
+        /// <summary>
+        /// AI-powered PDF drawing analysis.
+        /// Finds companion PDF, analyzes it, cross-validates with the 3D model,
+        /// and shows a wizard to review and apply property suggestions.
+        /// Called by SolidWorks when user clicks "Analyze Drawing" button.
+        /// </summary>
+        public void AnalyzeDrawing()
+        {
+            NM.Core.ErrorHandler.PushCallStack("AnalyzeDrawing");
+            try
+            {
+                var runner = new NM.SwAddin.Pipeline.DrawingAnalysisRunner(iSwApp);
+                runner.RunOnActiveDocument();
+            }
+            catch (System.Exception ex)
+            {
+                NM.Core.ErrorHandler.HandleError("AnalyzeDrawing", ex.Message, ex, NM.Core.ErrorHandler.LogLevel.Error);
+                System.Windows.Forms.MessageBox.Show($"Drawing analysis error: {ex.Message}", "Error");
+            }
+            finally
+            {
+                NM.Core.ErrorHandler.PopCallStack();
             }
         }
 
