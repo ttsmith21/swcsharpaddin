@@ -242,7 +242,7 @@ namespace NM.SwAddin.Validation
             if (lower.Contains("mixed-body") || lower.Contains("mixed body"))
                 return ProblemPartManager.ProblemCategory.MixedBody;
             if (lower.Contains("multi-body") || lower.Contains("multiple bod"))
-                return ProblemPartManager.ProblemCategory.GeometryValidation;
+                return ProblemPartManager.ProblemCategory.MultiBody;
             if (lower.Contains("material"))
                 return ProblemPartManager.ProblemCategory.MaterialMissing;
             if (lower.Contains("thickness"))

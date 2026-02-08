@@ -348,6 +348,27 @@ namespace NM.SwAddin.Pipeline
             ErrorHandler.DebugLog($"[COST] Assembly Total: Material=${totalMaterial:N2}, Processing=${totalProcessing:N2}, TOTAL=${grandTotal:N2}");
         }
 
+        private static PartData AggregateSubPartCosts(System.Collections.Generic.List<PartData> subResults, string parentPath)
+        {
+            var aggregate = new PartData
+            {
+                PartName = Path.GetFileNameWithoutExtension(parentPath ?? ""),
+                FilePath = parentPath,
+                Status = ProcessingStatus.Success,
+                FailureReason = null
+            };
+
+            foreach (var sub in subResults)
+            {
+                aggregate.Cost.TotalMaterialCost += sub.Cost.TotalMaterialCost;
+                aggregate.Cost.TotalProcessingCost += sub.Cost.TotalProcessingCost;
+                aggregate.Cost.TotalCost += sub.Cost.TotalCost;
+            }
+
+            ErrorHandler.DebugLog($"[SPLIT] Aggregated {subResults.Count} sub-part costs for {aggregate.PartName}: ${aggregate.Cost.TotalCost:N2}");
+            return aggregate;
+        }
+
         private void GenerateErpExport(WorkflowContext context)
         {
             if (!context.GenerateErpExport || context.ProcessedModels.Count == 0)
@@ -657,7 +678,7 @@ namespace NM.SwAddin.Pipeline
 
                 context.ProblemModels.Remove(match);
 
-                // Items processed via SM/TUBE buttons are already fully processed —
+                // Items processed via SM/TUBE/Split buttons are already fully processed —
                 // route to ProcessedModels so Pass 2 doesn't re-process them
                 object alreadyProcessed;
                 if (fixedItem.Metadata.TryGetValue("AlreadyProcessed", out alreadyProcessed))
@@ -666,6 +687,15 @@ namespace NM.SwAddin.Pipeline
                     object resultObj;
                     if (fixedItem.Metadata.TryGetValue("ProcessingResult", out resultObj) && resultObj is NM.Core.DataModel.PartData pd)
                         match.ProcessingResult = pd;
+
+                    // Sub-part results from Split → Assy: aggregate costs into a single PartData
+                    object subObj;
+                    if (fixedItem.Metadata.TryGetValue("SubPartResults", out subObj)
+                        && subObj is System.Collections.Generic.List<NM.Core.DataModel.PartData> subResults)
+                    {
+                        match.ProcessingResult = AggregateSubPartCosts(subResults, match.FilePath);
+                    }
+
                     context.ProcessedModels.Add(match);
                     ErrorHandler.DebugLog($"[WORKFLOW] Already processed via wizard: {match.FileName} → ProcessedModels");
                 }
@@ -698,7 +728,7 @@ namespace NM.SwAddin.Pipeline
             if (r.Contains("file not found") || r.Contains("not found")) return ProblemPartManager.ProblemCategory.FileAccess;
             if (r.Contains("material")) return ProblemPartManager.ProblemCategory.MaterialMissing;
             if (r.Contains("mixed-body") || r.Contains("mixed body")) return ProblemPartManager.ProblemCategory.MixedBody;
-            if (r.Contains("multi-body") || r.Contains("multibody")) return ProblemPartManager.ProblemCategory.GeometryValidation;
+            if (r.Contains("multi-body") || r.Contains("multibody")) return ProblemPartManager.ProblemCategory.MultiBody;
             if (r.Contains("no solid") || r.Contains("no body")) return ProblemPartManager.ProblemCategory.GeometryValidation;
             if (r.Contains("sheet metal") || r.Contains("conversion")) return ProblemPartManager.ProblemCategory.SheetMetalConversion;
             if (r.Contains("thickness")) return ProblemPartManager.ProblemCategory.ThicknessExtraction;

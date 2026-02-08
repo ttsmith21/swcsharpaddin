@@ -26,6 +26,7 @@ namespace NM.Core.ProblemParts
             Lightweight,
             Imported,
             MixedBody,
+            MultiBody,
             ProcessingError,
             ClassificationFailed,
             Fatal

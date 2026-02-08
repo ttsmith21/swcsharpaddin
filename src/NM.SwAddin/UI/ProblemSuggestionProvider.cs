@@ -20,13 +20,7 @@ namespace NM.SwAddin.UI
             switch (category)
             {
                 case ProblemPartManager.ProblemCategory.GeometryValidation:
-                    if (errLower.Contains("multi-body"))
-                    {
-                        list.Add("Insert > Features > Combine to merge bodies");
-                        list.Add("Delete unwanted bodies from FeatureManager");
-                        list.Add("Check if bodies came from imported geometry");
-                    }
-                    else if (errLower.Contains("surface") || errLower.Contains("no solid"))
+                    if (errLower.Contains("surface") || errLower.Contains("no solid"))
                     {
                         list.Add("Part may be surface-only - needs solid geometry");
                         list.Add("Use Insert > Surface > Thicken to create solid");
@@ -75,6 +69,13 @@ namespace NM.SwAddin.UI
                     list.Add("Delete surface bodies: FeatureManager > right-click Surface Body > Delete");
                     list.Add("If this is a purchased/catalog part, click PUR button below");
                     list.Add("Surface bodies can interfere with geometry analysis");
+                    break;
+
+                case ProblemPartManager.ProblemCategory.MultiBody:
+                    list.Add("This part has multiple solid bodies");
+                    list.Add("If this is an oversized part you split: click 'Split → Assy' to save each body as a separate part");
+                    list.Add("If unintentional: use Insert > Features > Combine to merge bodies, then Retry");
+                    list.Add("Or delete unwanted bodies in FeatureManager, then Retry");
                     break;
 
                 case ProblemPartManager.ProblemCategory.ThicknessExtraction:

@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using NM.Core.DataModel;
 using NM.Core.Models;
 using NM.Core.Processing;
 using NM.Core.ProblemParts;
+using NM.SwAddin.Processing;
 using NM.SwAddin.Geometry;
 using NM.SwAddin.Pipeline;
 using NM.SwAddin.Validation;
@@ -49,6 +51,7 @@ namespace NM.SwAddin.UI
         private Button _btnMarkCUST;
         private Button _btnMarkSM;
         private Button _btnMarkTUBE;
+        private Button _btnSplit;
 
         // Tube diagnostics
         private GroupBox _grpTubeDiag;
@@ -152,7 +155,10 @@ namespace NM.SwAddin.UI
             _btnMarkTUBE = new Button { Left = 180, Top = 55, Width = 160, Height = 28, Text = "Tube (convert)", BackColor = Color.LightSteelBlue };
             _btnMarkTUBE.Click += (s, e) => RunAsClassification("Tube");
 
-            _grpPartType.Controls.AddRange(new Control[] { _btnMarkPUR, _btnMarkMACH, _btnMarkCUST, _btnMarkSM, _btnMarkTUBE });
+            _btnSplit = new Button { Left = 350, Top = 55, Width = 160, Height = 28, Text = "Split \u2192 Assy", BackColor = Color.LightCoral };
+            _btnSplit.Click += (s, e) => RunSplitToAssembly();
+
+            _grpPartType.Controls.AddRange(new Control[] { _btnMarkPUR, _btnMarkMACH, _btnMarkCUST, _btnMarkSM, _btnMarkTUBE, _btnSplit });
 
             // Tube diagnostics group
             _grpTubeDiag = new GroupBox { Left = 20, Top = 410, Width = 550, Height = 90, Text = "Tube Diagnostics (for tube/structural parts)" };
@@ -494,6 +500,134 @@ namespace NM.SwAddin.UI
             catch (Exception ex)
             {
                 _lblStatus.Text = $"Error: {ex.Message}";
+                _txtError.BackColor = Color.LightSalmon;
+            }
+        }
+
+        /// <summary>
+        /// Splits a multi-body part into individual part files + assembly,
+        /// then processes each sub-part through MainRunner.
+        /// </summary>
+        private void RunSplitToAssembly()
+        {
+            if (_currentDoc == null || _problems.Count == 0 || _currentIndex >= _problems.Count) return;
+            var item = _problems[_currentIndex];
+
+            // Verify this is a part with 2+ solid bodies
+            var partDoc = _currentDoc as IPartDoc;
+            if (partDoc == null)
+            {
+                _lblStatus.Text = "Split requires a part document (not assembly/drawing).";
+                return;
+            }
+
+            var bodiesObj = partDoc.GetBodies2((int)swBodyType_e.swSolidBody, true);
+            if (bodiesObj == null || ((object[])bodiesObj).Length < 2)
+            {
+                _lblStatus.Text = "Part must have 2 or more solid bodies to split.";
+                return;
+            }
+
+            _lblStatus.Text = "Splitting multi-body part...";
+            Application.DoEvents();
+
+            try
+            {
+                // Save before splitting
+                SwDocumentHelper.SaveDocument(_currentDoc);
+
+                // Split
+                var splitter = new MultiBodySplitter(_swApp);
+                var splitResult = splitter.SplitToAssembly(_currentDoc);
+
+                if (!splitResult.Success)
+                {
+                    _lblStatus.Text = $"Split failed: {splitResult.ErrorMessage}";
+                    _txtError.BackColor = Color.LightSalmon;
+                    _txtError.Text = splitResult.ErrorMessage;
+                    return;
+                }
+
+                _lblStatus.Text = $"Split into {splitResult.BodyCount} parts. Processing sub-parts...";
+                Application.DoEvents();
+
+                // Process each sub-part through MainRunner
+                var subResults = new List<PartData>();
+                int processed = 0;
+
+                foreach (var subPartPath in splitResult.PartPaths)
+                {
+                    processed++;
+                    _lblStatus.Text = $"Processing sub-part {processed}/{splitResult.PartPaths.Length}: {System.IO.Path.GetFileName(subPartPath)}";
+                    Application.DoEvents();
+
+                    IModelDoc2 subDoc = null;
+                    try
+                    {
+                        int errs = 0, warns = 0;
+                        subDoc = _swApp.OpenDoc6(subPartPath, (int)swDocumentTypes_e.swDocPART,
+                            (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref errs, ref warns) as IModelDoc2;
+
+                        if (subDoc == null)
+                        {
+                            NM.Core.ErrorHandler.DebugLog($"[SPLIT] Failed to open sub-part: {subPartPath}");
+                            continue;
+                        }
+
+                        PreparePartView(subDoc);
+                        var partData = MainRunner.RunSinglePartData(_swApp, subDoc, null);
+
+                        if (partData?.Status == ProcessingStatus.Success)
+                        {
+                            SwDocumentHelper.SaveDocument(subDoc);
+                            subResults.Add(partData);
+                        }
+                        else
+                        {
+                            NM.Core.ErrorHandler.DebugLog($"[SPLIT] Sub-part processing failed: {subPartPath} - {partData?.FailureReason}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        NM.Core.ErrorHandler.DebugLog($"[SPLIT] Sub-part error: {subPartPath} - {ex.Message}");
+                    }
+                    finally
+                    {
+                        if (subDoc != null)
+                        {
+                            try { _swApp.CloseDoc(subDoc.GetTitle()); } catch { }
+                        }
+                    }
+                }
+
+                // Mark problem item as resolved
+                item.Metadata["AlreadyProcessed"] = "true";
+                item.Metadata["SubPartResults"] = subResults;
+                _fixedProblems.Add(item);
+                ProblemPartManager.Instance.RemoveResolvedPart(item);
+
+                _lblStatus.Text = $"Split complete: {splitResult.BodyCount} bodies, {subResults.Count} processed successfully";
+                _txtError.BackColor = Color.LightGreen;
+                _txtError.Text = $"Split into {splitResult.BodyCount} sub-parts ({subResults.Count} processed). Assembly: {System.IO.Path.GetFileName(splitResult.AssemblyPath)}";
+                UpdateProgress();
+
+                // Auto-advance
+                if (_currentIndex < _problems.Count - 1)
+                {
+                    _lblStatus.Text += " - Moving to next problem...";
+                    Application.DoEvents();
+                    System.Threading.Thread.Sleep(500);
+                    _currentIndex++;
+                    LoadCurrentProblem();
+                }
+                else
+                {
+                    _lblStatus.Text += " - All problems reviewed!";
+                }
+            }
+            catch (Exception ex)
+            {
+                _lblStatus.Text = $"Split error: {ex.Message}";
                 _txtError.BackColor = Color.LightSalmon;
             }
         }
