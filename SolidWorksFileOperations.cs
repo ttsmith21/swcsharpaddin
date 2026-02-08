@@ -292,7 +292,7 @@ namespace NM.SwAddin
                 }
 
                 int err, warn;
-                var model = SolidWorksApiWrapper.OpenDocument(_swApp, filePath, docType, options, out err, out warn);
+                var model = SwDocumentHelper.OpenDocument(_swApp, filePath, docType, options, out err, out warn);
                 if (model == null)
                 {
                     ErrorHandler.HandleError(proc, $"Failed to open: {filePath}\n{TranslateOpenDocErrors(err, warn)}");

@@ -48,7 +48,7 @@ namespace NM.SwAddin.Pipeline
                 }
 
                 // Basic geometry sanity check
-                var body = SolidWorksApiWrapper.GetMainBody(doc);
+                var body = SwGeometryHelper.GetMainBody(doc);
                 if (body == null)
                 {
                     return new RunResult { Success = false, Message = "No solid body detected" };
@@ -198,10 +198,10 @@ namespace NM.SwAddin.Pipeline
                 // ====== PURCHASED/OVERRIDE EARLY-OUT ======
                 // If part has rbPartType=1 (set by user via PUR/MACH/CUST buttons or pre-existing),
                 // skip the entire classification pipeline. These are known non-fabricated parts.
-                string rbPartTypeEarly = SolidWorksApiWrapper.GetCustomPropertyValue(doc, "rbPartType");
+                string rbPartTypeEarly = SwPropertyHelper.GetCustomPropertyValue(doc, "rbPartType");
                 if (rbPartTypeEarly == "1")
                 {
-                    string rbSubVal = SolidWorksApiWrapper.GetCustomPropertyValue(doc, "rbPartTypeSub");
+                    string rbSubVal = SwPropertyHelper.GetCustomPropertyValue(doc, "rbPartTypeSub");
                     pd.Classification = PartType.Purchased;
                     pd.IsPurchased = true;
                     pd.Extra["rbPartType"] = "1";

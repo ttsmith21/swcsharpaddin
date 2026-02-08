@@ -369,11 +369,11 @@ namespace NM.SwAddin.UI
                         var model = _swApp.OpenDoc6(item.FilePath, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
                         if (model != null && errs == 0)
                         {
-                            SolidWorksApiWrapper.AddCustomProperty(model, "rbPartType",
+                            SwPropertyHelper.AddCustomProperty(model, "rbPartType",
                                 swCustomInfoType_e.swCustomInfoNumber, "1", "");
-                            SolidWorksApiWrapper.AddCustomProperty(model, "rbPartTypeSub",
+                            SwPropertyHelper.AddCustomProperty(model, "rbPartTypeSub",
                                 swCustomInfoType_e.swCustomInfoNumber, ((int)typeOverride).ToString(), "");
-                            SolidWorksApiWrapper.SaveDocument(model);
+                            SwDocumentHelper.SaveDocument(model);
                         }
                     }
                     catch (Exception ex)

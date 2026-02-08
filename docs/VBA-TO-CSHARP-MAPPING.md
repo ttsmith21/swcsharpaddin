@@ -29,7 +29,7 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 | `NumberOfBodies()` | `SolidWorksApiWrapper.CountSolidBodies()` | ✅ | Body count check |
 | `CompareMass()` | `MassValidator.Compare()` | ✅ | Mass validation |
 | `SaveCurrentModel()` | `SolidWorksFileOperations.Save()` | ✅ | File save |
-| `GetLargestFace()` | `SolidWorksApiWrapper.GetFixedFace()` | ✅ | Face selection |
+| `GetLargestFace()` | `SwGeometryHelper.GetFixedFace()` | ✅ | Face selection |
 | `ShowProgress()` | `ProgressForm.SetStep()` | ✅ | UI progress |
 | `Report()` | `ReportService.GenerateAssemblyReport()` | ✅ | Summary report generation |
 | `ReportPart()` | `ReportService.GenerateFolderReport()` | ✅ | Part-level reporting |
@@ -97,7 +97,7 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 | `CountBends()` | `BendAnalyzer.GetBendInfo()` | 🔶 | Bend count |
 | `CheckBendTonnage()` | `BendTonnageCalculator.CheckBend()` | ✅ | Tonnage validation |
 | `GetThickness()` | `ModelInfo.ThicknessInInches` | ✅ | Thickness extraction |
-| `GetSelectedFace()` | `SolidWorksApiWrapper.GetFixedFace()` | ✅ | Face selection |
+| `GetSelectedFace()` | `SwGeometryHelper.GetFixedFace()` | ✅ | Face selection |
 | `GetMass()` | `SolidWorksApiWrapper.GetMassKg()` | ✅ | Mass property |
 | `GetDensity()` | `Rates.GetDensityLbPerIn3()` | ✅ | Material density |
 | `GetMaterialConstants()` | `Rates.*` | 🔶 | Speed/pierce rates |
@@ -107,7 +107,7 @@ This document maps original VBA functions from `Solidworks-Automator-VBA` to the
 | `FlattenPart()` | `BendStateManager.SelectFlatPattern()` | 🔶 | Flatten operation |
 | `UnFlattenPart()` | `BendStateManager.UnFlattenPart()` | ✅ | Unflatten |
 | `GetFlatFeatures()` | `FlatPatternAnalyzer.*` | 🔶 | Feature extraction |
-| `GetFixedFace()` | `SolidWorksApiWrapper.GetFixedFace()` | ✅ | Fixed face for SM |
+| `GetFixedFace()` | `SwGeometryHelper.GetFixedFace()` | ✅ | Fixed face for SM |
 | `SelectFlatPattern()` | `BendStateManager.SelectFlatPattern()` | 🔶 | Flat pattern selection |
 | `SelectSheetMetal()` | - | ❌ | SM feature selection |
 | `BendData()` | `BendAnalyzer.GetBendInfo()` | 🔶 | Bend data extraction |

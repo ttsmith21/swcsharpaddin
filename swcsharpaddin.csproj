@@ -80,6 +80,9 @@
     <Compile Include="PerformanceTracker.cs" />
     <Compile Include="ProcessingOptions.cs" />
     <Compile Include="SolidWorksApiWrapper.cs" />
+    <Compile Include="SwPropertyHelper.cs" />
+    <Compile Include="SwGeometryHelper.cs" />
+    <Compile Include="SwDocumentHelper.cs" />
     <Compile Include="SolidWorksFileOperations.cs" />
     <Compile Include="SolidWorksModel.cs" />
     <Compile Include="SwAddin.cs" />

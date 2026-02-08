@@ -164,7 +164,7 @@ namespace NM.SwAddin.Pipeline
                     {
                         ErrorHandler.DebugLog("[WORKFLOW] Rebuilding and saving assembly...");
                         context.SourceDocument.ForceRebuild3(true);
-                        SolidWorksApiWrapper.SaveDocument(context.SourceDocument);
+                        SwDocumentHelper.SaveDocument(context.SourceDocument);
                         ErrorHandler.DebugLog("[WORKFLOW] Assembly rebuilt and saved.");
                     }
                     catch (Exception ex)
@@ -249,7 +249,7 @@ namespace NM.SwAddin.Pipeline
                         {
                             // Save after successful processing
                             if (doc != null)
-                                SolidWorksApiWrapper.SaveDocument(doc);
+                                SwDocumentHelper.SaveDocument(doc);
                             modelInfo.CompleteProcessing(true);
                             context.ProcessedModels.Add(modelInfo);
                         }
