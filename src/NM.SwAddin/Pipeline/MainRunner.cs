@@ -513,6 +513,35 @@ namespace NM.SwAddin.Pipeline
                     }
                 }
 
+                // ====== TAPPED HOLE DETECTION ======
+                // Analyze all features for tapped holes (Hole Wizard type 3/4, or "TAP"/"TAPPED" in name)
+                // Must run after classification but before cost calculation so F220 costs are populated.
+                if (isSheetMetal)
+                {
+                    try
+                    {
+                        PerformanceTracker.Instance.StartTimer("TappedHoleAnalysis");
+                        int tapQty = Math.Max(1, (options ?? new ProcessingOptions()).Quantity > 0 ? options.Quantity : pd.QuoteQty);
+                        var tapResult = TappedHoleAnalyzer.Analyze(doc, pd.Material, tapQty);
+                        if (tapResult.TappedHoleCount > 0)
+                        {
+                            info.CustomProperties.TappedHoleCount = tapResult.TappedHoleCount;
+                            pd.Extra["TappedHoleSetups"] = tapResult.TotalSetups.ToString();
+                            ErrorHandler.DebugLog($"[SMDBG] Tapped holes: {tapResult.TappedHoleCount} holes, {tapResult.TotalSetups} setups");
+                        }
+                        if (tapResult.RequiresStainlessNote)
+                        {
+                            pd.Cost.F220_Note = tapResult.StainlessNoteText;
+                        }
+                        PerformanceTracker.Instance.StopTimer("TappedHoleAnalysis");
+                    }
+                    catch (Exception tapEx)
+                    {
+                        PerformanceTracker.Instance.StopTimer("TappedHoleAnalysis");
+                        ErrorHandler.HandleError("MainRunner", "Tapped hole analysis failed", tapEx, ErrorHandler.LogLevel.Warning);
+                    }
+                }
+
                 // ====== OVERSIZE VALIDATION ======
                 // Parts exceeding maximum material stock are flagged as problems.
                 // Sheet: 60" x 240" max blank size. Cylinder: 24" OD max.
@@ -877,12 +906,19 @@ namespace NM.SwAddin.Pipeline
                 PerformanceTracker.Instance.StopTimer("Cost_F140_Brake");
             }
 
-            // F220 Tapping - based on tapped hole count
+            // F220 Tapping - based on tapped hole count from TappedHoleAnalyzer
             int tappedHoles = info.CustomProperties.TappedHoleCount;
             if (tappedHoles > 0)
             {
                 PerformanceTracker.Instance.StartTimer("Cost_F220_Tapping");
-                var f220Input = new F220Input { Setups = 1, Holes = tappedHoles };
+                // Use actual setup count from analyzer (unique tap sizes), fallback to 1
+                int setups = 1;
+                string setupStr;
+                if (pd.Extra.TryGetValue("TappedHoleSetups", out setupStr))
+                    int.TryParse(setupStr, out setups);
+                if (setups < 1) setups = 1;
+
+                var f220Input = new F220Input { Setups = setups, Holes = tappedHoles };
                 var f220Result = F220Calculator.Compute(f220Input);
                 pd.Cost.F220_S_min = f220Result.SetupHours * 60.0;
                 pd.Cost.F220_R_min = f220Result.RunHours * 60.0;

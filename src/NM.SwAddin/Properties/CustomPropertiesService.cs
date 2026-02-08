@@ -100,6 +100,10 @@ namespace NM.SwAddin.Properties
                 var types = cache.GetPropertyTypes();
                 var values = cache.GetProperties();
 
+                bool allOk = true;
+                int written = 0;
+                int failed = 0;
+
                 foreach (var kv in states)
                 {
                     string name = kv.Key;
@@ -116,20 +120,67 @@ namespace NM.SwAddin.Properties
                         case PropertyState.Added:
                         case PropertyState.Modified:
                             if (writeGlobal)
-                                SolidWorksApiWrapper.AddCustomProperty(model, name, (swCustomInfoType_e)swType, value, "");
+                            {
+                                if (!SolidWorksApiWrapper.AddCustomProperty(model, name, (swCustomInfoType_e)swType, value, ""))
+                                {
+                                    ErrorHandler.DebugLog($"WritePending: FAILED to write '{name}'='{value}' to global scope");
+                                    allOk = false;
+                                    failed++;
+                                }
+                                else { written++; }
+                            }
                             if (writeConfig && !string.IsNullOrWhiteSpace(cfgName))
-                                SolidWorksApiWrapper.AddCustomProperty(model, name, (swCustomInfoType_e)swType, value, cfgName);
+                            {
+                                if (!SolidWorksApiWrapper.AddCustomProperty(model, name, (swCustomInfoType_e)swType, value, cfgName))
+                                {
+                                    ErrorHandler.DebugLog($"WritePending: FAILED to write '{name}'='{value}' to config '{cfgName}'");
+                                    allOk = false;
+                                    failed++;
+                                }
+                                else { written++; }
+                            }
                             break;
                         case PropertyState.Deleted:
                             if (writeGlobal)
-                                SolidWorksApiWrapper.DeleteCustomProperty(model, name, "");
+                            {
+                                if (!SolidWorksApiWrapper.DeleteCustomProperty(model, name, ""))
+                                {
+                                    ErrorHandler.DebugLog($"WritePending: FAILED to delete '{name}' from global scope");
+                                    allOk = false;
+                                    failed++;
+                                }
+                                else { written++; }
+                            }
                             if (writeConfig && !string.IsNullOrWhiteSpace(cfgName))
-                                SolidWorksApiWrapper.DeleteCustomProperty(model, name, cfgName);
+                            {
+                                if (!SolidWorksApiWrapper.DeleteCustomProperty(model, name, cfgName))
+                                {
+                                    ErrorHandler.DebugLog($"WritePending: FAILED to delete '{name}' from config '{cfgName}'");
+                                    allOk = false;
+                                    failed++;
+                                }
+                                else { written++; }
+                            }
                             break;
                     }
                 }
 
-                // Mark caches clean after successful write
+                ErrorHandler.DebugLog($"WritePending: {written} succeeded, {failed} failed");
+
+                // Post-write verification: re-read properties and spot-check critical values
+                if (allOk)
+                {
+                    string verifyScope = writeGlobal ? "" : cfgName;
+                    allOk = VerifyWrittenProperties(model, verifyScope, states, values);
+                }
+
+                if (!allOk)
+                {
+                    ErrorHandler.HandleError(proc, $"Property write-back had {failed} failures or verification mismatch");
+                    return false;
+                }
+
+                // Mark caches clean only after verified write
                 cache.MarkClean();
                 info.MarkModelClean();
                 return true;
@@ -140,6 +191,65 @@ namespace NM.SwAddin.Properties
                 return false;
             }
             finally { ErrorHandler.PopCallStack(); }
+        }
+
+        /// <summary>
+        /// Re-reads properties from SolidWorks and verifies that written values match expectations.
+        /// Only checks Added/Modified properties (not Deleted).
+        /// </summary>
+        private bool VerifyWrittenProperties(IModelDoc2 model, string scope,
+            IReadOnlyDictionary<string, PropertyState> states, IReadOnlyDictionary<string, object> expectedValues)
+        {
+            try
+            {
+                if (!SolidWorksApiWrapper.GetCustomProperties(model, scope, out var names, out var types, out var values))
+                    return false;
+
+                // Build lookup of actual values
+                var actual = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                for (int i = 0; i < names.Length; i++)
+                    actual[names[i]] = values[i];
+
+                int mismatches = 0;
+                foreach (var kv in states)
+                {
+                    if (kv.Value != PropertyState.Added && kv.Value != PropertyState.Modified)
+                        continue;
+
+                    string propName = kv.Key;
+                    expectedValues.TryGetValue(propName, out var expectedObj);
+                    string expected = expectedObj?.ToString() ?? string.Empty;
+
+                    if (!actual.TryGetValue(propName, out var actualVal))
+                    {
+                        ErrorHandler.DebugLog($"VerifyWrite: Property '{propName}' NOT FOUND after write");
+                        mismatches++;
+                    }
+                    else if (!string.Equals(expected, actualVal, StringComparison.OrdinalIgnoreCase))
+                    {
+                        // Value mismatch - log but don't fail for minor formatting differences
+                        // (e.g., "1.5" vs "1.5000" from SW evaluation)
+                        double expNum, actNum;
+                        bool bothNumeric = double.TryParse(expected, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out expNum)
+                                        && double.TryParse(actualVal, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out actNum);
+                        if (bothNumeric && Math.Abs(expNum - actNum) < 0.0001)
+                            continue; // numeric equivalent
+
+                        ErrorHandler.DebugLog($"VerifyWrite: Property '{propName}' mismatch - expected='{expected}', actual='{actualVal}'");
+                        mismatches++;
+                    }
+                }
+
+                if (mismatches > 0)
+                    ErrorHandler.DebugLog($"VerifyWrite: {mismatches} property mismatches detected");
+
+                return mismatches == 0;
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError("VerifyWrittenProperties", ex.Message, ex, ErrorHandler.LogLevel.Warning);
+                return true; // Don't fail the pipeline on verification errors
+            }
         }
 
         private void OverlayIntoCache(CustomPropertyData cache, string[] names, int[] types, string[] values)
