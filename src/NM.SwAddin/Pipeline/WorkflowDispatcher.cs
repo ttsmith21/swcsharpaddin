@@ -480,6 +480,17 @@ namespace NM.SwAddin.Pipeline
             }
             catch (Exception ex)
             {
+                // Log the full exception chain to identify exact missing assembly
+                var inner = ex;
+                while (inner != null)
+                {
+                    ErrorHandler.DebugLog($"[REPORT] Exception: {inner.GetType().Name}: {inner.Message}");
+                    if (inner is System.IO.FileNotFoundException fnf)
+                        ErrorHandler.DebugLog($"[REPORT] Missing file: {fnf.FileName}");
+                    if (inner is System.IO.FileLoadException fle)
+                        ErrorHandler.DebugLog($"[REPORT] Failed to load: {fle.FileName}");
+                    inner = inner.InnerException;
+                }
                 ErrorHandler.HandleError("GenerateQuoteReport", "Quote report generation failed", ex, ErrorHandler.LogLevel.Warning);
             }
         }
