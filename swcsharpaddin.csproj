@@ -128,6 +128,7 @@
     <Compile Include="src\NM.Core\Manufacturing\Laser\LaserCalculator.cs" />
     <Compile Include="src\NM.Core\Manufacturing\Laser\LaserSpeedService.cs" />
     <Compile Include="src\NM.Core\Manufacturing\CutMetrics.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\HoleNearBendModels.cs" />
     <Compile Include="src\NM.Core\Materials\OptiMaterialService.cs" />
     <Compile Include="src\NM.Core\ProblemParts\ProblemPartManager.cs" />
     <Compile Include="src\NM.Core\Processing\PartDataPropertyMap.cs" />
@@ -155,6 +156,7 @@
     <Compile Include="src\NM.SwAddin\Manufacturing\BendAnalyzer.cs" />
     <Compile Include="src\NM.SwAddin\Manufacturing\FlatPatternAnalyzer.cs" />
     <Compile Include="src\NM.SwAddin\Manufacturing\MetricsExtractor.cs" />
+    <Compile Include="src\NM.SwAddin\Manufacturing\HoleNearBendAnalyzer.cs" />
     <Compile Include="src\NM.SwAddin\Manufacturing\TappedHoleAnalyzer.cs" />
     <Compile Include="src\NM.SwAddin\Manufacturing\Laser\LaserSpeedExcelProvider.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\AutoWorkflow.cs" />

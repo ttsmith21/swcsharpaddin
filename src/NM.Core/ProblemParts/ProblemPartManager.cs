@@ -29,6 +29,7 @@ namespace NM.Core.ProblemParts
             MultiBody,
             ProcessingError,
             ClassificationFailed,
+            ManufacturingWarning,
             Fatal
         }
 

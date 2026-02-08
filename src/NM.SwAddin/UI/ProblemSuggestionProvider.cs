@@ -84,6 +84,13 @@ namespace NM.SwAddin.UI
                     list.Add("May need manual thickness specification");
                     break;
 
+                case ProblemPartManager.ProblemCategory.ManufacturingWarning:
+                    list.Add("Hole or cutout is too close to a bend line");
+                    list.Add("Feature will distort during bending");
+                    list.Add("Option 1: Relocate feature further from bend line");
+                    list.Add("Option 2: Add relief slot between feature and bend");
+                    break;
+
                 default:
                     list.Add("Review part in SolidWorks");
                     list.Add("Check error message for specific guidance");
