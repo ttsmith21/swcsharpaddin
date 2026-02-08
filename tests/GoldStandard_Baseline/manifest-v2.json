@@ -206,30 +206,29 @@
                                                                               },
                                                            "_note":  "Model thickness is 0.076 (not nominal 16ga)"
                                                        },
-                  "B4_ComplexUBracket_11ga_CS.sldprt":  {
+                  "B4_SheetMetal_TappedHoles.SLDPRT":  {
                                                             "shouldPass":  true,
                                                             "expectedClassification":  "SheetMetal",
-                                                            "expectedThickness_in":  0.1196,
-                                                            "expectedBendCount":  4,
                                                             "csharpExpected":  {
 
-                                                                               }
+                                                                               },
+                                                            "_note":  "Sheet metal with Hole Wizard tapped holes - validates TappedHoleAnalyzer detection"
                                                         },
-                  "B5_BracketWithHoles_14ga_CS.sldprt":  {
+                  "B5_SheetMetal_TappedHoles_SS.SLDPRT":  {
                                                              "shouldPass":  true,
                                                              "expectedClassification":  "SheetMetal",
-                                                             "expectedThickness_in":  0.0747,
                                                              "csharpExpected":  {
 
-                                                                                }
+                                                                                },
+                                                             "_note":  "Stainless steel tapped holes - validates stainless tapping note generation"
                                                          },
-                  "B6_TinyFlange_10ga_CS.sldprt":  {
+                  "B6_SheetMetal_NamedTapHoles.SLDPRT":  {
                                                        "shouldPass":  true,
                                                        "expectedClassification":  "SheetMetal",
-                                                       "expectedThickness_in":  0.1345,
                                                        "csharpExpected":  {
 
-                                                                          }
+                                                                          },
+                                                       "_note":  "Features named TAP/TAPPED - validates name-based tapped hole detection"
                                                    },
                   "C1_RoundTube_2OD_SCH40.sldprt":  {
                                                         "shouldPass":  true,

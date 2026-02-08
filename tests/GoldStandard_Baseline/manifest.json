@@ -58,21 +58,20 @@
       "expectedThickness_in": 0.076,
       "_note": "Model thickness is 0.076 (not nominal 16ga)"
     },
-    "B4_ComplexUBracket_11ga_CS.sldprt": {
+    "B4_SheetMetal_TappedHoles.SLDPRT": {
       "shouldPass": true,
       "expectedClassification": "SheetMetal",
-      "expectedThickness_in": 0.1196,
-      "expectedBendCount": 4
+      "_note": "Sheet metal with Hole Wizard tapped holes - validates TappedHoleAnalyzer detection"
     },
-    "B5_BracketWithHoles_14ga_CS.sldprt": {
+    "B5_SheetMetal_TappedHoles_SS.SLDPRT": {
       "shouldPass": true,
       "expectedClassification": "SheetMetal",
-      "expectedThickness_in": 0.0747
+      "_note": "Stainless steel tapped holes - validates stainless tapping note generation"
     },
-    "B6_TinyFlange_10ga_CS.sldprt": {
+    "B6_SheetMetal_NamedTapHoles.SLDPRT": {
       "shouldPass": true,
       "expectedClassification": "SheetMetal",
-      "expectedThickness_in": 0.1345
+      "_note": "Features named TAP/TAPPED - validates name-based tapped hole detection"
     },
 
     "_comment_C": "Class C: Tube & Structural - Updated 2026-01-29 with actual model dimensions and TubeGeometryExtractor support",

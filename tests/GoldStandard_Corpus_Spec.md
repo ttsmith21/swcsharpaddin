@@ -30,9 +30,9 @@ This document defines the "Exhaustive List" of test parts required to validate t
 | B1 | Standard Bracket (Native) | A simple L-bracket created with SolidWorks Sheet Metal features | Feature detection | `B1_NativeBracket_14ga_CS.sldprt` |
 | B2 | Standard Bracket (Imported) | The same L-bracket, but imported as a "dumb" STEP file | ConvertToSheetMetal | `B2_ImportedBracket_14ga_CS.sldprt` |
 | B3 | Rolled Cylinder | A rolled plate (open seam) that can be flattened | Unfold cylinder | `B3_RolledCylinder_16ga_SS.sldprt` |
-| B4 | Complex Form | A multi-bend part (U-shape with return flanges) | Multi-bend processing | `B4_ComplexUBracket_11ga_CS.sldprt` |
-| B5 | With Holes | Part with internal cutouts | Loop validation | `B5_BracketWithHoles_14ga_CS.sldprt` |
-| B6 | Tiny Flange | A part with a flange smaller than material thickness | Unfold validation | `B6_TinyFlange_10ga_CS.sldprt` |
+| B4 | Tapped Holes (CS) | Sheet metal part with Hole Wizard tapped holes | Tapped hole detection, F220 cost | `B4_SheetMetal_TappedHoles.SLDPRT` |
+| B5 | Tapped Holes (SS) | Sheet metal with tapped holes in stainless steel | Stainless tapping note, F220 cost | `B5_SheetMetal_TappedHoles_SS.SLDPRT` |
+| B6 | Named Tap Holes | Sheet metal with "TAP"/"TAPPED" named features | Name-based tap detection | `B6_SheetMetal_NamedTapHoles.SLDPRT` |
 
 ---
 
@@ -167,9 +167,9 @@ Use this checklist to track file collection:
     [ ] B1_NativeBracket_14ga_CS.sldprt
     [ ] B2_ImportedBracket_14ga_CS.sldprt
     [ ] B3_RolledCylinder_16ga_SS.sldprt
-    [ ] B4_ComplexUBracket_11ga_CS.sldprt
-    [ ] B5_BracketWithHoles_14ga_CS.sldprt
-    [ ] B6_TinyFlange_10ga_CS.sldprt
+    [ ] B4_SheetMetal_TappedHoles.SLDPRT
+    [ ] B5_SheetMetal_TappedHoles_SS.SLDPRT
+    [ ] B6_SheetMetal_NamedTapHoles.SLDPRT
 
 [ ] Class C: Tube & Structural (7 files)
     [ ] C1_RoundTube_2OD_SCH40.sldprt

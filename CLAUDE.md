@@ -89,7 +89,7 @@ Get-Item bin\Debug\swcsharpaddin.dll | Select-Object Name, LastWriteTime
 
 **Test inputs:** `tests/GoldStandard_Inputs/`
 - `A*` series: Validation edge cases (empty, multi-body, no material)
-- `B*` series: Sheet metal parts (native, imported, rolled cylinder)
+- `B*` series: Sheet metal parts (native, imported, rolled cylinder, tapped holes)
 - `C*` series: Structural shapes (tubes, angle, channel, beam)
 
 **Autonomous debugging loop:**

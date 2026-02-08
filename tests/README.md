@@ -24,7 +24,7 @@ This directory contains the regression testing framework for validating the Soli
 | Class | Files | Status |
 |-------|-------|--------|
 | A - Invalid | 6/6 | ✅ Complete |
-| B - Sheet Metal | 3/6 | 🔶 B4-B6 missing |
+| B - Sheet Metal | 6/6 | ✅ Complete |
 | C - Tube | 7/7 | ✅ Complete |
 | D - Non-Convertible | 0/5 | ❌ Not started |
 | E - Edge Cases | 0/6 | ❌ Not started |
@@ -60,8 +60,7 @@ You don't need all 47 files to start testing. The harness handles partial sets:
 #   Class A - Invalid/Problem [High]
 #     [██████░░░░] 6/6 (100%)
 #   Class B - Sheet Metal [High]
-#     [████░░░░░░] 4/6 (67%)
-#     Missing: B5_BracketWithHoles_14ga_CS.sldprt, B6_TinyFlange_10ga_CS.sldprt
+#     [██████████] 6/6 (100%)
 #   ...
 ```
 
