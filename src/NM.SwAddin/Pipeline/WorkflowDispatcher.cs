@@ -198,6 +198,7 @@ namespace NM.SwAddin.Pipeline
 
                     AggregateCosts(context);  // Aggregate costs after processing
                     GenerateErpExport(context);  // Generate Import.prn if enabled
+                    GenerateQuoteReport(context);  // Generate Excel quote report if enabled
                 }
 
                 // Rebuild and save assembly after all parts are processed
@@ -435,6 +436,49 @@ namespace NM.SwAddin.Pipeline
             catch (Exception ex)
             {
                 ErrorHandler.HandleError("GenerateErpExport", "Export failed", ex, ErrorHandler.LogLevel.Warning);
+            }
+        }
+
+        private void GenerateQuoteReport(WorkflowContext context)
+        {
+            if (_options == null || !_options.GenerateReport || context.ProcessedModels.Count == 0)
+                return;
+
+            try
+            {
+                var items = new List<QuoteExcelGenerator.QuoteLineItem>();
+                foreach (var mi in context.ProcessedModels)
+                {
+                    if (mi.ProcessingResult == null) continue;
+                    items.Add(QuoteExcelGenerator.FromPartData(mi.ProcessingResult, mi.Quantity));
+                }
+
+                if (items.Count == 0)
+                {
+                    ErrorHandler.DebugLog("[REPORT] No parts with ProcessingResult - skipping quote report");
+                    return;
+                }
+
+                var metadata = new QuoteExcelGenerator.QuoteReportMetadata
+                {
+                    AssemblyName = Path.GetFileNameWithoutExtension(context.RootPath ?? ""),
+                    Customer = context.Customer ?? "",
+                    SourcePath = context.RootPath
+                };
+
+                string outputPath = Path.Combine(
+                    Path.GetDirectoryName(context.RootPath) ?? ".",
+                    Path.GetFileNameWithoutExtension(context.RootPath) + "_Quote.xlsx");
+
+                var generator = new QuoteExcelGenerator();
+                generator.Generate(items, metadata, outputPath);
+                context.QuoteReportPath = outputPath;
+
+                ErrorHandler.DebugLog($"[REPORT] Generated quote report: {outputPath}");
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError("GenerateQuoteReport", "Quote report generation failed", ex, ErrorHandler.LogLevel.Warning);
             }
         }
 

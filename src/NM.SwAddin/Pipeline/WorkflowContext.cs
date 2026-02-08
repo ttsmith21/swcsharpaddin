@@ -107,6 +107,11 @@ namespace NM.SwAddin.Pipeline
         public string ErpExportPath { get; set; }
 
         /// <summary>
+        /// Path to generated quote Excel report (null if not generated).
+        /// </summary>
+        public string QuoteReportPath { get; set; }
+
+        /// <summary>
         /// Whether to generate ERP export after processing.
         /// </summary>
         public bool GenerateErpExport { get; set; }
@@ -197,6 +202,8 @@ namespace NM.SwAddin.Pipeline
                 sb.AppendLine();
                 sb.AppendLine($"ERP Export: {ErpExportPath}");
             }
+            if (!string.IsNullOrEmpty(QuoteReportPath))
+                sb.AppendLine($"Quote Report: {QuoteReportPath}");
             sb.AppendLine();
             sb.AppendLine($"Total Time: {TotalElapsed.TotalSeconds:F1}s");
             return sb.ToString();
