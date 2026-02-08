@@ -262,6 +262,8 @@
     <Compile Include="src\NM.Core\Pdf\SpecRecognizer.cs" />
     <!-- Tolerance Analysis (general, specific, surface finish, cost flags) -->
     <Compile Include="src\NM.Core\Pdf\ToleranceAnalyzer.cs" />
+    <!-- GD&T Feature Control Frame Extraction -->
+    <Compile Include="src\NM.Core\Pdf\GdtExtractor.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->

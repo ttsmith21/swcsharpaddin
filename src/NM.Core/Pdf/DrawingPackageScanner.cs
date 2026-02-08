@@ -19,6 +19,7 @@ namespace NM.Core.Pdf
         private readonly DrawingNoteExtractor _noteExtractor;
         private readonly SpecRecognizer _specRecognizer;
         private readonly ToleranceAnalyzer _toleranceAnalyzer;
+        private readonly GdtExtractor _gdtExtractor;
 
         public DrawingPackageScanner()
         {
@@ -27,6 +28,7 @@ namespace NM.Core.Pdf
             _noteExtractor = new DrawingNoteExtractor();
             _specRecognizer = new SpecRecognizer();
             _toleranceAnalyzer = new ToleranceAnalyzer();
+            _gdtExtractor = new GdtExtractor();
         }
 
         /// <summary>
@@ -178,6 +180,21 @@ namespace NM.Core.Pdf
                 foreach (var tolHint in _toleranceAnalyzer.ToRoutingHints(tolResult))
                 {
                     pageInfo.RoutingHints.Add(tolHint);
+                }
+            }
+
+            // GD&T feature control frame extraction
+            var gdtCallouts = _gdtExtractor.Extract(page.FullText);
+            if (gdtCallouts.Count > 0)
+            {
+                pageInfo.GdtCallouts.AddRange(gdtCallouts);
+                if (pageInfo.ToleranceAnalysis != null)
+                {
+                    pageInfo.ToleranceAnalysis.CostFlags.AddRange(_gdtExtractor.ToCostFlags(gdtCallouts));
+                }
+                foreach (var gdtHint in _gdtExtractor.ToRoutingHints(gdtCallouts))
+                {
+                    pageInfo.RoutingHints.Add(gdtHint);
                 }
             }
 

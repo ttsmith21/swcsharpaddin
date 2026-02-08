@@ -24,6 +24,7 @@ namespace NM.Core.Pdf
         private readonly DrawingNoteExtractor _noteExtractor;
         private readonly SpecRecognizer _specRecognizer;
         private readonly ToleranceAnalyzer _toleranceAnalyzer;
+        private readonly GdtExtractor _gdtExtractor;
         private readonly IDrawingVisionService _visionService;
 
         /// <summary>
@@ -44,6 +45,7 @@ namespace NM.Core.Pdf
             _noteExtractor = new DrawingNoteExtractor();
             _specRecognizer = new SpecRecognizer();
             _toleranceAnalyzer = new ToleranceAnalyzer();
+            _gdtExtractor = new GdtExtractor();
             _visionService = visionService ?? new OfflineVisionService();
         }
 
@@ -167,6 +169,19 @@ namespace NM.Core.Pdf
                 if (tolResult.CostFlags.Count > 0)
                 {
                     result.RoutingHints.AddRange(_toleranceAnalyzer.ToRoutingHints(tolResult));
+                }
+
+                // Step 3d: GD&T feature control frame extraction
+                var gdtCallouts = _gdtExtractor.Extract(result.RawText);
+                if (gdtCallouts.Count > 0)
+                {
+                    result.GdtCallouts.AddRange(gdtCallouts);
+                    // Add GD&T cost flags to tolerance analysis
+                    if (result.ToleranceAnalysis != null)
+                    {
+                        result.ToleranceAnalysis.CostFlags.AddRange(_gdtExtractor.ToCostFlags(gdtCallouts));
+                    }
+                    result.RoutingHints.AddRange(_gdtExtractor.ToRoutingHints(gdtCallouts));
                 }
 
                 // Step 4: Generate routing hints from notes

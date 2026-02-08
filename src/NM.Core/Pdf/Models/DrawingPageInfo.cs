@@ -48,6 +48,9 @@ namespace NM.Core.Pdf.Models
         /// <summary>Recognized formal specifications (ASTM, AMS, MIL-SPEC, etc.).</summary>
         public List<SpecMatch> RecognizedSpecs { get; } = new List<SpecMatch>();
 
+        /// <summary>GD&amp;T callouts extracted from this page.</summary>
+        public List<GdtCallout> GdtCallouts { get; } = new List<GdtCallout>();
+
         /// <summary>Tolerance analysis results for this page.</summary>
         public ToleranceAnalysisResult ToleranceAnalysis { get; set; }
 
