@@ -96,6 +96,18 @@
       <HintPath>$(NuGetPackageRoot)sixlabors.fonts\1.0.0\lib\netstandard2.0\SixLabors.Fonts.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="ExcelNumberFormat">
+      <HintPath>$(NuGetPackageRoot)excelnumberformat\1.1.0\lib\netstandard2.0\ExcelNumberFormat.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="XLParser">
+      <HintPath>$(NuGetPackageRoot)xlparser\1.5.2\lib\net461\XLParser.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.IO.Packaging">
+      <HintPath>$(NuGetPackageRoot)system.io.packaging\6.0.0\lib\net461\System.IO.Packaging.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
