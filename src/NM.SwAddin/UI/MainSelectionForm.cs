@@ -42,7 +42,7 @@ namespace NM.SwAddin.UI
 
         // Advanced Settings
         private ComboBox cboMode;
-        private CheckBox chkEnableLogging, chkShowWarnings, chkPerfMonitoring;
+        private CheckBox chkEnableLogging, chkShowWarnings, chkPerfMonitoring, chkUseTaskPane;
         private TextBox txtLogPath;
         private Button btnBrowseLog;
 
@@ -64,7 +64,7 @@ namespace NM.SwAddin.UI
             MaximizeBox = false;
             MinimizeBox = false;
             Font = new Font("Segoe UI", 9F);
-            ClientSize = new Size(600, 720);
+            ClientSize = new Size(600, 740);
 
             int left = 12;
             int width = 576;
@@ -192,7 +192,7 @@ namespace NM.SwAddin.UI
             y += 58;
 
             // ===== Advanced Settings =====
-            var gbAdvanced = new GroupBox { Text = "Advanced Settings", Left = left, Top = y, Width = width, Height = 100 };
+            var gbAdvanced = new GroupBox { Text = "Advanced Settings", Left = left, Top = y, Width = width, Height = 120 };
 
             var lblMode = new Label { Text = "Mode:", Left = 15, Top = 24, AutoSize = true };
             cboMode = new ComboBox { Left = 60, Top = 20, Width = 100, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -203,16 +203,18 @@ namespace NM.SwAddin.UI
             chkShowWarnings = new CheckBox { Text = "Show Warnings", Left = 310, Top = 22, AutoSize = true, Checked = NM.Core.Configuration.Defaults.ShowWarningsDefault };
             chkPerfMonitoring = new CheckBox { Text = "Perf Monitoring", Left = 440, Top = 22, AutoSize = true, Checked = NM.Core.Configuration.Defaults.EnablePerformanceMonitoringDefault };
 
-            var lblLog = new Label { Text = "Log Path:", Left = 15, Top = 55, AutoSize = true };
-            txtLogPath = new TextBox { Left = 75, Top = 52, Width = 400, Text = NM.Core.Configuration.FilePaths.ErrorLogPath };
-            btnBrowseLog = new Button { Text = "...", Left = 480, Top = 50, Width = 30, Height = 24 };
+            chkUseTaskPane = new CheckBox { Text = "Use Task Pane for Problems", Left = 15, Top = 52, AutoSize = true };
+
+            var lblLog = new Label { Text = "Log Path:", Left = 15, Top = 75, AutoSize = true };
+            txtLogPath = new TextBox { Left = 75, Top = 72, Width = 400, Text = NM.Core.Configuration.FilePaths.ErrorLogPath };
+            btnBrowseLog = new Button { Text = "...", Left = 480, Top = 70, Width = 30, Height = 24 };
             btnBrowseLog.Click += (s, e) => { using (var sfd = new SaveFileDialog { Filter = "Text|*.txt", FileName = System.IO.Path.GetFileName(txtLogPath.Text) }) if (sfd.ShowDialog() == DialogResult.OK) txtLogPath.Text = sfd.FileName; };
 
             cboMode.SelectedIndexChanged += CboMode_SelectedIndexChanged;
 
-            gbAdvanced.Controls.AddRange(new Control[] { lblMode, cboMode, chkEnableLogging, chkShowWarnings, chkPerfMonitoring, lblLog, txtLogPath, btnBrowseLog });
+            gbAdvanced.Controls.AddRange(new Control[] { lblMode, cboMode, chkEnableLogging, chkShowWarnings, chkPerfMonitoring, chkUseTaskPane, lblLog, txtLogPath, btnBrowseLog });
             Controls.Add(gbAdvanced);
-            y += 108;
+            y += 128;
 
             // ===== Buttons =====
             btnOK = new Button { Text = "OK", Left = width - 170, Top = y, Width = 80, Height = 28, DialogResult = DialogResult.OK };
@@ -401,6 +403,9 @@ namespace NM.SwAddin.UI
                     break;
             }
             o.LogFilePath = txtLogPath.Text;
+
+            // UI
+            o.UseTaskPane = chkUseTaskPane.Checked;
 
             Options = o;
         }

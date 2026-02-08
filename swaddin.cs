@@ -36,6 +36,7 @@ namespace swcsharpaddin
         int addinID = 0;
         BitmapHandler iBmp;
         IconResourceHelper _iconHelper;
+        NM.SwAddin.UI.TaskPaneManager _taskPaneManager;
 
         public const int mainCmdGroupID = 5;
         public const int mainItemID1 = 0;
@@ -188,11 +189,39 @@ namespace swcsharpaddin
             AttachEventHandlers();
             #endregion
 
+            #region Setup Task Pane
+            try
+            {
+                _taskPaneManager = new NM.SwAddin.UI.TaskPaneManager();
+                if (!_taskPaneManager.CreatePane(iSwApp))
+                {
+                    NM.Core.ErrorHandler.DebugLog("[SwAddin] Task pane creation failed (non-fatal)");
+                    _taskPaneManager = null;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                NM.Core.ErrorHandler.DebugLog($"[SwAddin] Task pane setup error (non-fatal): {ex.Message}");
+                _taskPaneManager = null;
+            }
+            #endregion
+
             return true;
         }
 
         public bool DisconnectFromSW()
         {
+            // Destroy task pane before removing commands
+            try
+            {
+                _taskPaneManager?.DestroyPane();
+                _taskPaneManager = null;
+            }
+            catch (System.Exception ex)
+            {
+                NM.Core.ErrorHandler.DebugLog($"[SwAddin] Task pane cleanup error: {ex.Message}");
+            }
+
             RemoveCommandMgr();
             DetachEventHandlers();
 
@@ -550,7 +579,7 @@ namespace swcsharpaddin
                 }
 
                 // Run workflow with user-selected options
-                var dispatcher = new NM.SwAddin.Pipeline.WorkflowDispatcher(iSwApp);
+                var dispatcher = new NM.SwAddin.Pipeline.WorkflowDispatcher(iSwApp, _taskPaneManager);
                 dispatcher.Run(options);
             }
             catch (System.Exception ex)
@@ -585,7 +614,36 @@ namespace swcsharpaddin
                     return;
                 }
 
-                // Open the wizard form (non-modal so user can interact with SolidWorks)
+                // If task pane is available, load problems there and wait
+                if (_taskPaneManager != null && _taskPaneManager.IsCreated)
+                {
+                    _taskPaneManager.LoadProblems(problems, 0);
+
+                    // Wait for user action (same pattern as wizard DoEvents loop)
+                    while (_taskPaneManager.IsWaitingForAction)
+                    {
+                        System.Windows.Forms.Application.DoEvents();
+                        System.Threading.Thread.Sleep(50);
+                    }
+
+                    int fixedCount = _taskPaneManager.FixedProblems.Count;
+                    NM.Core.ErrorHandler.DebugLog($"[ReviewProblems] TaskPane closed. Fixed: {fixedCount}, Action: {_taskPaneManager.LastAction}");
+
+                    if (fixedCount > 0)
+                    {
+                        System.Windows.Forms.MessageBox.Show(
+                            $"Fixed {fixedCount} problem part(s).\n\n" +
+                            $"Remaining problems: {NM.Core.ProblemParts.ProblemPartManager.Instance.GetProblemParts().Count}",
+                            "Review Complete",
+                            System.Windows.Forms.MessageBoxButtons.OK,
+                            System.Windows.Forms.MessageBoxIcon.Information);
+                    }
+
+                    _taskPaneManager.ClearProblems();
+                    return;
+                }
+
+                // Fallback: floating wizard form
                 var wizard = new ProblemWizardForm(problems, iSwApp, 0);
                 wizard.Show();
 
@@ -595,13 +653,13 @@ namespace swcsharpaddin
                     System.Threading.Thread.Sleep(50);
                 }
 
-                int fixedCount = wizard.FixedProblems.Count;
-                NM.Core.ErrorHandler.DebugLog($"[ReviewProblems] Wizard closed. Fixed: {fixedCount}, Action: {wizard.SelectedAction}");
+                int wizFixedCount = wizard.FixedProblems.Count;
+                NM.Core.ErrorHandler.DebugLog($"[ReviewProblems] Wizard closed. Fixed: {wizFixedCount}, Action: {wizard.SelectedAction}");
 
-                if (fixedCount > 0)
+                if (wizFixedCount > 0)
                 {
                     System.Windows.Forms.MessageBox.Show(
-                        $"Fixed {fixedCount} problem part(s).\n\n" +
+                        $"Fixed {wizFixedCount} problem part(s).\n\n" +
                         $"Remaining problems: {NM.Core.ProblemParts.ProblemPartManager.Instance.GetProblemParts().Count}",
                         "Review Complete",
                         System.Windows.Forms.MessageBoxButtons.OK,

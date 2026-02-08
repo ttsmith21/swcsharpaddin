@@ -164,22 +164,22 @@ namespace NM.SwAddin.UI
             _grpTubeDiag = new GroupBox { Left = 20, Top = 410, Width = 550, Height = 90, Text = "Tube Diagnostics (for tube/structural parts)" };
 
             _btnShowCutLength = new Button { Left = 10, Top = 22, Width = 80, Height = 26, Text = "Cut Length" };
-            _btnShowCutLength.Click += OnShowCutLengthEdges;
+            _btnShowCutLength.Click += (s, e) => ShowTubeDiagnostic(TubeDiagnosticKind.CutLength);
 
             _btnShowHoles = new Button { Left = 95, Top = 22, Width = 80, Height = 26, Text = "Holes" };
-            _btnShowHoles.Click += OnShowHoleEdges;
+            _btnShowHoles.Click += (s, e) => ShowTubeDiagnostic(TubeDiagnosticKind.Holes);
 
             _btnShowBoundary = new Button { Left = 180, Top = 22, Width = 80, Height = 26, Text = "Boundary" };
-            _btnShowBoundary.Click += OnShowBoundaryEdges;
+            _btnShowBoundary.Click += (s, e) => ShowTubeDiagnostic(TubeDiagnosticKind.Boundary);
 
             _btnShowProfile = new Button { Left = 265, Top = 22, Width = 80, Height = 26, Text = "Profile" };
-            _btnShowProfile.Click += OnShowProfileFaces;
+            _btnShowProfile.Click += (s, e) => ShowTubeDiagnostic(TubeDiagnosticKind.Profile);
 
             _btnShowAll = new Button { Left = 350, Top = 22, Width = 80, Height = 26, Text = "Show All" };
-            _btnShowAll.Click += OnShowAllDiagnostics;
+            _btnShowAll.Click += (s, e) => ShowTubeDiagnostic(TubeDiagnosticKind.All);
 
             _btnClearSelection = new Button { Left = 435, Top = 22, Width = 80, Height = 26, Text = "Clear" };
-            _btnClearSelection.Click += OnClearSelection;
+            _btnClearSelection.Click += (s, e) => ShowTubeDiagnostic(TubeDiagnosticKind.Clear);
 
             _lblDiagStatus = new Label { Left = 10, Top = 55, Width = 530, Height = 30, Text = "Part opens automatically. Use buttons to highlight geometry." };
 
@@ -317,76 +317,30 @@ namespace NM.SwAddin.UI
             }
         }
 
-        /// <summary>
-        /// Saves and closes the currently-open document, if any.
-        /// </summary>
         private void SaveAndCloseCurrentPart()
         {
             if (_currentDoc == null) return;
-
-            try
-            {
-                SwDocumentHelper.SaveDocument(_currentDoc);
-            }
-            catch (Exception ex)
-            {
-                NM.Core.ErrorHandler.DebugLog($"[Wizard] Save failed: {ex.Message}");
-            }
-
-            try
-            {
-                SwDocumentHelper.CloseDocument(_swApp, _currentDoc);
-            }
-            catch (Exception ex)
-            {
-                NM.Core.ErrorHandler.DebugLog($"[Wizard] Close failed: {ex.Message}");
-            }
-
+            ProblemPartActions.SaveAndClosePart(_currentDoc, _swApp);
             _currentDoc = null;
             _tubeDiagnostics = null;
         }
 
-        /// <summary>
-        /// Opens the part for the current problem. Called automatically on navigation.
-        /// </summary>
         private void OpenCurrentPart()
         {
             if (_swApp == null) return;
             if (_problems.Count == 0 || _currentIndex >= _problems.Count) return;
 
             var item = _problems[_currentIndex];
-            if (string.IsNullOrEmpty(item.FilePath)) return;
+            _currentDoc = ProblemPartActions.OpenPart(item, _swApp);
 
-            try
-            {
-                int errs = 0, warns = 0;
-                int docType = SwDocumentHelper.GuessDocType(item.FilePath);
-
-                _currentDoc = _swApp.OpenDoc6(item.FilePath, docType, 0, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
-                if (_currentDoc == null || errs != 0)
-                {
-                    _lblStatus.Text = $"Failed to open: error {errs}";
-                    return;
-                }
-
-                // Activate to bring to front
-                int activateErr = 0;
-                _swApp.ActivateDoc3(_currentDoc.GetTitle(), true, (int)swRebuildOnActivation_e.swDontRebuildActiveDoc, ref activateErr);
-
-                // Set display mode and zoom to fit
-                PreparePartView(_currentDoc);
-
+            if (_currentDoc == null)
+                _lblStatus.Text = $"Failed to open: {item.DisplayName}";
+            else
                 _lblDiagStatus.Text = "Part is open. Use buttons above to highlight geometry for debugging.";
-            }
-            catch (Exception ex)
-            {
-                _lblStatus.Text = $"Open failed: {ex.Message}";
-            }
         }
 
         private void UpdatePartTypeHint(ProblemPartManager.ProblemItem item)
         {
-            // Check for purchased part heuristic hint in metadata
             object hintObj;
             if (item.Metadata.TryGetValue("PurchasedHint", out hintObj) && hintObj is string hint && !string.IsNullOrEmpty(hint))
             {
@@ -409,30 +363,87 @@ namespace NM.SwAddin.UI
             if (_problems.Count == 0 || _currentIndex >= _problems.Count) return;
             var item = _problems[_currentIndex];
 
-            // Set the type override on the problem item
-            ProblemPartManager.Instance.SetTypeOverride(item, typeOverride);
+            var result = ProblemPartActions.ClassifyPart(item, typeOverride, _currentDoc, _fixedProblems);
 
-            // Write rbPartType=1 and rbPartTypeSub to the part's custom properties
-            if (_currentDoc != null)
-            {
-                SwPropertyHelper.AddCustomProperty(_currentDoc, "rbPartType",
-                    swCustomInfoType_e.swCustomInfoNumber, "1", "");
-                SwPropertyHelper.AddCustomProperty(_currentDoc, "rbPartTypeSub",
-                    swCustomInfoType_e.swCustomInfoNumber, ((int)typeOverride).ToString(), "");
-                SwDocumentHelper.SaveDocument(_currentDoc);
-            }
-
-            // Mark as resolved - it's classified now
-            _fixedProblems.Add(item);
-            ProblemPartManager.Instance.RemoveResolvedPart(item);
-
-            _lblStatus.Text = $"Classified as {typeOverride}: {item.DisplayName}";
+            _lblStatus.Text = result.Message;
             _txtError.BackColor = Color.LightGoldenrodYellow;
             _txtError.Text = $"Classified as {typeOverride} (rbPartType=1, rbPartTypeSub={(int)typeOverride}) - will skip classification pipeline";
 
             UpdateProgress();
+            AutoAdvance();
+        }
 
-            // Auto-advance
+        private void RunAsClassification(string classification)
+        {
+            if (_currentDoc == null || _problems.Count == 0 || _currentIndex >= _problems.Count) return;
+            var item = _problems[_currentIndex];
+
+            _lblStatus.Text = $"Processing as {classification}...";
+            Application.DoEvents();
+
+            var result = ProblemPartActions.RunAsClassification(item, classification, _swApp, _currentDoc, _fixedProblems);
+
+            if (result.Success)
+            {
+                _lblStatus.Text = result.Message;
+                _txtError.BackColor = Color.LightGreen;
+                _txtError.Text = $"Successfully processed as {classification}";
+                UpdateProgress();
+                AutoAdvance();
+            }
+            else
+            {
+                _lblStatus.Text = result.Message;
+                _txtError.BackColor = Color.LightSalmon;
+                _txtError.Text = result.Message;
+            }
+        }
+
+        private void RunSplitToAssembly()
+        {
+            if (_currentDoc == null || _problems.Count == 0 || _currentIndex >= _problems.Count) return;
+            var item = _problems[_currentIndex];
+
+            _lblStatus.Text = "Splitting multi-body part...";
+            Application.DoEvents();
+
+            var result = ProblemPartActions.RunSplitToAssembly(
+                item, _swApp, _currentDoc, _fixedProblems,
+                status => { _lblStatus.Text = status; Application.DoEvents(); });
+
+            if (result.Success)
+            {
+                _lblStatus.Text = result.Message;
+                _txtError.BackColor = Color.LightGreen;
+                _txtError.Text = result.Message;
+                UpdateProgress();
+                AutoAdvance();
+            }
+            else
+            {
+                _lblStatus.Text = result.Message;
+                _txtError.BackColor = Color.LightSalmon;
+                _txtError.Text = result.Message;
+            }
+        }
+
+        private void ShowTubeDiagnostic(TubeDiagnosticKind kind)
+        {
+            if (kind != TubeDiagnosticKind.Clear)
+            {
+                string statusMsg;
+                if (!ProblemPartActions.EnsureTubeDiagnostics(_swApp, _currentDoc, ref _tubeDiagnostics, out statusMsg))
+                {
+                    _lblDiagStatus.Text = statusMsg;
+                    return;
+                }
+            }
+
+            _lblDiagStatus.Text = ProblemPartActions.SelectTubeDiagnostic(_swApp, _currentDoc, _tubeDiagnostics, kind);
+        }
+
+        private void AutoAdvance()
+        {
             if (_currentIndex < _problems.Count - 1)
             {
                 _lblStatus.Text += " - Moving to next problem...";
@@ -447,207 +458,6 @@ namespace NM.SwAddin.UI
             }
         }
 
-        /// <summary>
-        /// Runs the part through MainRunner with a forced classification (SheetMetal or Tube).
-        /// </summary>
-        private void RunAsClassification(string classification)
-        {
-            if (_currentDoc == null || _problems.Count == 0 || _currentIndex >= _problems.Count) return;
-            var item = _problems[_currentIndex];
-
-            _lblStatus.Text = $"Processing as {classification}...";
-            Application.DoEvents();
-
-            try
-            {
-                var options = new NM.Core.ProcessingOptions { ForceClassification = classification };
-                var result = MainRunner.RunSinglePartData(_swApp, _currentDoc, options);
-
-                if (result?.Status == NM.Core.DataModel.ProcessingStatus.Success)
-                {
-                    SwDocumentHelper.SaveDocument(_currentDoc);
-                    // Mark as already processed so Pass 2 skips re-processing
-                    item.Metadata["AlreadyProcessed"] = "true";
-                    item.Metadata["ProcessingResult"] = result;
-                    _fixedProblems.Add(item);
-                    ProblemPartManager.Instance.RemoveResolvedPart(item);
-                    _lblStatus.Text = $"Processed as {classification}: {item.DisplayName}";
-                    _txtError.BackColor = Color.LightGreen;
-                    _txtError.Text = $"Successfully processed as {classification}";
-                    UpdateProgress();
-
-                    // Auto-advance
-                    if (_currentIndex < _problems.Count - 1)
-                    {
-                        _lblStatus.Text += " - Moving to next problem...";
-                        Application.DoEvents();
-                        System.Threading.Thread.Sleep(500);
-                        _currentIndex++;
-                        LoadCurrentProblem();
-                    }
-                    else
-                    {
-                        _lblStatus.Text += " - All problems reviewed!";
-                    }
-                }
-                else
-                {
-                    _lblStatus.Text = $"Failed as {classification}: {result?.FailureReason}";
-                    _txtError.BackColor = Color.LightSalmon;
-                    _txtError.Text = result?.FailureReason ?? "Processing failed";
-                }
-            }
-            catch (Exception ex)
-            {
-                _lblStatus.Text = $"Error: {ex.Message}";
-                _txtError.BackColor = Color.LightSalmon;
-            }
-        }
-
-        /// <summary>
-        /// Splits a multi-body part into individual part files + assembly,
-        /// then processes each sub-part through MainRunner.
-        /// </summary>
-        private void RunSplitToAssembly()
-        {
-            if (_currentDoc == null || _problems.Count == 0 || _currentIndex >= _problems.Count) return;
-            var item = _problems[_currentIndex];
-
-            // Verify this is a part with 2+ solid bodies
-            var partDoc = _currentDoc as IPartDoc;
-            if (partDoc == null)
-            {
-                _lblStatus.Text = "Split requires a part document (not assembly/drawing).";
-                return;
-            }
-
-            var bodiesObj = partDoc.GetBodies2((int)swBodyType_e.swSolidBody, true);
-            if (bodiesObj == null || ((object[])bodiesObj).Length < 2)
-            {
-                _lblStatus.Text = "Part must have 2 or more solid bodies to split.";
-                return;
-            }
-
-            _lblStatus.Text = "Splitting multi-body part...";
-            Application.DoEvents();
-
-            try
-            {
-                // Save before splitting
-                SwDocumentHelper.SaveDocument(_currentDoc);
-
-                // Split
-                var splitter = new MultiBodySplitter(_swApp);
-                var splitResult = splitter.SplitToAssembly(_currentDoc);
-
-                if (!splitResult.Success)
-                {
-                    _lblStatus.Text = $"Split failed: {splitResult.ErrorMessage}";
-                    _txtError.BackColor = Color.LightSalmon;
-                    _txtError.Text = splitResult.ErrorMessage;
-                    return;
-                }
-
-                _lblStatus.Text = $"Split into {splitResult.BodyCount} parts. Processing sub-parts...";
-                Application.DoEvents();
-
-                // Process each sub-part through MainRunner
-                var subResults = new List<PartData>();
-                int processed = 0;
-
-                foreach (var subPartPath in splitResult.PartPaths)
-                {
-                    processed++;
-                    _lblStatus.Text = $"Processing sub-part {processed}/{splitResult.PartPaths.Length}: {System.IO.Path.GetFileName(subPartPath)}";
-                    Application.DoEvents();
-
-                    IModelDoc2 subDoc = null;
-                    try
-                    {
-                        int errs = 0, warns = 0;
-                        subDoc = _swApp.OpenDoc6(subPartPath, (int)swDocumentTypes_e.swDocPART,
-                            (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref errs, ref warns) as IModelDoc2;
-
-                        if (subDoc == null)
-                        {
-                            NM.Core.ErrorHandler.DebugLog($"[SPLIT] Failed to open sub-part: {subPartPath}");
-                            continue;
-                        }
-
-                        PreparePartView(subDoc);
-                        var partData = MainRunner.RunSinglePartData(_swApp, subDoc, null);
-
-                        if (partData?.Status == ProcessingStatus.Success)
-                        {
-                            SwDocumentHelper.SaveDocument(subDoc);
-                            subResults.Add(partData);
-                        }
-                        else
-                        {
-                            NM.Core.ErrorHandler.DebugLog($"[SPLIT] Sub-part processing failed: {subPartPath} - {partData?.FailureReason}");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        NM.Core.ErrorHandler.DebugLog($"[SPLIT] Sub-part error: {subPartPath} - {ex.Message}");
-                    }
-                    finally
-                    {
-                        if (subDoc != null)
-                        {
-                            try { _swApp.CloseDoc(subDoc.GetTitle()); } catch { }
-                        }
-                    }
-                }
-
-                // Mark problem item as resolved
-                item.Metadata["AlreadyProcessed"] = "true";
-                item.Metadata["SubPartResults"] = subResults;
-                _fixedProblems.Add(item);
-                ProblemPartManager.Instance.RemoveResolvedPart(item);
-
-                _lblStatus.Text = $"Split complete: {splitResult.BodyCount} bodies, {subResults.Count} processed successfully";
-                _txtError.BackColor = Color.LightGreen;
-                _txtError.Text = $"Split into {splitResult.BodyCount} sub-parts ({subResults.Count} processed). Assembly: {System.IO.Path.GetFileName(splitResult.AssemblyPath)}";
-                UpdateProgress();
-
-                // Auto-advance
-                if (_currentIndex < _problems.Count - 1)
-                {
-                    _lblStatus.Text += " - Moving to next problem...";
-                    Application.DoEvents();
-                    System.Threading.Thread.Sleep(500);
-                    _currentIndex++;
-                    LoadCurrentProblem();
-                }
-                else
-                {
-                    _lblStatus.Text += " - All problems reviewed!";
-                }
-            }
-            catch (Exception ex)
-            {
-                _lblStatus.Text = $"Split error: {ex.Message}";
-                _txtError.BackColor = Color.LightSalmon;
-            }
-        }
-
-        /// <summary>
-        /// Sets display mode to Shaded with Edges and zooms to fit.
-        /// </summary>
-        private static void PreparePartView(IModelDoc2 doc)
-        {
-            if (doc == null) return;
-            try
-            {
-                var view = doc.ActiveView as IModelView;
-                if (view != null)
-                    view.DisplayMode = (int)swViewDisplayMode_e.swViewDisplayMode_ShadedWithEdges;
-                doc.ViewZoomtofit2();
-            }
-            catch { }
-        }
-
         private void OnRetry(object sender, EventArgs e)
         {
             if (_swApp == null || _problems.Count == 0) return;
@@ -656,112 +466,51 @@ namespace NM.SwAddin.UI
             _lblStatus.Text = $"Validating {item.DisplayName}...";
             Application.DoEvents();
 
-            try
+            var result = ProblemPartActions.RetryAndValidate(item, _swApp, _currentDoc, _fixedProblems);
+
+            if (result.Success)
             {
-                // Try to use already-open doc, or open it
-                var model = _currentDoc;
-                if (model == null || !string.Equals(model.GetPathName(), item.FilePath, StringComparison.OrdinalIgnoreCase))
+                _lblStatus.Text = result.Message;
+                _txtError.BackColor = Color.LightGreen;
+                _txtError.Text = "Validation passed!";
+                UpdateProgress();
+
+                if (_currentIndex < _problems.Count - 1)
                 {
-                    int errs = 0, warns = 0;
-                    model = _swApp.OpenDoc6(item.FilePath, SwDocumentHelper.GuessDocType(item.FilePath), 0, item.Configuration ?? "", ref errs, ref warns) as IModelDoc2;
-                }
-
-                if (model == null)
-                {
-                    _lblStatus.Text = "Could not open part for validation.";
-                    return;
-                }
-
-                // Revalidate
-                var swInfo = new SwModelInfo(item.FilePath) { Configuration = item.Configuration ?? "" };
-                var validator = new PartValidationAdapter();
-                var vr = validator.Validate(swInfo, model);
-
-                if (vr.Success)
-                {
-                    // Fixed!
-                    _fixedProblems.Add(item);
-                    ProblemPartManager.Instance.RemoveResolvedPart(item);
-                    _lblStatus.Text = $"FIXED: {item.DisplayName}";
-                    _txtError.BackColor = Color.LightGreen;
-                    _txtError.Text = "Validation passed!";
-
-                    UpdateProgress();
-
-                    // Auto-advance after short delay if there are more
-                    if (_currentIndex < _problems.Count - 1)
-                    {
-                        _lblStatus.Text += " - Moving to next problem...";
-                        Application.DoEvents();
-                        System.Threading.Thread.Sleep(800);
-                        _currentIndex++;
-                        LoadCurrentProblem();
-                    }
-                    else
-                    {
-                        _lblStatus.Text += " - All problems reviewed!";
-                    }
+                    _lblStatus.Text += " - Moving to next problem...";
+                    Application.DoEvents();
+                    System.Threading.Thread.Sleep(800);
+                    _currentIndex++;
+                    LoadCurrentProblem();
                 }
                 else
                 {
-                    // Still failing
-                    item.ProblemDescription = vr.Summary;
-                    item.RetryCount++;
-                    _txtError.Text = vr.Summary;
-                    _txtError.BackColor = Color.MistyRose;
-                    LoadSuggestions(item);
-                    _lblStatus.Text = $"Still failing: {vr.Summary}";
+                    _lblStatus.Text += " - All problems reviewed!";
                 }
             }
-            catch (Exception ex)
+            else
             {
-                _lblStatus.Text = $"Validation error: {ex.Message}";
+                _txtError.Text = item.ProblemDescription;
+                _txtError.BackColor = Color.MistyRose;
+                LoadSuggestions(item);
+                _lblStatus.Text = result.Message;
             }
         }
 
         private void OnSkip(object sender, EventArgs e)
         {
-            MarkCurrentPartAsSkipped();
+            if (_problems.Count > 0 && _currentIndex < _problems.Count)
+                ProblemPartActions.MarkAsSkipped(_problems[_currentIndex], _currentDoc);
 
             if (_currentIndex < _problems.Count - 1)
             {
                 _currentIndex++;
-                LoadCurrentProblem(); // saves/closes skipped part, opens next
+                LoadCurrentProblem();
             }
             else
             {
                 SaveAndCloseCurrentPart();
                 _lblStatus.Text = "No more problems. Click Finish to continue.";
-            }
-        }
-
-        /// <summary>
-        /// Writes NM_SkippedReason custom property to the current part.
-        /// </summary>
-        private void MarkCurrentPartAsSkipped()
-        {
-            if (_currentDoc == null) return;
-            if (_currentIndex < 0 || _currentIndex >= _problems.Count) return;
-
-            var item = _problems[_currentIndex];
-
-            try
-            {
-                string reason = item.ProblemDescription ?? "Unknown";
-                string value = $"{reason} [Skipped {DateTime.Now:yyyy-MM-dd HH:mm}]";
-
-                SwPropertyHelper.AddCustomProperty(
-                    _currentDoc,
-                    "NM_SkippedReason",
-                    swCustomInfoType_e.swCustomInfoText,
-                    value,
-                    ""); // file-level property
-
-                NM.Core.ErrorHandler.DebugLog($"[Wizard] Marked skipped: {item.DisplayName} - {reason}");
-            }
-            catch (Exception ex)
-            {
-                NM.Core.ErrorHandler.DebugLog($"[Wizard] Failed to mark skipped: {ex.Message}");
             }
         }
 
@@ -778,125 +527,5 @@ namespace NM.SwAddin.UI
             SelectedAction = ProblemAction.Cancel;
             Close();
         }
-
-        #region Tube Diagnostics
-
-        private bool EnsurePartOpenAndExtractDiagnostics()
-        {
-            if (_swApp == null)
-            {
-                _lblDiagStatus.Text = "SolidWorks instance not available.";
-                return false;
-            }
-
-            if (_currentDoc == null)
-            {
-                _lblDiagStatus.Text = "Part is not open. Navigate to a problem to auto-open it.";
-                return false;
-            }
-
-            if (_tubeDiagnostics == null)
-            {
-                try
-                {
-                    var extractor = new TubeGeometryExtractor(_swApp);
-                    var (profile, diagnostics) = extractor.ExtractWithDiagnostics(_currentDoc);
-                    _tubeDiagnostics = diagnostics;
-
-                    if (profile != null)
-                    {
-                        _lblDiagStatus.Text = $"Profile: {profile.Shape}, OD={profile.OuterDiameterMeters * MetersToInches:F3}in | {diagnostics.GetSummary()}";
-                    }
-                    else
-                    {
-                        _lblDiagStatus.Text = "No tube profile detected. " + diagnostics.GetSummary();
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _lblDiagStatus.Text = "Extraction failed: " + ex.Message;
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private void OnShowCutLengthEdges(object sender, EventArgs e)
-        {
-            if (!EnsurePartOpenAndExtractDiagnostics()) return;
-            try
-            {
-                var extractor = new TubeGeometryExtractor(_swApp);
-                extractor.SelectCutLengthEdges(_currentDoc, _tubeDiagnostics);
-                _lblDiagStatus.Text = $"Selected {_tubeDiagnostics.CutLengthEdges.Count} cut length edges (green).";
-            }
-            catch (Exception ex) { _lblDiagStatus.Text = "Select failed: " + ex.Message; }
-        }
-
-        private void OnShowHoleEdges(object sender, EventArgs e)
-        {
-            if (!EnsurePartOpenAndExtractDiagnostics()) return;
-            try
-            {
-                var extractor = new TubeGeometryExtractor(_swApp);
-                extractor.SelectHoleEdges(_currentDoc, _tubeDiagnostics);
-                _lblDiagStatus.Text = $"Selected {_tubeDiagnostics.HoleEdges.Count} hole edges (red).";
-            }
-            catch (Exception ex) { _lblDiagStatus.Text = "Select failed: " + ex.Message; }
-        }
-
-        private void OnShowBoundaryEdges(object sender, EventArgs e)
-        {
-            if (!EnsurePartOpenAndExtractDiagnostics()) return;
-            try
-            {
-                var extractor = new TubeGeometryExtractor(_swApp);
-                extractor.SelectBoundaryEdges(_currentDoc, _tubeDiagnostics);
-                _lblDiagStatus.Text = $"Selected {_tubeDiagnostics.BoundaryEdges.Count} boundary edges (blue).";
-            }
-            catch (Exception ex) { _lblDiagStatus.Text = "Select failed: " + ex.Message; }
-        }
-
-        private void OnShowProfileFaces(object sender, EventArgs e)
-        {
-            if (!EnsurePartOpenAndExtractDiagnostics()) return;
-            try
-            {
-                var extractor = new TubeGeometryExtractor(_swApp);
-                extractor.SelectProfileFaces(_currentDoc, _tubeDiagnostics);
-                _lblDiagStatus.Text = $"Selected {_tubeDiagnostics.ProfileFaces.Count} profile faces (cyan).";
-            }
-            catch (Exception ex) { _lblDiagStatus.Text = "Select failed: " + ex.Message; }
-        }
-
-        private void OnShowAllDiagnostics(object sender, EventArgs e)
-        {
-            if (!EnsurePartOpenAndExtractDiagnostics()) return;
-            try
-            {
-                var extractor = new TubeGeometryExtractor(_swApp);
-                extractor.SelectAllDiagnostics(_currentDoc, _tubeDiagnostics);
-                _lblDiagStatus.Text = _tubeDiagnostics.GetSummary();
-            }
-            catch (Exception ex) { _lblDiagStatus.Text = "Select failed: " + ex.Message; }
-        }
-
-        private void OnClearSelection(object sender, EventArgs e)
-        {
-            if (_currentDoc == null)
-            {
-                _lblDiagStatus.Text = "No model open.";
-                return;
-            }
-            try
-            {
-                _currentDoc.ClearSelection2(true);
-                _lblDiagStatus.Text = "Selection cleared.";
-            }
-            catch (Exception ex) { _lblDiagStatus.Text = "Clear failed: " + ex.Message; }
-        }
-
-        #endregion
     }
 }

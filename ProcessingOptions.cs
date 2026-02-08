@@ -91,6 +91,11 @@ namespace NM.Core
         /// </summary>
         public string ForceClassification { get; set; }
 
+        /// <summary>
+        /// Use the docked Task Pane panel for problem part review instead of the floating wizard form.
+        /// </summary>
+        public bool UseTaskPane { get; set; }
+
         /// <summary>Generate ERP Import.prn file at end of workflow.</summary>
         public bool GenerateErpExport { get; set; }
         /// <summary>Path for ERP export output. If null, uses working folder.</summary>
@@ -146,6 +151,9 @@ namespace NM.Core
             DebugLevel = Configuration.Defaults.ProductionModeDefault ? DebuggingLevel.Production :
                          Configuration.Defaults.EnableDebugModeDefault ? DebuggingLevel.Debug : DebuggingLevel.Normal;
             EnablePerformanceMonitoring = Configuration.Defaults.EnablePerformanceMonitoringDefault;
+
+            // UI
+            UseTaskPane = false;
 
             // Export
             GenerateErpExport = false;
