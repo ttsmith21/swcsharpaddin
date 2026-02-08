@@ -7,6 +7,7 @@ using System.Windows.Forms;
 using NM.Core.Processing;
 using NM.Core.ProblemParts;
 using NM.SwAddin.Geometry;
+using NM.SwAddin.Pipeline;
 using NM.SwAddin.Validation;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
