@@ -26,10 +26,16 @@ namespace NM.SwAddin
         /// </summary>
         public bool ConvertToSheetMetalAndOptionallyFlatten(ModelInfo info, IModelDoc2 model, bool flatten = true, ProcessingOptions options = null)
         {
-            const string proc = nameof(ConvertToSheetMetalAndOptionallyFlatten);
-            ErrorHandler.PushCallStack(proc);
-            ErrorHandler.DebugLog("[SMDBG] ====== ConvertToSheetMetalAndOptionallyFlatten() ENTER (VBA Two-Phase) ======");
-            ErrorHandler.DebugLog($"[SMDBG] Parameters: model={(model != null ? "valid" : "NULL")}, info={(info != null ? "valid" : "NULL")}, flatten={flatten}");
+            using (new ErrorScope(nameof(ConvertToSheetMetalAndOptionallyFlatten)))
+            {
+                ErrorHandler.DebugLog("[SMDBG] ====== ConvertToSheetMetalAndOptionallyFlatten() ENTER (VBA Two-Phase) ======");
+                ErrorHandler.DebugLog($"[SMDBG] Parameters: model={(model != null ? "valid" : "NULL")}, info={(info != null ? "valid" : "NULL")}, flatten={flatten}");
+                return ConvertToSheetMetalCore(info, model, flatten, options);
+            }
+        }
+
+        private bool ConvertToSheetMetalCore(ModelInfo info, IModelDoc2 model, bool flatten, ProcessingOptions options)
+        {
             try
             {
                 options = options ?? new ProcessingOptions();
@@ -126,9 +132,11 @@ namespace NM.SwAddin
                 const double seedK = 0.5;
 
                 ErrorHandler.DebugLog($"[SMDBG] Calling InsertBends2 (PROBE): radius={seedRadius}m, K={seedK}");
-                PerformanceTracker.Instance.StartTimer("InsertBends2_Probe");
-                bool okProbe = part.InsertBends2(seedRadius, string.Empty, seedK, -1, true, 1.0, true);
-                PerformanceTracker.Instance.StopTimer("InsertBends2_Probe");
+                bool okProbe;
+                using (new PerformanceScope("InsertBends2_Probe"))
+                {
+                    okProbe = part.InsertBends2(seedRadius, string.Empty, seedK, -1, true, 1.0, true);
+                }
 
                 if (!okProbe || !SwGeometryHelper.HasSheetMetalFeature(model))
                 {
@@ -175,9 +183,11 @@ namespace NM.SwAddin
 
                 // Flatten probe and do mass comparison (±3%)
                 ErrorHandler.DebugLog("[SMDBG] Flattening probe for mass comparison...");
-                PerformanceTracker.Instance.StartTimer("TryFlatten_Probe");
-                bool probeFlattened = TryFlatten(model, info);
-                PerformanceTracker.Instance.StopTimer("TryFlatten_Probe");
+                bool probeFlattened;
+                using (new PerformanceScope("TryFlatten_Probe"))
+                {
+                    probeFlattened = TryFlatten(model, info);
+                }
                 if (!probeFlattened)
                 {
                     ErrorHandler.DebugLog("[SMDBG] FAIL: Could not flatten probe");
@@ -257,9 +267,10 @@ namespace NM.SwAddin
                 {
                     // With bend table: K=-1, BA=-1 (table provides values)
                     ErrorHandler.DebugLog($"[SMDBG] Trying final insert with bend table...");
-                    PerformanceTracker.Instance.StartTimer("InsertBends2_Final_BendTable");
-                    finalOk = part.InsertBends2(finalR, bendPath, -1.0, -1, true, 1.0, true);
-                    PerformanceTracker.Instance.StopTimer("InsertBends2_Final_BendTable");
+                    using (new PerformanceScope("InsertBends2_Final_BendTable"))
+                    {
+                        finalOk = part.InsertBends2(finalR, bendPath, -1.0, -1, true, 1.0, true);
+                    }
                     if (finalOk && SwGeometryHelper.HasSheetMetalFeature(model))
                     {
                         usedBendTable = true;
@@ -284,9 +295,10 @@ namespace NM.SwAddin
                 {
                     // K-factor insert (primary if no bend table, fallback if table failed)
                     ErrorHandler.DebugLog($"[SMDBG] Final insert with K-factor: K={finalK}");
-                    PerformanceTracker.Instance.StartTimer("InsertBends2_Final_KFactor");
-                    finalOk = part.InsertBends2(finalR, string.Empty, finalK, -1, true, 1.0, true);
-                    PerformanceTracker.Instance.StopTimer("InsertBends2_Final_KFactor");
+                    using (new PerformanceScope("InsertBends2_Final_KFactor"))
+                    {
+                        finalOk = part.InsertBends2(finalR, string.Empty, finalK, -1, true, 1.0, true);
+                    }
                     if (finalOk)
                     {
                         ErrorHandler.DebugLog($"[SMDBG] Final insert with K-factor: SUCCESS");
@@ -309,9 +321,11 @@ namespace NM.SwAddin
                 if (flatten)
                 {
                     ErrorHandler.DebugLog("[SMDBG] Final flatten...");
-                    PerformanceTracker.Instance.StartTimer("TryFlatten_Final");
-                    bool finalFlattened = TryFlatten(model, info);
-                    PerformanceTracker.Instance.StopTimer("TryFlatten_Final");
+                    bool finalFlattened;
+                    using (new PerformanceScope("TryFlatten_Final"))
+                    {
+                        finalFlattened = TryFlatten(model, info);
+                    }
                     if (!finalFlattened)
                     {
                         ErrorHandler.DebugLog("[SMDBG] FAIL: Final TryFlatten failed - undoing InsertBends2");
@@ -340,11 +354,6 @@ namespace NM.SwAddin
                 ErrorHandler.DebugLog($"[SMDBG] EXCEPTION: {ex.GetType().Name}: {ex.Message}");
                 Fail(info, ex.Message, ex);
                 return false;
-            }
-            finally
-            {
-                ErrorHandler.DebugLog("[SMDBG] <<< ConvertToSheetMetalAndOptionallyFlatten() EXIT");
-                ErrorHandler.PopCallStack();
             }
         }
 
@@ -496,25 +505,23 @@ namespace NM.SwAddin
 
         private static IFace2 GetLargestFace(IBody2 body, out double largestArea)
         {
-            PerformanceTracker.Instance.StartTimer("GetLargestFace");
-            IFace2 best = null; double bestArea = 0.0;
-            try
+            using (new PerformanceScope("GetLargestFace"))
             {
-                var faces = body?.GetFaces() as object[]; if (faces == null) { largestArea = 0; return null; }
-                foreach (var fo in faces)
+                IFace2 best = null; double bestArea = 0.0;
+                try
                 {
-                    var f = fo as IFace2; if (f == null) continue;
-                    double a = 0.0; try { a = f.GetArea(); } catch { }
-                    if (a > bestArea) { bestArea = a; best = f; }
+                    var faces = body?.GetFaces() as object[]; if (faces == null) { largestArea = 0; return null; }
+                    foreach (var fo in faces)
+                    {
+                        var f = fo as IFace2; if (f == null) continue;
+                        double a = 0.0; try { a = f.GetArea(); } catch { }
+                        if (a > bestArea) { bestArea = a; best = f; }
+                    }
                 }
+                catch { }
+                largestArea = bestArea;
+                return best;
             }
-            catch { }
-            finally
-            {
-                PerformanceTracker.Instance.StopTimer("GetLargestFace");
-            }
-            largestArea = bestArea;
-            return best;
         }
 
         /// <summary>
@@ -527,77 +534,70 @@ namespace NM.SwAddin
         /// </summary>
         private static IEdge FindLongestLinearEdge(IBody2 body)
         {
-            PerformanceTracker.Instance.StartTimer("FindLongestLinearEdge");
-            IEdge best = null;
-            double bestLen = 0.0;
-
-            try
+            using (new PerformanceScope("FindLongestLinearEdge"))
             {
-                var edgesRaw = body?.GetEdges() as object[];
-                if (edgesRaw == null || edgesRaw.Length == 0)
+                IEdge best = null;
+                double bestLen = 0.0;
+
+                try
                 {
-                    ErrorHandler.DebugLog("[SMDBG] FindLongestLinearEdge: No edges on body");
-                    return null;
-                }
-
-                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Scanning {edgesRaw.Length} edges");
-                int linearCount = 0;
-
-                foreach (var eo in edgesRaw)
-                {
-                    var edge = eo as IEdge;
-                    if (edge == null) continue;
-
-                    var curve = edge.GetCurve() as ICurve;
-                    if (curve == null) continue;
-
-                    // Early exit: skip non-linear edges (2 COM calls only)
-                    // NOTE: ICurve.IsLine() only exists in SW 2024+, so use Identity() for 2022 compatibility
-                    try
+                    var edgesRaw = body?.GetEdges() as object[];
+                    if (edgesRaw == null || edgesRaw.Length == 0)
                     {
-                        if (curve.Identity() != 3001) continue; // 3001 = LINE_TYPE
+                        ErrorHandler.DebugLog("[SMDBG] FindLongestLinearEdge: No edges on body");
+                        return null;
                     }
-                    catch { continue; }
 
-                    linearCount++;
+                    ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: Scanning {edgesRaw.Length} edges");
+                    int linearCount = 0;
 
-                    // Only linear edges reach here: get params + length
-                    // Uses GetEndParams (returns primitives via out params) instead of
-                    // GetCurveParams3 (allocates COM object per call) — matches FaceWrapper.cs pattern
-                    double edgeLength = 0;
-                    try
+                    foreach (var eo in edgesRaw)
                     {
-                        double start = 0, end = 0;
-                        bool isClosed = false, isPeriodic = false;
-                        if (curve.GetEndParams(out start, out end, out isClosed, out isPeriodic))
+                        var edge = eo as IEdge;
+                        if (edge == null) continue;
+
+                        var curve = edge.GetCurve() as ICurve;
+                        if (curve == null) continue;
+
+                        try
                         {
-                            edgeLength = curve.GetLength3(start, end);
+                            if (curve.Identity() != 3001) continue; // 3001 = LINE_TYPE
+                        }
+                        catch { continue; }
+
+                        linearCount++;
+
+                        double edgeLength = 0;
+                        try
+                        {
+                            double start = 0, end = 0;
+                            bool isClosed = false, isPeriodic = false;
+                            if (curve.GetEndParams(out start, out end, out isClosed, out isPeriodic))
+                            {
+                                edgeLength = curve.GetLength3(start, end);
+                            }
+                        }
+                        catch { }
+
+                        if (edgeLength <= 0)
+                            edgeLength = GetEdgeChordLength(edge);
+
+                        if (edgeLength > bestLen)
+                        {
+                            bestLen = edgeLength;
+                            best = edge;
                         }
                     }
-                    catch { }
 
-                    if (edgeLength <= 0)
-                        edgeLength = GetEdgeChordLength(edge);
-
-                    if (edgeLength > bestLen)
-                    {
-                        bestLen = edgeLength;
-                        best = edge;
-                    }
+                    ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: {linearCount} linear of {edgesRaw.Length} total. Best = {bestLen:F6} m");
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge exception: {ex.Message}");
                 }
 
-                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge: {linearCount} linear of {edgesRaw.Length} total. Best = {bestLen:F6} m");
+                return best;
             }
-            catch (Exception ex)
-            {
-                ErrorHandler.DebugLog($"[SMDBG] FindLongestLinearEdge exception: {ex.Message}");
-            }
-            finally
-            {
-                PerformanceTracker.Instance.StopTimer("FindLongestLinearEdge");
-            }
-
-            return best;
         }
 
         private static double GetEdgeChordLength(IEdge edge)

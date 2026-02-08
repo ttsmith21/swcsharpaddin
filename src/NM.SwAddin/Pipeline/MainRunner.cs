@@ -32,70 +32,52 @@ namespace NM.SwAddin.Pipeline
 
         public static RunResult RunSinglePart(ISldWorks swApp, IModelDoc2 doc, ProcessingOptions options)
         {
-            const string proc = nameof(MainRunner) + ".RunSinglePart";
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(MainRunner) + ".RunSinglePart"))
             {
-                if (swApp == null || doc == null)
+                try
                 {
-                    return new RunResult { Success = false, Message = "Null app or document" };
-                }
+                    if (swApp == null || doc == null)
+                        return new RunResult { Success = false, Message = "Null app or document" };
 
-                var type = (swDocumentTypes_e)doc.GetType();
-                if (type != swDocumentTypes_e.swDocPART)
-                {
-                    return new RunResult { Success = false, Message = "Active document is not a part" };
-                }
+                    var type = (swDocumentTypes_e)doc.GetType();
+                    if (type != swDocumentTypes_e.swDocPART)
+                        return new RunResult { Success = false, Message = "Active document is not a part" };
 
-                // Basic geometry sanity check
-                var body = SwGeometryHelper.GetMainBody(doc);
-                if (body == null)
-                {
-                    return new RunResult { Success = false, Message = "No solid body detected" };
-                }
+                    var body = SwGeometryHelper.GetMainBody(doc);
+                    if (body == null)
+                        return new RunResult { Success = false, Message = "No solid body detected" };
 
-                // Build model info and attach SolidWorks model wrapper
-                var cfg = doc.ConfigurationManager?.ActiveConfiguration?.Name ?? string.Empty;
-                var pathOrTitle = doc.GetPathName();
-                if (string.IsNullOrWhiteSpace(pathOrTitle)) pathOrTitle = doc.GetTitle() ?? "UnsavedModel";
+                    var cfg = doc.ConfigurationManager?.ActiveConfiguration?.Name ?? string.Empty;
+                    var pathOrTitle = doc.GetPathName();
+                    if (string.IsNullOrWhiteSpace(pathOrTitle)) pathOrTitle = doc.GetTitle() ?? "UnsavedModel";
 
-                var info = new NM.Core.ModelInfo();
-                info.Initialize(pathOrTitle, cfg);
+                    var info = new NM.Core.ModelInfo();
+                    info.Initialize(pathOrTitle, cfg);
 
-                var swModel = new SolidWorksModel(info, swApp);
-                swModel.Attach(doc, cfg);
+                    var swModel = new SolidWorksModel(info, swApp);
+                    swModel.Attach(doc, cfg);
 
-                // Use ProcessorFactory to detect part type and route to correct processor
-                var factory = new ProcessorFactory(swApp);
-                var processor = factory.DetectFor(doc);
+                    var factory = new ProcessorFactory(swApp);
+                    var processor = factory.DetectFor(doc);
 
-                // Processor will be SheetMetal, Tube, or Generic based on part characteristics
-                var pres = processor.Process(doc, info, options ?? new ProcessingOptions());
-                if (!pres.Success)
-                {
-                    return new RunResult { Success = false, Message = pres.ErrorMessage ?? "Processing failed" };
-                }
+                    var pres = processor.Process(doc, info, options ?? new ProcessingOptions());
+                    if (!pres.Success)
+                        return new RunResult { Success = false, Message = pres.ErrorMessage ?? "Processing failed" };
 
-                // Batched custom property writeback (only if SaveChanges is enabled)
-                var opts = options ?? new ProcessingOptions();
-                if (opts.SaveChanges && info.CustomProperties.IsDirty)
-                {
-                    if (!swModel.SavePropertiesToSolidWorks())
+                    var opts = options ?? new ProcessingOptions();
+                    if (opts.SaveChanges && info.CustomProperties.IsDirty)
                     {
-                        return new RunResult { Success = false, Message = "Property writeback failed" };
+                        if (!swModel.SavePropertiesToSolidWorks())
+                            return new RunResult { Success = false, Message = "Property writeback failed" };
                     }
-                }
 
-                return new RunResult { Success = true, Message = pres.ProcessorType + " OK" };
-            }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, "Runner exception", ex, ErrorHandler.LogLevel.Error);
-                return new RunResult { Success = false, Message = "Exception: " + ex.Message };
-            }
-            finally
-            {
-                ErrorHandler.PopCallStack();
+                    return new RunResult { Success = true, Message = pres.ProcessorType + " OK" };
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(nameof(MainRunner) + ".RunSinglePart", "Runner exception", ex, ErrorHandler.LogLevel.Error);
+                    return new RunResult { Success = false, Message = "Exception: " + ex.Message };
+                }
             }
         }
 
@@ -105,89 +87,87 @@ namespace NM.SwAddin.Pipeline
         /// </summary>
         public static PartData RunSinglePartData(ISldWorks swApp, IModelDoc2 doc, ProcessingOptions options)
         {
-            const string proc = nameof(MainRunner) + ".RunSinglePartData";
-            ErrorHandler.PushCallStack(proc);
-            PerformanceTracker.Instance.StartTimer("RunSinglePartData");
+            using (new ErrorScope(nameof(MainRunner) + ".RunSinglePartData"))
+            using (new PerformanceScope("RunSinglePartData"))
+            {
+                return RunSinglePartDataCore(swApp, doc, options);
+            }
+        }
+
+        private static PartData RunSinglePartDataCore(ISldWorks swApp, IModelDoc2 doc, ProcessingOptions options)
+        {
             try
             {
                 var pd = new PartData();
 
                 // ====== VALIDATION ======
-                PerformanceTracker.Instance.StartTimer("Validation");
-                if (swApp == null || doc == null)
+                var cfg = doc?.ConfigurationManager?.ActiveConfiguration?.Name ?? string.Empty;
+                var pathOrTitle = doc?.GetPathName();
+                if (string.IsNullOrWhiteSpace(pathOrTitle)) pathOrTitle = doc?.GetTitle() ?? "UnsavedModel";
+                IBody2 body;
+
+                using (new PerformanceScope("Validation"))
                 {
-                    PerformanceTracker.Instance.StopTimer("Validation");
-                    pd.Status = ProcessingStatus.Failed;
-                    pd.FailureReason = "Null app or document";
-                    return pd;
+                    if (swApp == null || doc == null)
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = "Null app or document";
+                        return pd;
+                    }
+
+                    var type = (swDocumentTypes_e)doc.GetType();
+                    if (type != swDocumentTypes_e.swDocPART)
+                    {
+                        pd.Status = ProcessingStatus.Skipped;
+                        pd.FailureReason = "Active document is not a part";
+                        return pd;
+                    }
+
+                    pd.FilePath = doc.GetPathName();
+                    pd.PartName = doc.GetTitle();
+                    pd.Configuration = cfg;
+                    pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
+
+                    var partDoc = doc as IPartDoc;
+                    if (partDoc == null)
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = "Could not cast to IPartDoc";
+                        return pd;
+                    }
+
+                    var bodiesObj = partDoc.GetBodies2((int)swBodyType_e.swSolidBody, true);
+                    if (bodiesObj == null)
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = "No solid body detected";
+                        return pd;
+                    }
+
+                    var bodies = (object[])bodiesObj;
+                    if (bodies.Length == 0)
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = "No solid body detected";
+                        return pd;
+                    }
+
+                    if (bodies.Length > 1)
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = $"Multi-body part ({bodies.Length} bodies)";
+                        return pd;
+                    }
+
+                    body = (IBody2)bodies[0];
+
+                    if (string.IsNullOrWhiteSpace(pd.Material))
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = "No material assigned";
+                        return pd;
+                    }
                 }
-
-                var type = (swDocumentTypes_e)doc.GetType();
-                if (type != swDocumentTypes_e.swDocPART)
-                {
-                    PerformanceTracker.Instance.StopTimer("Validation");
-                    pd.Status = ProcessingStatus.Skipped;
-                    pd.FailureReason = "Active document is not a part";
-                    return pd;
-                }
-
-                var cfg = doc.ConfigurationManager?.ActiveConfiguration?.Name ?? string.Empty;
-                var pathOrTitle = doc.GetPathName();
-                if (string.IsNullOrWhiteSpace(pathOrTitle)) pathOrTitle = doc.GetTitle() ?? "UnsavedModel";
-
-                pd.FilePath = doc.GetPathName();
-                pd.PartName = doc.GetTitle();
-                pd.Configuration = cfg;
-                pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
-
-                // Basic geometry check - get all solid bodies
-                var partDoc = doc as IPartDoc;
-                if (partDoc == null)
-                {
-                    PerformanceTracker.Instance.StopTimer("Validation");
-                    pd.Status = ProcessingStatus.Failed;
-                    pd.FailureReason = "Could not cast to IPartDoc";
-                    return pd;
-                }
-
-                var bodiesObj = partDoc.GetBodies2((int)swBodyType_e.swSolidBody, true);
-                if (bodiesObj == null)
-                {
-                    PerformanceTracker.Instance.StopTimer("Validation");
-                    pd.Status = ProcessingStatus.Failed;
-                    pd.FailureReason = "No solid body detected";
-                    return pd;
-                }
-
-                var bodies = (object[])bodiesObj;
-                if (bodies.Length == 0)
-                {
-                    PerformanceTracker.Instance.StopTimer("Validation");
-                    pd.Status = ProcessingStatus.Failed;
-                    pd.FailureReason = "No solid body detected";
-                    return pd;
-                }
-
-                // Multi-body check - FAIL validation for multi-body parts
-                if (bodies.Length > 1)
-                {
-                    PerformanceTracker.Instance.StopTimer("Validation");
-                    pd.Status = ProcessingStatus.Failed;
-                    pd.FailureReason = $"Multi-body part ({bodies.Length} bodies)";
-                    return pd;
-                }
-
-                var body = (IBody2)bodies[0];
-
-                // Material check - FAIL validation if no material assigned
-                if (string.IsNullOrWhiteSpace(pd.Material))
-                {
-                    PerformanceTracker.Instance.StopTimer("Validation");
-                    pd.Status = ProcessingStatus.Failed;
-                    pd.FailureReason = "No material assigned";
-                    return pd;
-                }
-                PerformanceTracker.Instance.StopTimer("Validation");
 
                 // Build core wrappers
                 var info = new NM.Core.ModelInfo();
@@ -231,72 +211,69 @@ namespace NM.SwAddin.Pipeline
                 if (!string.IsNullOrEmpty(opts2.ForceClassification))
                 {
                     ErrorHandler.DebugLog($"[SMDBG] ForceClassification={opts2.ForceClassification} - skipping heuristics and auto-classification");
-                    PerformanceTracker.Instance.StartTimer("Classification");
 
                     var factory2 = new ProcessorFactory(swApp);
                     bool forcedSuccess = false;
 
-                    if (opts2.ForceClassification == "SheetMetal")
+                    using (new PerformanceScope("Classification"))
                     {
-                        var sheetProc = factory2.Get(ProcessorType.SheetMetal);
-                        if (sheetProc != null)
+                        if (opts2.ForceClassification == "SheetMetal")
                         {
-                            var sheetRes = sheetProc.Process(doc, info, opts2);
-                            if (sheetRes.Success)
+                            var sheetProc = factory2.Get(ProcessorType.SheetMetal);
+                            if (sheetProc != null)
                             {
-                                pd.Classification = PartType.SheetMetal;
-                                forcedSuccess = true;
-                                BendAllowanceValidator.ValidateAllFeatures(doc);
-                            }
-                            else
-                            {
-                                PerformanceTracker.Instance.StopTimer("Classification");
-                                pd.Status = ProcessingStatus.Failed;
-                                pd.FailureReason = $"Sheet metal conversion failed: {sheetRes.ErrorMessage}";
-                                return pd;
-                            }
-                        }
-                    }
-                    else if (opts2.ForceClassification == "Tube")
-                    {
-                        var tubeProc = factory2.Get(ProcessorType.Tube);
-                        if (tubeProc != null)
-                        {
-                            var tubeRes = tubeProc.Process(doc, info, opts2);
-                            if (tubeRes.Success)
-                            {
-                                pd.Classification = PartType.Tube;
-                                forcedSuccess = true;
-                                // Extract tube geometry
-                                try
+                                var sheetRes = sheetProc.Process(doc, info, opts2);
+                                if (sheetRes.Success)
                                 {
-                                    var tube = new SimpleTubeProcessor(swApp).TryGetGeometry(doc);
-                                    if (tube != null)
-                                    {
-                                        const double IN_TO_M = 0.0254;
-                                        pd.Tube.IsTube = true;
-                                        pd.Tube.OD_m = tube.OuterDiameter * IN_TO_M;
-                                        pd.Tube.Wall_m = tube.WallThickness * IN_TO_M;
-                                        pd.Tube.ID_m = tube.InnerDiameter > 0
-                                            ? tube.InnerDiameter * IN_TO_M
-                                            : Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
-                                        pd.Tube.Length_m = tube.Length * IN_TO_M;
-                                        pd.Tube.TubeShape = tube.ShapeName;
-                                    }
+                                    pd.Classification = PartType.SheetMetal;
+                                    forcedSuccess = true;
+                                    BendAllowanceValidator.ValidateAllFeatures(doc);
                                 }
-                                catch { }
+                                else
+                                {
+                                    pd.Status = ProcessingStatus.Failed;
+                                    pd.FailureReason = $"Sheet metal conversion failed: {sheetRes.ErrorMessage}";
+                                    return pd;
+                                }
                             }
-                            else
+                        }
+                        else if (opts2.ForceClassification == "Tube")
+                        {
+                            var tubeProc = factory2.Get(ProcessorType.Tube);
+                            if (tubeProc != null)
                             {
-                                PerformanceTracker.Instance.StopTimer("Classification");
-                                pd.Status = ProcessingStatus.Failed;
-                                pd.FailureReason = $"Tube processing failed: {tubeRes.ErrorMessage}";
-                                return pd;
+                                var tubeRes = tubeProc.Process(doc, info, opts2);
+                                if (tubeRes.Success)
+                                {
+                                    pd.Classification = PartType.Tube;
+                                    forcedSuccess = true;
+                                    try
+                                    {
+                                        var tube = new SimpleTubeProcessor(swApp).TryGetGeometry(doc);
+                                        if (tube != null)
+                                        {
+                                            const double IN_TO_M = 0.0254;
+                                            pd.Tube.IsTube = true;
+                                            pd.Tube.OD_m = tube.OuterDiameter * IN_TO_M;
+                                            pd.Tube.Wall_m = tube.WallThickness * IN_TO_M;
+                                            pd.Tube.ID_m = tube.InnerDiameter > 0
+                                                ? tube.InnerDiameter * IN_TO_M
+                                                : Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
+                                            pd.Tube.Length_m = tube.Length * IN_TO_M;
+                                            pd.Tube.TubeShape = tube.ShapeName;
+                                        }
+                                    }
+                                    catch { }
+                                }
+                                else
+                                {
+                                    pd.Status = ProcessingStatus.Failed;
+                                    pd.FailureReason = $"Tube processing failed: {tubeRes.ErrorMessage}";
+                                    return pd;
+                                }
                             }
                         }
                     }
-
-                    PerformanceTracker.Instance.StopTimer("Classification");
 
                     if (forcedSuccess)
                     {
@@ -383,7 +360,6 @@ namespace NM.SwAddin.Pipeline
 
                 // ====== CLASSIFICATION ======
                 // VBA Logic: Try sheet metal FIRST, only fall back to tube if sheet metal fails
-                PerformanceTracker.Instance.StartTimer("Classification");
                 ErrorHandler.DebugLog("[SMDBG] === CLASSIFICATION START ===");
                 ErrorHandler.DebugLog($"[SMDBG] File: {pathOrTitle}");
 
@@ -391,193 +367,177 @@ namespace NM.SwAddin.Pipeline
                 var sheetProcessor = factory.Get(ProcessorType.SheetMetal);
                 ErrorHandler.DebugLog($"[SMDBG] SheetProcessor obtained: {(sheetProcessor != null ? sheetProcessor.GetType().Name : "NULL")}");
 
-                // Step 1: Try sheet metal processing first (like VBA's SMInsertBends)
                 bool isSheetMetal = false;
-                if (sheetProcessor != null)
+                using (new PerformanceScope("Classification"))
                 {
-                    ErrorHandler.DebugLog("[SMDBG] Step 1: Calling sheetProcessor.Process()...");
-                    PerformanceTracker.Instance.StartTimer("Classification_SheetMetal");
-                    var sheetResult = sheetProcessor.Process(doc, info, options ?? new ProcessingOptions());
-                    PerformanceTracker.Instance.StopTimer("Classification_SheetMetal");
-                    ErrorHandler.DebugLog($"[SMDBG] Step 1 Result: Success={sheetResult.Success}, Error={sheetResult.ErrorMessage ?? "none"}");
-                    if (sheetResult.Success)
+                    // Step 1: Try sheet metal processing first (like VBA's SMInsertBends)
+                    if (sheetProcessor != null)
                     {
-                        isSheetMetal = true;
-                        pd.Classification = PartType.SheetMetal;
-                        ErrorHandler.DebugLog("[SMDBG] Step 1: SHEET METAL DETECTED - Classification set to SheetMetal");
-
-                        // Validate bend allowance settings (logs warnings for non-table settings)
-                        // Ported from VBA sheetmetal1.bas Process_CustomBendAllowance()
-                        BendAllowanceValidator.ValidateAllFeatures(doc);
-                    }
-                    else
-                    {
-                        ErrorHandler.DebugLog("[SMDBG] Step 1: Sheet metal processing FAILED - will try tube");
-                    }
-                }
-                else
-                {
-                    ErrorHandler.DebugLog("[SMDBG] Step 1: SKIPPED - sheetProcessor is NULL");
-                }
-
-                // Step 2: Only try tube detection if sheet metal failed (like VBA)
-                ErrorHandler.DebugLog($"[SMDBG] Step 2: isSheetMetal={isSheetMetal}, will try tube={!isSheetMetal}");
-                if (!isSheetMetal)
-                {
-                    try
-                    {
-                        ErrorHandler.DebugLog("[SMDBG] Step 2: Calling SimpleTubeProcessor.TryGetGeometry...");
-                        PerformanceTracker.Instance.StartTimer("Classification_Tube");
-                        var tube = new SimpleTubeProcessor(swApp).TryGetGeometry(doc);
-                        if (tube != null)
+                        ErrorHandler.DebugLog("[SMDBG] Step 1: Calling sheetProcessor.Process()...");
+                        ProcessingResult sheetResult;
+                        using (new PerformanceScope("Classification_SheetMetal"))
                         {
-                            ErrorHandler.DebugLog($"[SMDBG] Step 2: Tube result: Shape={tube.ShapeName}, Wall={tube.WallThickness:F3}, Length={tube.Length:F3}");
+                            sheetResult = sheetProcessor.Process(doc, info, options ?? new ProcessingOptions());
+                        }
+                        ErrorHandler.DebugLog($"[SMDBG] Step 1 Result: Success={sheetResult.Success}, Error={sheetResult.ErrorMessage ?? "none"}");
+                        if (sheetResult.Success)
+                        {
+                            isSheetMetal = true;
+                            pd.Classification = PartType.SheetMetal;
+                            ErrorHandler.DebugLog("[SMDBG] Step 1: SHEET METAL DETECTED - Classification set to SheetMetal");
+                            BendAllowanceValidator.ValidateAllFeatures(doc);
                         }
                         else
                         {
-                            ErrorHandler.DebugLog("[SMDBG] Step 2: Tube detection returned null");
+                            ErrorHandler.DebugLog("[SMDBG] Step 1: Sheet metal processing FAILED - will try tube");
                         }
+                    }
+                    else
+                    {
+                        ErrorHandler.DebugLog("[SMDBG] Step 1: SKIPPED - sheetProcessor is NULL");
+                    }
 
-                        // Tube detection validation:
-                        // - Must have a minimum length (0.5" = 12.7mm) to avoid classifying machined blocks as tubes
-                        // - Must have proper aspect ratio (length > 2x wall thickness) for true extrusions
-                        const double MIN_TUBE_LENGTH_IN = 0.5;
-
-                        // Round bars are solid cylinders (no inner face → wall=0) but still valid tube stock
-                        bool isRoundBar = tube != null &&
-                                          tube.Shape == TubeShape.Round &&
-                                          tube.WallThickness == 0 &&
-                                          tube.OuterDiameter > 0 &&
-                                          tube.Length >= MIN_TUBE_LENGTH_IN;
-
-                        bool isValidTube = (tube != null &&
-                                           tube.Shape != TubeShape.None &&
-                                           tube.WallThickness > 0 &&
-                                           tube.Length >= MIN_TUBE_LENGTH_IN &&
-                                           tube.Length > tube.WallThickness * 2) || isRoundBar;
-
-                        if (!isValidTube && tube != null)
+                    // Step 2: Only try tube detection if sheet metal failed (like VBA)
+                    ErrorHandler.DebugLog($"[SMDBG] Step 2: isSheetMetal={isSheetMetal}, will try tube={!isSheetMetal}");
+                    if (!isSheetMetal)
+                    {
+                        try
                         {
-                            ErrorHandler.DebugLog($"[SMDBG] Step 2: Tube detection REJECTED - Length={tube.Length:F3}in (min={MIN_TUBE_LENGTH_IN}), Wall={tube.WallThickness:F3}in, AspectRatio={tube.Length / Math.Max(tube.WallThickness, 0.001):F1}");
-                        }
-
-                        if (isValidTube)
-                        {
-                            const double IN_TO_M = 0.0254;
-                            pd.Tube.IsTube = true;
-                            pd.Classification = PartType.Tube;
-                            pd.Tube.OD_m = tube.OuterDiameter * IN_TO_M;
-                            pd.Tube.Wall_m = tube.WallThickness * IN_TO_M;
-                            pd.Tube.ID_m = tube.InnerDiameter > 0
-                                ? tube.InnerDiameter * IN_TO_M
-                                : Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
-                            pd.Tube.Length_m = tube.Length * IN_TO_M;
-                            pd.Tube.TubeShape = isRoundBar ? "Round Bar" : tube.ShapeName;
-                            pd.Tube.CrossSection = tube.CrossSection;
-                            pd.Tube.CutLength_m = tube.CutLength * IN_TO_M;
-                            pd.Tube.NumberOfHoles = tube.NumberOfHoles;
-                            ErrorHandler.DebugLog($"[SMDBG] Step 2: TUBE DETECTED - Classification set to Tube ({tube.ShapeName})");
-
-                            // Resolve pipe schedule (NPS and schedule code)
-                            var pipeService = new PipeScheduleService();
-                            string materialCategory = info.CustomProperties.MaterialCategory;
-                            if (pipeService.TryResolveByOdAndWall(tube.OuterDiameter, tube.WallThickness, materialCategory, out string npsText, out string scheduleCode))
+                            ErrorHandler.DebugLog("[SMDBG] Step 2: Calling SimpleTubeProcessor.TryGetGeometry...");
+                            NM.Core.Processing.TubeGeometry tube;
+                            using (new PerformanceScope("Classification_Tube"))
                             {
-                                pd.Tube.NpsText = npsText;
-                                pd.Tube.ScheduleCode = scheduleCode;
+                                tube = new SimpleTubeProcessor(swApp).TryGetGeometry(doc);
                             }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorHandler.DebugLog($"[SMDBG] Step 2: Tube detection EXCEPTION: {ex.Message}");
-                    }
-                    finally
-                    {
-                        PerformanceTracker.Instance.StopTimer("Classification_Tube");
-                    }
-                }
-
-                // Step 3: If neither sheet metal nor tube, check for invalid geometry
-                // Parts that attempted sheet metal but failed with no thickness are likely
-                // invalid geometry (knife edges, degenerate faces) and should fail validation.
-                bool attemptedSheetMetal = (sheetProcessor != null);
-                bool sheetMetalFailed = attemptedSheetMetal && !isSheetMetal;
-                bool isTube = (pd.Classification == PartType.Tube);
-
-                if (sheetMetalFailed && !isTube)
-                {
-                    // Check if we can measure thickness - if not, this MIGHT be invalid geometry
-                    double probeThickness = info.CustomProperties.Thickness;
-                    if (probeThickness <= 0)
-                    {
-                        // Also check if part has very low sheet percentage (< 10%)
-                        double sheetPercent = info.CustomProperties.SheetPercent;
-                        if (sheetPercent < 0.10)
-                        {
-                            // Before failing, check if part has real mass.
-                            // Solid parts (round bars, blocks) have no sheet thickness but are valid Generic parts.
-                            // Only truly invalid geometry (knife edges, degenerate faces) has essentially no mass.
-                            var massProps = doc.Extension?.CreateMassProperty() as IMassProperty;
-                            double massKg = massProps?.Mass ?? 0.0;
-                            const double MIN_MASS_KG = 0.001; // ~0.002 lb (1 gram) - only truly degenerate geometry is below this
-
-                            if (massKg < MIN_MASS_KG)
+                            if (tube != null)
                             {
-                                ErrorHandler.DebugLog($"[SMDBG] Step 3: Part has no measurable thickness, low sheet% ({sheetPercent:P0}), and negligible mass ({massKg:F4} kg) - failing as invalid geometry");
-                                PerformanceTracker.Instance.StopTimer("Classification");
-                                pd.Status = ProcessingStatus.Failed;
-                                pd.FailureReason = "Invalid geometry - no measurable thickness";
-                                return pd;
+                                ErrorHandler.DebugLog($"[SMDBG] Step 2: Tube result: Shape={tube.ShapeName}, Wall={tube.WallThickness:F3}, Length={tube.Length:F3}");
                             }
                             else
                             {
-                                ErrorHandler.DebugLog($"[SMDBG] Step 3: Part has real mass ({massKg:F4} kg) - treating as valid Generic part, not invalid geometry");
+                                ErrorHandler.DebugLog("[SMDBG] Step 2: Tube detection returned null");
+                            }
+
+                            const double MIN_TUBE_LENGTH_IN = 0.5;
+
+                            bool isRoundBar = tube != null &&
+                                              tube.Shape == TubeShape.Round &&
+                                              tube.WallThickness == 0 &&
+                                              tube.OuterDiameter > 0 &&
+                                              tube.Length >= MIN_TUBE_LENGTH_IN;
+
+                            bool isValidTube = (tube != null &&
+                                               tube.Shape != TubeShape.None &&
+                                               tube.WallThickness > 0 &&
+                                               tube.Length >= MIN_TUBE_LENGTH_IN &&
+                                               tube.Length > tube.WallThickness * 2) || isRoundBar;
+
+                            if (!isValidTube && tube != null)
+                            {
+                                ErrorHandler.DebugLog($"[SMDBG] Step 2: Tube detection REJECTED - Length={tube.Length:F3}in (min={MIN_TUBE_LENGTH_IN}), Wall={tube.WallThickness:F3}in, AspectRatio={tube.Length / Math.Max(tube.WallThickness, 0.001):F1}");
+                            }
+
+                            if (isValidTube)
+                            {
+                                const double IN_TO_M = 0.0254;
+                                pd.Tube.IsTube = true;
+                                pd.Classification = PartType.Tube;
+                                pd.Tube.OD_m = tube.OuterDiameter * IN_TO_M;
+                                pd.Tube.Wall_m = tube.WallThickness * IN_TO_M;
+                                pd.Tube.ID_m = tube.InnerDiameter > 0
+                                    ? tube.InnerDiameter * IN_TO_M
+                                    : Math.Max(0.0, (tube.OuterDiameter - 2 * tube.WallThickness) * IN_TO_M);
+                                pd.Tube.Length_m = tube.Length * IN_TO_M;
+                                pd.Tube.TubeShape = isRoundBar ? "Round Bar" : tube.ShapeName;
+                                pd.Tube.CrossSection = tube.CrossSection;
+                                pd.Tube.CutLength_m = tube.CutLength * IN_TO_M;
+                                pd.Tube.NumberOfHoles = tube.NumberOfHoles;
+                                ErrorHandler.DebugLog($"[SMDBG] Step 2: TUBE DETECTED - Classification set to Tube ({tube.ShapeName})");
+
+                                var pipeService = new PipeScheduleService();
+                                string materialCategory = info.CustomProperties.MaterialCategory;
+                                if (pipeService.TryResolveByOdAndWall(tube.OuterDiameter, tube.WallThickness, materialCategory, out string npsText, out string scheduleCode))
+                                {
+                                    pd.Tube.NpsText = npsText;
+                                    pd.Tube.ScheduleCode = scheduleCode;
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            ErrorHandler.DebugLog($"[SMDBG] Step 2: Tube detection EXCEPTION: {ex.Message}");
+                        }
+                    }
+
+                    // Step 3: If neither sheet metal nor tube, check for invalid geometry
+                    bool attemptedSheetMetal = (sheetProcessor != null);
+                    bool sheetMetalFailed = attemptedSheetMetal && !isSheetMetal;
+                    bool isTubeCheck = (pd.Classification == PartType.Tube);
+
+                    if (sheetMetalFailed && !isTubeCheck)
+                    {
+                        double probeThickness = info.CustomProperties.Thickness;
+                        if (probeThickness <= 0)
+                        {
+                            double sheetPercent = info.CustomProperties.SheetPercent;
+                            if (sheetPercent < 0.10)
+                            {
+                                var massProps = doc.Extension?.CreateMassProperty() as IMassProperty;
+                                double massKg = massProps?.Mass ?? 0.0;
+                                const double MIN_MASS_KG = 0.001;
+
+                                if (massKg < MIN_MASS_KG)
+                                {
+                                    ErrorHandler.DebugLog($"[SMDBG] Step 3: Part has no measurable thickness, low sheet% ({sheetPercent:P0}), and negligible mass ({massKg:F4} kg) - failing as invalid geometry");
+                                    pd.Status = ProcessingStatus.Failed;
+                                    pd.FailureReason = "Invalid geometry - no measurable thickness";
+                                    return pd;
+                                }
+                                else
+                                {
+                                    ErrorHandler.DebugLog($"[SMDBG] Step 3: Part has real mass ({massKg:F4} kg) - treating as valid Generic part, not invalid geometry");
+                                }
                             }
                         }
                     }
+
+                    // Step 3b: Parts that failed both sheet metal and tube classification
+                    if (sheetMetalFailed && !isTubeCheck)
+                    {
+                        string reason = "Could not classify as sheet metal or tube - needs human review";
+                        ErrorHandler.DebugLog($"[SMDBG] Step 3b: {reason}");
+                        ProblemPartManager.Instance.AddProblemPart(
+                            pathOrTitle, cfg, System.IO.Path.GetFileName(pathOrTitle),
+                            reason, ProblemPartManager.ProblemCategory.ClassificationFailed);
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = reason;
+                        return pd;
+                    }
                 }
 
-                // Step 3b: Parts that failed both sheet metal and tube classification
-                // need human review - don't silently fall through to Generic processing
-                if (sheetMetalFailed && !isTube)
-                {
-                    string reason = "Could not classify as sheet metal or tube - needs human review";
-                    ErrorHandler.DebugLog($"[SMDBG] Step 3b: {reason}");
-                    ProblemPartManager.Instance.AddProblemPart(
-                        pathOrTitle, cfg, System.IO.Path.GetFileName(pathOrTitle),
-                        reason, ProblemPartManager.ProblemCategory.ClassificationFailed);
-                    PerformanceTracker.Instance.StopTimer("Classification");
-                    pd.Status = ProcessingStatus.Failed;
-                    pd.FailureReason = reason;
-                    return pd;
-                }
-
-                PerformanceTracker.Instance.StopTimer("Classification");
+                bool isTube = (pd.Classification == PartType.Tube);
 
                 // ====== PROCESSING ======
-                // Proceed with appropriate processor
-                PerformanceTracker.Instance.StartTimer("Processing");
-                IPartProcessor processor;
                 ProcessingResult pres;
-                if (isSheetMetal)
+                using (new PerformanceScope("Processing"))
                 {
-                    // Already processed as sheet metal above
-                    processor = sheetProcessor;
-                    pres = ProcessingResult.Ok("SheetMetal");
+                    IPartProcessor processor;
+                    if (isSheetMetal)
+                    {
+                        processor = sheetProcessor;
+                        pres = ProcessingResult.Ok("SheetMetal");
+                    }
+                    else if (isTube)
+                    {
+                        processor = factory.Get(ProcessorType.Tube);
+                        pres = processor.Process(doc, info, options ?? new ProcessingOptions());
+                    }
+                    else
+                    {
+                        processor = factory.Get(ProcessorType.Generic);
+                        pres = processor.Process(doc, info, options ?? new ProcessingOptions());
+                    }
                 }
-                else if (isTube)
-                {
-                    processor = factory.Get(ProcessorType.Tube);
-                    pres = processor.Process(doc, info, options ?? new ProcessingOptions());
-                }
-                else
-                {
-                    // Reached only when sheet metal was never attempted (sheetProcessor was null)
-                    processor = factory.Get(ProcessorType.Generic);
-                    pres = processor.Process(doc, info, options ?? new ProcessingOptions());
-                }
-                PerformanceTracker.Instance.StopTimer("Processing");
                 if (!pres.Success)
                 {
                     pd.Status = ProcessingStatus.Failed;
@@ -617,14 +577,8 @@ namespace NM.SwAddin.Pipeline
             }
             catch (Exception ex)
             {
-                ErrorHandler.HandleError(proc, "Runner exception", ex, ErrorHandler.LogLevel.Error);
-                var pd = new PartData { Status = ProcessingStatus.Failed, FailureReason = ex.Message };
-                return pd;
-            }
-            finally
-            {
-                PerformanceTracker.Instance.StopTimer("RunSinglePartData");
-                ErrorHandler.PopCallStack();
+                ErrorHandler.HandleError(nameof(MainRunner) + ".RunSinglePartData", "Runner exception", ex, ErrorHandler.LogLevel.Error);
+                return new PartData { Status = ProcessingStatus.Failed, FailureReason = ex.Message };
             }
         }
 
@@ -710,31 +664,29 @@ namespace NM.SwAddin.Pipeline
                         {
                             try
                             {
-                                PerformanceTracker.Instance.StartTimer("HoleNearBendAnalysis");
-                                var holeNearBendResult = HoleNearBendAnalyzer.Analyze(
-                                    doc, flatFace, pd.Thickness_m, pd.Material);
-
-                                if (holeNearBendResult.HasViolations)
+                                using (new PerformanceScope("HoleNearBendAnalysis"))
                                 {
-                                    pd.Extra["HolesNearBends"] = holeNearBendResult.ViolationCount.ToString();
-                                    pd.Extra["HolesNearBends_Detail"] = holeNearBendResult.Violations[0].Description;
+                                    var holeNearBendResult = HoleNearBendAnalyzer.Analyze(
+                                        doc, flatFace, pd.Thickness_m, pd.Material);
 
-                                    ProblemPartManager.Instance.AddProblemPart(
-                                        info.FilePath, info.ConfigurationName, pd.PartName ?? string.Empty,
-                                        $"DFM: {holeNearBendResult.ViolationCount} cutout(s) too close to bend line - {holeNearBendResult.Violations[0].Description}",
-                                        ProblemPartManager.ProblemCategory.ManufacturingWarning);
+                                    if (holeNearBendResult.HasViolations)
+                                    {
+                                        pd.Extra["HolesNearBends"] = holeNearBendResult.ViolationCount.ToString();
+                                        pd.Extra["HolesNearBends_Detail"] = holeNearBendResult.Violations[0].Description;
 
-                                    ErrorHandler.DebugLog($"[SMDBG] Hole-near-bend: {holeNearBendResult.ViolationCount} violation(s)");
+                                        ProblemPartManager.Instance.AddProblemPart(
+                                            info.FilePath, info.ConfigurationName, pd.PartName ?? string.Empty,
+                                            $"DFM: {holeNearBendResult.ViolationCount} cutout(s) too close to bend line - {holeNearBendResult.Violations[0].Description}",
+                                            ProblemPartManager.ProblemCategory.ManufacturingWarning);
+
+                                        ErrorHandler.DebugLog($"[SMDBG] Hole-near-bend: {holeNearBendResult.ViolationCount} violation(s)");
+                                    }
                                 }
                             }
                             catch (Exception hnbEx)
                             {
                                 ErrorHandler.HandleError("MainRunner",
                                     "Hole-near-bend analysis failed", hnbEx, ErrorHandler.LogLevel.Warning);
-                            }
-                            finally
-                            {
-                                PerformanceTracker.Instance.StopTimer("HoleNearBendAnalysis");
                             }
                         }
                     }
@@ -757,24 +709,24 @@ namespace NM.SwAddin.Pipeline
 
             try
             {
-                PerformanceTracker.Instance.StartTimer("TappedHoleAnalysis");
-                int tapQty = Math.Max(1, (options ?? new ProcessingOptions()).Quantity > 0 ? options.Quantity : pd.QuoteQty);
-                var tapResult = TappedHoleAnalyzer.Analyze(doc, pd.Material, tapQty);
-                if (tapResult.TappedHoleCount > 0)
+                using (new PerformanceScope("TappedHoleAnalysis"))
                 {
-                    info.CustomProperties.TappedHoleCount = tapResult.TappedHoleCount;
-                    pd.Extra["TappedHoleSetups"] = tapResult.TotalSetups.ToString();
-                    ErrorHandler.DebugLog($"[SMDBG] Tapped holes: {tapResult.TappedHoleCount} holes, {tapResult.TotalSetups} setups");
+                    int tapQty = Math.Max(1, (options ?? new ProcessingOptions()).Quantity > 0 ? options.Quantity : pd.QuoteQty);
+                    var tapResult = TappedHoleAnalyzer.Analyze(doc, pd.Material, tapQty);
+                    if (tapResult.TappedHoleCount > 0)
+                    {
+                        info.CustomProperties.TappedHoleCount = tapResult.TappedHoleCount;
+                        pd.Extra["TappedHoleSetups"] = tapResult.TotalSetups.ToString();
+                        ErrorHandler.DebugLog($"[SMDBG] Tapped holes: {tapResult.TappedHoleCount} holes, {tapResult.TotalSetups} setups");
+                    }
+                    if (tapResult.RequiresStainlessNote)
+                    {
+                        pd.Cost.F220_Note = tapResult.StainlessNoteText;
+                    }
                 }
-                if (tapResult.RequiresStainlessNote)
-                {
-                    pd.Cost.F220_Note = tapResult.StainlessNoteText;
-                }
-                PerformanceTracker.Instance.StopTimer("TappedHoleAnalysis");
             }
             catch (Exception tapEx)
             {
-                PerformanceTracker.Instance.StopTimer("TappedHoleAnalysis");
                 ErrorHandler.HandleError("MainRunner", "Tapped hole analysis failed", tapEx, ErrorHandler.LogLevel.Warning);
             }
         }
@@ -941,33 +893,34 @@ namespace NM.SwAddin.Pipeline
             }
 
             // Cost calculations
-            PerformanceTracker.Instance.StartTimer("CostCalculation");
-            CalculateCosts(pd, info, options ?? new ProcessingOptions());
-            PerformanceTracker.Instance.StopTimer("CostCalculation");
+            using (new PerformanceScope("CostCalculation"))
+            {
+                CalculateCosts(pd, info, options ?? new ProcessingOptions());
+            }
 
             // Map DTO -> properties and batch save
-            PerformanceTracker.Instance.StartTimer("PropertyWrite");
-            var mapped = PartDataPropertyMap.ToProperties(pd);
-            foreach (var kv in mapped)
+            using (new PerformanceScope("PropertyWrite"))
             {
-                if (double.TryParse(kv.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
-                    info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Number);
-                else
-                    info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
-            }
-
-            var opts2 = options ?? new ProcessingOptions();
-            if (opts2.SaveChanges && info.CustomProperties.IsDirty)
-            {
-                if (!swModel.SavePropertiesToSolidWorks())
+                var mapped = PartDataPropertyMap.ToProperties(pd);
+                foreach (var kv in mapped)
                 {
-                    PerformanceTracker.Instance.StopTimer("PropertyWrite");
-                    pd.Status = ProcessingStatus.Failed;
-                    pd.FailureReason = "Property writeback failed";
-                    return;
+                    if (double.TryParse(kv.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
+                        info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Number);
+                    else
+                        info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
+                }
+
+                var opts2 = options ?? new ProcessingOptions();
+                if (opts2.SaveChanges && info.CustomProperties.IsDirty)
+                {
+                    if (!swModel.SavePropertiesToSolidWorks())
+                    {
+                        pd.Status = ProcessingStatus.Failed;
+                        pd.FailureReason = "Property writeback failed";
+                        return;
+                    }
                 }
             }
-            PerformanceTracker.Instance.StopTimer("PropertyWrite");
         }
 
         /// <summary>
@@ -1082,33 +1035,37 @@ namespace NM.SwAddin.Pipeline
             }
 
             // F325 Roll Form - always applies to tubes
-            PerformanceTracker.Instance.StartTimer("Cost_F325_RollForm");
-            var f325Result = TubeWorkCenterRules.ComputeF325(rawWeightLb, wallIn);
-            pd.Cost.F325_S_min = f325Result.SetupHours * 60.0;
-            pd.Cost.F325_R_min = f325Result.RunHours * 60.0;
-            pd.Cost.F325_Price = (f325Result.SetupHours + f325Result.RunHours * quantity) * CostConstants.F325_COST;
-            PerformanceTracker.Instance.StopTimer("Cost_F325_RollForm");
+            TubeWorkCenterRules.F325Result f325Result;
+            using (new PerformanceScope("Cost_F325_RollForm"))
+            {
+                f325Result = TubeWorkCenterRules.ComputeF325(rawWeightLb, wallIn);
+                pd.Cost.F325_S_min = f325Result.SetupHours * 60.0;
+                pd.Cost.F325_R_min = f325Result.RunHours * 60.0;
+                pd.Cost.F325_Price = (f325Result.SetupHours + f325Result.RunHours * quantity) * CostConstants.F325_COST;
+            }
 
             // F140 Press Brake - only if F325 requires it (heavy tube with thick wall)
             if (f325Result.RequiresPressBrake)
             {
-                PerformanceTracker.Instance.StartTimer("Cost_F140_Brake");
-                var f140Result = TubeWorkCenterRules.ComputeF140(rawWeightLb, wallIn);
-                pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
-                pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
-                pd.Cost.F140_Price = (f140Result.SetupHours + f140Result.RunHours * quantity) * CostConstants.F140_COST;
-                PerformanceTracker.Instance.StopTimer("Cost_F140_Brake");
+                using (new PerformanceScope("Cost_F140_Brake"))
+                {
+                    var f140Result = TubeWorkCenterRules.ComputeF140(rawWeightLb, wallIn);
+                    pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
+                    pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
+                    pd.Cost.F140_Price = (f140Result.SetupHours + f140Result.RunHours * quantity) * CostConstants.F140_COST;
+                }
             }
 
             // F210 Deburr - based on tube length
             if (lengthIn > 0)
             {
-                PerformanceTracker.Instance.StartTimer("Cost_F210_Deburr");
-                var f210Result = TubeWorkCenterRules.ComputeF210(lengthIn);
-                pd.Cost.F210_S_min = f210Result.SetupHours * 60.0;
-                pd.Cost.F210_R_min = f210Result.RunHours * 60.0;
-                pd.Cost.F210_Price = (f210Result.SetupHours + f210Result.RunHours * quantity) * CostConstants.F210_COST;
-                PerformanceTracker.Instance.StopTimer("Cost_F210_Deburr");
+                using (new PerformanceScope("Cost_F210_Deburr"))
+                {
+                    var f210Result = TubeWorkCenterRules.ComputeF210(lengthIn);
+                    pd.Cost.F210_S_min = f210Result.SetupHours * 60.0;
+                    pd.Cost.F210_R_min = f210Result.RunHours * 60.0;
+                    pd.Cost.F210_Price = (f210Result.SetupHours + f210Result.RunHours * quantity) * CostConstants.F210_COST;
+                }
             }
         }
 
@@ -1122,103 +1079,100 @@ namespace NM.SwAddin.Pipeline
             // F115 Laser Cutting - based on cut length and pierce count
             if (pd.Sheet.TotalCutLength_m > 0 && pd.Thickness_m > 0)
             {
-                PerformanceTracker.Instance.StartTimer("Cost_F115_Laser");
-                try
+                using (new PerformanceScope("Cost_F115_Laser"))
                 {
-                    int pierceCount = 0;
-                    string pcStr;
-                    if (pd.Extra.TryGetValue("CutMetrics_PierceCount", out pcStr))
-                        int.TryParse(pcStr, out pierceCount);
-
-                    var partMetrics = new PartMetrics
+                    try
                     {
-                        ApproxCutLengthIn = pd.Sheet.TotalCutLength_m * MetersToInches,
-                        PierceCount = pierceCount,
-                        ThicknessIn = pd.Thickness_m * MetersToInches,
-                        MaterialCode = pd.Material ?? "304L",
-                        MassKg = pd.Mass_kg
-                    };
-                    ILaserSpeedProvider speedProvider = new StaticLaserSpeedProvider();
-                    var laserResult = LaserCalculator.Compute(partMetrics, speedProvider, isWaterjet: false, rawWeightLb: rawWeightLb);
-                    pd.Cost.OP20_S_min = laserResult.SetupHours * 60.0;
-                    pd.Cost.OP20_R_min = laserResult.RunHours * 60.0;
-                    pd.Cost.OP20_WorkCenter = "F115";
-                    pd.Cost.F115_Price = laserResult.Cost;
-                }
-                catch (Exception laserEx)
-                {
-                    ErrorHandler.HandleError("MainRunner", "F115 laser calc failed", laserEx, ErrorHandler.LogLevel.Warning);
-                }
-                finally
-                {
-                    PerformanceTracker.Instance.StopTimer("Cost_F115_Laser");
+                        int pierceCount = 0;
+                        string pcStr;
+                        if (pd.Extra.TryGetValue("CutMetrics_PierceCount", out pcStr))
+                            int.TryParse(pcStr, out pierceCount);
+
+                        var partMetrics = new PartMetrics
+                        {
+                            ApproxCutLengthIn = pd.Sheet.TotalCutLength_m * MetersToInches,
+                            PierceCount = pierceCount,
+                            ThicknessIn = pd.Thickness_m * MetersToInches,
+                            MaterialCode = pd.Material ?? "304L",
+                            MassKg = pd.Mass_kg
+                        };
+                        ILaserSpeedProvider speedProvider = new StaticLaserSpeedProvider();
+                        var laserResult = LaserCalculator.Compute(partMetrics, speedProvider, isWaterjet: false, rawWeightLb: rawWeightLb);
+                        pd.Cost.OP20_S_min = laserResult.SetupHours * 60.0;
+                        pd.Cost.OP20_R_min = laserResult.RunHours * 60.0;
+                        pd.Cost.OP20_WorkCenter = "F115";
+                        pd.Cost.F115_Price = laserResult.Cost;
+                    }
+                    catch (Exception laserEx)
+                    {
+                        ErrorHandler.HandleError("MainRunner", "F115 laser calc failed", laserEx, ErrorHandler.LogLevel.Warning);
+                    }
                 }
             }
 
             // F210 Deburr - based on cut perimeter
             if (pd.Sheet.TotalCutLength_m > 0)
             {
-                PerformanceTracker.Instance.StartTimer("Cost_F210_Deburr");
-                double cutPerimeterIn = pd.Sheet.TotalCutLength_m * MetersToInches;
-                double f210Hours = F210Calculator.ComputeHours(cutPerimeterIn);
-                pd.Cost.F210_R_min = f210Hours * 60.0;
-                pd.Cost.F210_Price = F210Calculator.ComputeCost(cutPerimeterIn, quantity);
-                PerformanceTracker.Instance.StopTimer("Cost_F210_Deburr");
+                using (new PerformanceScope("Cost_F210_Deburr"))
+                {
+                    double cutPerimeterIn = pd.Sheet.TotalCutLength_m * MetersToInches;
+                    double f210Hours = F210Calculator.ComputeHours(cutPerimeterIn);
+                    pd.Cost.F210_R_min = f210Hours * 60.0;
+                    pd.Cost.F210_Price = F210Calculator.ComputeCost(cutPerimeterIn, quantity);
+                }
             }
 
             // F140 Press Brake - based on bend info
             if (pd.Sheet.BendCount > 0)
             {
-                PerformanceTracker.Instance.StartTimer("Cost_F140_Brake");
-                // Longest bend line from BendAnalyzer (extracted from "Bend-Lines" sketch)
-                double longestBendIn = 0.0;
+                using (new PerformanceScope("Cost_F140_Brake"))
                 {
-                    string extraBend;
-                    if (pd.Extra.TryGetValue("LongestBendIn", out extraBend))
-                        double.TryParse(extraBend, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out longestBendIn);
+                    double longestBendIn = 0.0;
+                    {
+                        string extraBend;
+                        if (pd.Extra.TryGetValue("LongestBendIn", out extraBend))
+                            double.TryParse(extraBend, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out longestBendIn);
+                    }
+
+                    var bendInfo = new BendInfo
+                    {
+                        Count = pd.Sheet.BendCount,
+                        LongestBendIn = longestBendIn,
+                        NeedsFlip = pd.Sheet.BendsBothDirections
+                    };
+
+                    double partLengthIn = pd.BBoxLength_m * MetersToInches;
+
+                    var f140Result = F140Calculator.Compute(bendInfo, rawWeightLb, partLengthIn, quantity);
+                    pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
+                    pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
+                    pd.Cost.F140_Price = f140Result.Price(quantity);
                 }
-
-                var bendInfo = new BendInfo
-                {
-                    Count = pd.Sheet.BendCount,
-                    LongestBendIn = longestBendIn,
-                    NeedsFlip = pd.Sheet.BendsBothDirections
-                };
-
-                // VBA: dblLength1 from LengthWidth(objFace) — longest flat face dimension for FindRate
-                double partLengthIn = pd.BBoxLength_m * MetersToInches;
-
-                var f140Result = F140Calculator.Compute(bendInfo, rawWeightLb, partLengthIn, quantity);
-                pd.Cost.F140_S_min = f140Result.SetupHours * 60.0;
-                pd.Cost.F140_R_min = f140Result.RunHours * 60.0;
-                pd.Cost.F140_Price = f140Result.Price(quantity);
-                PerformanceTracker.Instance.StopTimer("Cost_F140_Brake");
             }
 
             // F220 Tapping - based on tapped hole count from TappedHoleAnalyzer
             int tappedHoles = info.CustomProperties.TappedHoleCount;
             if (tappedHoles > 0)
             {
-                PerformanceTracker.Instance.StartTimer("Cost_F220_Tapping");
-                // Use actual setup count from analyzer (unique tap sizes), fallback to 1
-                int setups = 1;
-                string setupStr;
-                if (pd.Extra.TryGetValue("TappedHoleSetups", out setupStr))
-                    int.TryParse(setupStr, out setups);
-                if (setups < 1) setups = 1;
+                using (new PerformanceScope("Cost_F220_Tapping"))
+                {
+                    int setups = 1;
+                    string setupStr;
+                    if (pd.Extra.TryGetValue("TappedHoleSetups", out setupStr))
+                        int.TryParse(setupStr, out setups);
+                    if (setups < 1) setups = 1;
 
-                var f220Input = new F220Input { Setups = setups, Holes = tappedHoles };
-                var f220Result = F220Calculator.Compute(f220Input);
-                pd.Cost.F220_S_min = f220Result.SetupHours * 60.0;
-                pd.Cost.F220_R_min = f220Result.RunHours * 60.0;
-                pd.Cost.F220_RN = tappedHoles;
-                pd.Cost.F220_Price = (f220Result.SetupHours + f220Result.RunHours * quantity) * CostConstants.F220_COST;
-                PerformanceTracker.Instance.StopTimer("Cost_F220_Tapping");
+                    var f220Input = new F220Input { Setups = setups, Holes = tappedHoles };
+                    var f220Result = F220Calculator.Compute(f220Input);
+                    pd.Cost.F220_S_min = f220Result.SetupHours * 60.0;
+                    pd.Cost.F220_R_min = f220Result.RunHours * 60.0;
+                    pd.Cost.F220_RN = tappedHoles;
+                    pd.Cost.F220_Price = (f220Result.SetupHours + f220Result.RunHours * quantity) * CostConstants.F220_COST;
+                }
             }
 
             // F325 Roll Forming - based on max bend radius (only if radius > 2 inches)
             double maxRadiusIn = info.CustomProperties.MaxBendRadiusIn;
-            // Fallback: use BendAnalyzer result stored in Extra
             if (maxRadiusIn <= 0)
             {
                 string extraRadius;
@@ -1227,19 +1181,20 @@ namespace NM.SwAddin.Pipeline
             }
             if (maxRadiusIn > 2.0)
             {
-                PerformanceTracker.Instance.StartTimer("Cost_F325_RollForm");
-                var f325Calc = new F325Calculator();
-                double arcLengthIn = info.CustomProperties.ArcLengthIn > 0
-                    ? info.CustomProperties.ArcLengthIn
-                    : maxRadiusIn * 3.14159; // Rough estimate: half circle
-                var f325Result = f325Calc.CalculateRollForming(maxRadiusIn, arcLengthIn, quantity);
-                if (f325Result.RequiresRollForming)
+                using (new PerformanceScope("Cost_F325_RollForm"))
                 {
-                    pd.Cost.F325_S_min = f325Result.SetupHours * 60.0;
-                    pd.Cost.F325_R_min = f325Result.RunHours * 60.0;
-                    pd.Cost.F325_Price = f325Result.TotalCost;
+                    var f325Calc = new F325Calculator();
+                    double arcLengthIn = info.CustomProperties.ArcLengthIn > 0
+                        ? info.CustomProperties.ArcLengthIn
+                        : maxRadiusIn * 3.14159;
+                    var f325Result = f325Calc.CalculateRollForming(maxRadiusIn, arcLengthIn, quantity);
+                    if (f325Result.RequiresRollForming)
+                    {
+                        pd.Cost.F325_S_min = f325Result.SetupHours * 60.0;
+                        pd.Cost.F325_R_min = f325Result.RunHours * 60.0;
+                        pd.Cost.F325_Price = f325Result.TotalCost;
+                    }
                 }
-                PerformanceTracker.Instance.StopTimer("Cost_F325_RollForm");
             }
         }
     }

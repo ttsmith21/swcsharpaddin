@@ -101,6 +101,8 @@
     <Compile Include="IconResourceHelper.cs" />
     <Compile Include="EventHandling.cs" />
     <Compile Include="ModelInfo.cs" />
+    <Compile Include="ErrorScope.cs" />
+    <Compile Include="PerformanceScope.cs" />
     <Compile Include="PerformanceTracker.cs" />
     <Compile Include="ProcessingOptions.cs" />
     <Compile Include="SolidWorksApiWrapper.cs" />

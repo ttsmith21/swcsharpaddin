@@ -44,400 +44,387 @@ namespace NM.SwAddin
         /// </summary>
         public static ISldWorks AcquireApplication(bool allowCreate = true, int startupTimeoutSeconds = 30)
         {
-            const string proc = nameof(AcquireApplication);
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(AcquireApplication)))
             {
-                ISldWorks app = null;
                 try
                 {
-                    // Try to get running instance
-                    app = (ISldWorks)Marshal.GetActiveObject("SldWorks.Application");
-                }
-                catch
-                {
-                    app = null;
-                }
-
-                if (app != null)
-                {
-                    return app;
-                }
-
-                if (!allowCreate)
-                {
-                    ErrorHandler.HandleError(proc, "SolidWorks instance not found and creation is disabled");
-                    return null;
-                }
-
-                // Create new instance
-                var type = Type.GetTypeFromProgID("SldWorks.Application", throwOnError: false);
-                if (type == null)
-                {
-                    ErrorHandler.HandleError(proc, "SolidWorks ProgID not found: SldWorks.Application");
-                    return null;
-                }
-
-                app = (ISldWorks)Activator.CreateInstance(type);
-                if (app == null)
-                {
-                    ErrorHandler.HandleError(proc, "Could not create SolidWorks application instance");
-                    return null;
-                }
-
-                // Wait for startup completion with timeout
-                var startedAt = DateTime.UtcNow;
-                while (!app.StartupProcessCompleted)
-                {
-                    if ((DateTime.UtcNow - startedAt).TotalSeconds > startupTimeoutSeconds)
+                    ISldWorks app = null;
+                    try
                     {
-                        ErrorHandler.HandleError(proc, "Startup timeout");
+                        app = (ISldWorks)Marshal.GetActiveObject("SldWorks.Application");
+                    }
+                    catch
+                    {
+                        app = null;
+                    }
+
+                    if (app != null)
+                        return app;
+
+                    if (!allowCreate)
+                    {
+                        ErrorHandler.HandleError(nameof(AcquireApplication), "SolidWorks instance not found and creation is disabled");
                         return null;
                     }
-                    System.Windows.Forms.Application.DoEvents();
-                }
 
-                return app;
+                    var type = Type.GetTypeFromProgID("SldWorks.Application", throwOnError: false);
+                    if (type == null)
+                    {
+                        ErrorHandler.HandleError(nameof(AcquireApplication), "SolidWorks ProgID not found: SldWorks.Application");
+                        return null;
+                    }
+
+                    app = (ISldWorks)Activator.CreateInstance(type);
+                    if (app == null)
+                    {
+                        ErrorHandler.HandleError(nameof(AcquireApplication), "Could not create SolidWorks application instance");
+                        return null;
+                    }
+
+                    var startedAt = DateTime.UtcNow;
+                    while (!app.StartupProcessCompleted)
+                    {
+                        if ((DateTime.UtcNow - startedAt).TotalSeconds > startupTimeoutSeconds)
+                        {
+                            ErrorHandler.HandleError(nameof(AcquireApplication), "Startup timeout");
+                            return null;
+                        }
+                        System.Windows.Forms.Application.DoEvents();
+                    }
+
+                    return app;
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(nameof(AcquireApplication), "Exception acquiring SolidWorks application", ex);
+                    return null;
+                }
             }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, "Exception acquiring SolidWorks application", ex);
-                return null;
-            }
-            finally { ErrorHandler.PopCallStack(); }
         }
 
         #region Settings Management
         public bool InitializeAppForMode()
         {
-            const string proc = nameof(InitializeAppForMode);
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(InitializeAppForMode)))
             {
-                if (_swApp == null)
+                try
                 {
-                    ErrorHandler.HandleError(proc, "Invalid SolidWorks application reference");
+                    if (_swApp == null)
+                    {
+                        ErrorHandler.HandleError(nameof(InitializeAppForMode), "Invalid SolidWorks application reference");
+                        return false;
+                    }
+
+                    _original = new SolidWorksSettings
+                    {
+                        AppVisible = _swApp.Visible,
+                        AppUserControl = _swApp.UserControl
+                    };
+
+                    bool debugMode = SWConfiguration.Logging.EnableDebugMode;
+                    _swApp.Visible = debugMode;
+                    _swApp.UserControl = debugMode;
+
+                    _settingsInitialized = true;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(nameof(InitializeAppForMode), "Exception initializing SolidWorks app", ex);
                     return false;
                 }
-
-                // Save original top-level app settings
-                _original = new SolidWorksSettings
-                {
-                    AppVisible = _swApp.Visible,
-                    AppUserControl = _swApp.UserControl
-                };
-
-                bool debugMode = SWConfiguration.Logging.EnableDebugMode;
-                _swApp.Visible = debugMode;
-                _swApp.UserControl = debugMode;
-
-                _settingsInitialized = true;
-                return true;
             }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, "Exception initializing SolidWorks app", ex);
-                return false;
-            }
-            finally { ErrorHandler.PopCallStack(); }
         }
 
         public bool SaveOriginalSettings(IModelDoc2 model)
         {
-            const string proc = nameof(SaveOriginalSettings);
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(SaveOriginalSettings)))
             {
-                if (_swApp == null)
+                try
                 {
-                    ErrorHandler.HandleError(proc, "Invalid SolidWorks application reference");
+                    if (_swApp == null)
+                    {
+                        ErrorHandler.HandleError(nameof(SaveOriginalSettings), "Invalid SolidWorks application reference");
+                        return false;
+                    }
+                    if (model == null)
+                    {
+                        ErrorHandler.HandleError(nameof(SaveOriginalSettings), "Invalid model reference");
+                        return false;
+                    }
+
+                    var ext = model.Extension;
+                    if (ext == null)
+                    {
+                        ErrorHandler.HandleError(nameof(SaveOriginalSettings), "ModelDocExtension is null");
+                        return false;
+                    }
+
+                    if (_original == null)
+                        _original = new SolidWorksSettings();
+
+                    _original.AppVisible = _swApp.Visible;
+                    _original.AppUserControl = _swApp.UserControl;
+
+                    _settingsInitialized = true;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(nameof(SaveOriginalSettings), "Exception saving original settings", ex);
                     return false;
                 }
-                if (model == null)
-                {
-                    ErrorHandler.HandleError(proc, "Invalid model reference");
-                    return false;
-                }
-
-                var ext = model.Extension;
-                if (ext == null)
-                {
-                    ErrorHandler.HandleError(proc, "ModelDocExtension is null");
-                    return false;
-                }
-
-                if (_original == null)
-                    _original = new SolidWorksSettings();
-
-                _original.AppVisible = _swApp.Visible;
-                _original.AppUserControl = _swApp.UserControl;
-                // NOTE: Document preference toggles vary across versions; skip here for portability.
-
-                _settingsInitialized = true;
-                return true;
             }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, "Exception saving original settings", ex);
-                return false;
-            }
-            finally { ErrorHandler.PopCallStack(); }
         }
 
         public bool ApplyProductionSettings(IModelDoc2 model)
         {
-            const string proc = nameof(ApplyProductionSettings);
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(ApplyProductionSettings)))
             {
-                if (_swApp == null)
+                try
                 {
-                    ErrorHandler.HandleError(proc, "Invalid SolidWorks application reference");
-                    return false;
-                }
-                if (model == null)
-                {
-                    ErrorHandler.HandleError(proc, "Invalid model reference");
-                    return false;
-                }
+                    if (_swApp == null)
+                    {
+                        ErrorHandler.HandleError(nameof(ApplyProductionSettings), "Invalid SolidWorks application reference");
+                        return false;
+                    }
+                    if (model == null)
+                    {
+                        ErrorHandler.HandleError(nameof(ApplyProductionSettings), "Invalid model reference");
+                        return false;
+                    }
 
-                _swApp.Visible = false;
-                _swApp.UserControl = false;
-                return true;
+                    _swApp.Visible = false;
+                    _swApp.UserControl = false;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(nameof(ApplyProductionSettings), "Exception applying production settings", ex);
+                    return false;
+                }
             }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, "Exception applying production settings", ex);
-                return false;
-            }
-            finally { ErrorHandler.PopCallStack(); }
         }
 
         public bool RestoreOriginalSettings(IModelDoc2 model)
         {
-            const string proc = nameof(RestoreOriginalSettings);
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(RestoreOriginalSettings)))
             {
-                if (_swApp == null)
+                try
                 {
-                    ErrorHandler.HandleError(proc, "Invalid SolidWorks application reference");
-                    return false;
-                }
-                if (model == null)
-                {
-                    ErrorHandler.HandleError(proc, "Invalid model reference");
-                    return false;
-                }
-                if (!_settingsInitialized || _original == null)
-                {
-                    ErrorHandler.HandleError(proc, "Settings not initialized", null, ErrorHandler.LogLevel.Warning);
-                    return false;
-                }
+                    if (_swApp == null)
+                    {
+                        ErrorHandler.HandleError(nameof(RestoreOriginalSettings), "Invalid SolidWorks application reference");
+                        return false;
+                    }
+                    if (model == null)
+                    {
+                        ErrorHandler.HandleError(nameof(RestoreOriginalSettings), "Invalid model reference");
+                        return false;
+                    }
+                    if (!_settingsInitialized || _original == null)
+                    {
+                        ErrorHandler.HandleError(nameof(RestoreOriginalSettings), "Settings not initialized", null, ErrorHandler.LogLevel.Warning);
+                        return false;
+                    }
 
-                _swApp.Visible = _original.AppVisible;
-                _swApp.UserControl = _original.AppUserControl;
+                    _swApp.Visible = _original.AppVisible;
+                    _swApp.UserControl = _original.AppUserControl;
 
-                _settingsInitialized = false;
-                return true;
+                    _settingsInitialized = false;
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(nameof(RestoreOriginalSettings), "Exception restoring original settings", ex);
+                    return false;
+                }
             }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, "Exception restoring original settings", ex);
-                return false;
-            }
-            finally { ErrorHandler.PopCallStack(); }
         }
         #endregion
 
         #region File Operations
         public IModelDoc2 OpenSWDocument(string filePath, bool silent = true, bool readOnly = false, string configurationName = "")
         {
-            const string proc = nameof(OpenSWDocument);
-            ErrorHandler.PushCallStack(proc);
-            bool changedVisibility = false;
-            try
+            using (new ErrorScope(nameof(OpenSWDocument)))
             {
-                if (_swApp == null)
+                bool changedVisibility = false;
+                try
                 {
-                    ErrorHandler.HandleError(proc, "Invalid SolidWorks application reference");
+                    if (_swApp == null)
+                    {
+                        ErrorHandler.HandleError(nameof(OpenSWDocument), "Invalid SolidWorks application reference");
+                        return null;
+                    }
+                    if (string.IsNullOrWhiteSpace(filePath))
+                    {
+                        ErrorHandler.HandleError(nameof(OpenSWDocument), "Invalid file path");
+                        return null;
+                    }
+                    if (!File.Exists(filePath))
+                    {
+                        ErrorHandler.HandleError(nameof(OpenSWDocument), $"File not found: {filePath}");
+                        return null;
+                    }
+
+                    var openDoc = GetOpenDocumentByPath(filePath);
+                    if (openDoc != null) return openDoc;
+
+                    var docType = DetermineDocType(filePath);
+                    var options = swOpenDocOptions_e.swOpenDocOptions_Silent;
+                    if (!silent) options = (swOpenDocOptions_e)0;
+                    if (readOnly) options |= swOpenDocOptions_e.swOpenDocOptions_ReadOnly;
+
+                    bool origVisible = _swApp.Visible;
+                    if (silent && origVisible)
+                    {
+                        _swApp.Visible = false;
+                        changedVisibility = true;
+                    }
+
+                    int err, warn;
+                    var model = SwDocumentHelper.OpenDocument(_swApp, filePath, docType, options, out err, out warn);
+                    if (model == null)
+                    {
+                        ErrorHandler.HandleError(nameof(OpenSWDocument), $"Failed to open: {filePath}\n{TranslateOpenDocErrors(err, warn)}");
+                        return null;
+                    }
+                    if (err != 0 || warn != 0)
+                    {
+                        ErrorHandler.HandleError(nameof(OpenSWDocument), $"Opened with issues: {filePath}\n{TranslateOpenDocErrors(err, warn)}", null, ErrorHandler.LogLevel.Warning);
+                    }
+
+                    SaveOriginalSettings(model);
+                    if (silent) ApplyProductionSettings(model);
+                    return model;
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(nameof(OpenSWDocument), $"Exception opening: {filePath}", ex);
                     return null;
                 }
-                if (string.IsNullOrWhiteSpace(filePath))
+                finally
                 {
-                    ErrorHandler.HandleError(proc, "Invalid file path");
-                    return null;
+                    if (changedVisibility)
+                    {
+                        try { _swApp.Visible = true; } catch { }
+                    }
                 }
-                if (!File.Exists(filePath))
-                {
-                    ErrorHandler.HandleError(proc, $"File not found: {filePath}");
-                    return null;
-                }
-
-                // Already open?
-                var openDoc = GetOpenDocumentByPath(filePath);
-                if (openDoc != null) return openDoc;
-
-                var docType = DetermineDocType(filePath);
-                var options = swOpenDocOptions_e.swOpenDocOptions_Silent;
-                if (!silent) options = (swOpenDocOptions_e)0;
-                if (readOnly) options |= swOpenDocOptions_e.swOpenDocOptions_ReadOnly;
-
-                // Minimize UI flicker if silent
-                bool origVisible = _swApp.Visible;
-                if (silent && origVisible)
-                {
-                    _swApp.Visible = false;
-                    changedVisibility = true;
-                }
-
-                int err, warn;
-                var model = SwDocumentHelper.OpenDocument(_swApp, filePath, docType, options, out err, out warn);
-                if (model == null)
-                {
-                    ErrorHandler.HandleError(proc, $"Failed to open: {filePath}\n{TranslateOpenDocErrors(err, warn)}");
-                    return null;
-                }
-                if (err != 0 || warn != 0)
-                {
-                    ErrorHandler.HandleError(proc, $"Opened with issues: {filePath}\n{TranslateOpenDocErrors(err, warn)}", null, ErrorHandler.LogLevel.Warning);
-                }
-
-                SaveOriginalSettings(model);
-                if (silent) ApplyProductionSettings(model);
-                return model;
-            }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, $"Exception opening: {filePath}", ex);
-                return null;
-            }
-            finally
-            {
-                if (changedVisibility)
-                {
-                    try { _swApp.Visible = true; } catch { }
-                }
-                ErrorHandler.PopCallStack();
             }
         }
 
         public IModelDoc2 GetOpenDocumentByPath(string filePath)
         {
-            const string proc = nameof(GetOpenDocumentByPath);
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(GetOpenDocumentByPath)))
             {
-                if (_swApp == null) return null;
-                if (string.IsNullOrWhiteSpace(filePath)) return null;
-                string target = filePath.ToLowerInvariant();
-                int count = _swApp.GetDocumentCount();
-                if (count <= 0) return null;
-                var docs = _swApp.GetDocuments() as object[];
-                if (docs == null) return null;
-                for (int i = 0; i < docs.Length; i++)
+                try
                 {
-                    if (docs[i] is IModelDoc2 m)
+                    if (_swApp == null) return null;
+                    if (string.IsNullOrWhiteSpace(filePath)) return null;
+                    string target = filePath.ToLowerInvariant();
+                    int count = _swApp.GetDocumentCount();
+                    if (count <= 0) return null;
+                    var docs = _swApp.GetDocuments() as object[];
+                    if (docs == null) return null;
+                    for (int i = 0; i < docs.Length; i++)
                     {
-                        string p = (m.GetPathName() ?? string.Empty).ToLowerInvariant();
-                        if (string.Equals(p, target, StringComparison.Ordinal))
+                        if (docs[i] is IModelDoc2 m)
                         {
-                            return m;
+                            string p = (m.GetPathName() ?? string.Empty).ToLowerInvariant();
+                            if (string.Equals(p, target, StringComparison.Ordinal))
+                                return m;
                         }
                     }
+                    return null;
                 }
-                return null;
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(nameof(GetOpenDocumentByPath), "Exception enumerating open documents", ex);
+                    return null;
+                }
             }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, "Exception enumerating open documents", ex);
-                return null;
-            }
-            finally { ErrorHandler.PopCallStack(); }
         }
 
         public bool SaveSWDocument(IModelDoc2 model, swSaveAsOptions_e options = swSaveAsOptions_e.swSaveAsOptions_Silent)
         {
-            const string proc = nameof(SaveSWDocument);
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(SaveSWDocument)))
             {
-                if (!SolidWorksApiWrapper.ValidateModel(model, proc)) return false;
-                int err = 0, warn = 0;
-                var ok = model.Save3((int)options, ref err, ref warn);
-                if (!ok)
+                try
                 {
-                    ErrorHandler.HandleError(proc, $"Failed to save: {model.GetTitle()}\n{TranslateSaveDocErrors(err)}");
+                    if (!SolidWorksApiWrapper.ValidateModel(model, nameof(SaveSWDocument))) return false;
+                    int err = 0, warn = 0;
+                    var ok = model.Save3((int)options, ref err, ref warn);
+                    if (!ok)
+                        ErrorHandler.HandleError(nameof(SaveSWDocument), $"Failed to save: {model.GetTitle()}\n{TranslateSaveDocErrors(err)}");
+                    return ok;
                 }
-                return ok;
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(nameof(SaveSWDocument), "Exception during save", ex);
+                    return false;
+                }
             }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, "Exception during save", ex);
-                return false;
-            }
-            finally { ErrorHandler.PopCallStack(); }
         }
 
         public bool CloseSWDocument(IModelDoc2 model)
         {
-            const string proc = nameof(CloseSWDocument);
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(CloseSWDocument)))
             {
-                if (_swApp == null)
+                try
                 {
-                    ErrorHandler.HandleError(proc, "Invalid SolidWorks application reference");
+                    if (_swApp == null)
+                    {
+                        ErrorHandler.HandleError(nameof(CloseSWDocument), "Invalid SolidWorks application reference");
+                        return false;
+                    }
+                    if (!SolidWorksApiWrapper.ValidateModel(model, nameof(CloseSWDocument))) return false;
+
+                    string title = model.GetTitle();
+                    _swApp.CloseDoc(title);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    ErrorHandler.HandleError(nameof(CloseSWDocument), "Exception closing document", ex);
                     return false;
                 }
-                if (!SolidWorksApiWrapper.ValidateModel(model, proc)) return false;
-
-                string title = model.GetTitle();
-                _swApp.CloseDoc(title);
-                return true;
             }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, "Exception closing document", ex);
-                return false;
-            }
-            finally { ErrorHandler.PopCallStack(); }
         }
 
         public bool SaveAndCloseSWDocument(IModelDoc2 model, bool silent = true, bool forceClose = true)
         {
-            const string proc = nameof(SaveAndCloseSWDocument);
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(SaveAndCloseSWDocument)))
             {
-                if (_swApp == null)
+                try
                 {
-                    ErrorHandler.HandleError(proc, "Invalid SolidWorks application reference");
-                    return false;
+                    if (_swApp == null)
+                    {
+                        ErrorHandler.HandleError(nameof(SaveAndCloseSWDocument), "Invalid SolidWorks application reference");
+                        return false;
+                    }
+                    if (!SolidWorksApiWrapper.ValidateModel(model, nameof(SaveAndCloseSWDocument))) return false;
+
+                    string path = model.GetPathName();
+                    SaveOriginalSettings(model);
+
+                    if (!SaveSWDocument(model, silent ? swSaveAsOptions_e.swSaveAsOptions_Silent : (swSaveAsOptions_e)0))
+                    {
+                        ErrorHandler.HandleError(nameof(SaveAndCloseSWDocument), $"Failed to save: {path}");
+                        if (!forceClose) return false;
+                    }
+
+                    if (!CloseSWDocument(model))
+                    {
+                        ErrorHandler.HandleError(nameof(SaveAndCloseSWDocument), $"Failed to close: {path}");
+                        return false;
+                    }
+
+                    return true;
                 }
-                if (!SolidWorksApiWrapper.ValidateModel(model, proc)) return false;
-
-                string path = model.GetPathName();
-                SaveOriginalSettings(model);
-
-                if (!SaveSWDocument(model, silent ? swSaveAsOptions_e.swSaveAsOptions_Silent : (swSaveAsOptions_e)0))
+                finally
                 {
-                    ErrorHandler.HandleError(proc, $"Failed to save: {path}");
-                    if (!forceClose) return false;
+                    try { if (model != null) RestoreOriginalSettings(model); } catch { }
                 }
-
-                if (!CloseSWDocument(model))
-                {
-                    ErrorHandler.HandleError(proc, $"Failed to close: {path}");
-                    return false;
-                }
-
-                return true;
-            }
-            finally
-            {
-                try { if (model != null) RestoreOriginalSettings(model); } catch { }
-                ErrorHandler.PopCallStack();
             }
         }
 
@@ -445,111 +432,92 @@ namespace NM.SwAddin
             swSaveAsOptions_e options = swSaveAsOptions_e.swSaveAsOptions_Silent,
             swSaveAsVersion_e version = swSaveAsVersion_e.swSaveAsCurrentVersion)
         {
-            const string proc = nameof(SaveAs);
-            ErrorHandler.PushCallStack(proc);
-            try
+            using (new ErrorScope(nameof(SaveAs)))
             {
-                if (!SolidWorksApiWrapper.ValidateModel(model, proc)) return false;
-                if (string.IsNullOrWhiteSpace(newPath))
+                try
                 {
-                    ErrorHandler.HandleError(proc, "Empty SaveAs path");
-                    return false;
-                }
+                    if (!SolidWorksApiWrapper.ValidateModel(model, nameof(SaveAs))) return false;
+                    if (string.IsNullOrWhiteSpace(newPath))
+                    {
+                        ErrorHandler.HandleError(nameof(SaveAs), "Empty SaveAs path");
+                        return false;
+                    }
 
-                var ext = model.Extension;
-                if (ext == null)
-                {
-                    ErrorHandler.HandleError(proc, "ModelDocExtension is null");
-                    return false;
-                }
+                    var ext = model.Extension;
+                    if (ext == null)
+                    {
+                        ErrorHandler.HandleError(nameof(SaveAs), "ModelDocExtension is null");
+                        return false;
+                    }
 
-                // Try to locate the best SaveAs* method available on this interop
-                var type = ext.GetType();
-                System.Reflection.MethodInfo best = null;
-                foreach (var m in type.GetMethods())
-                {
-                    if (!m.Name.StartsWith("SaveAs", StringComparison.OrdinalIgnoreCase)) continue;
-                    var ps = m.GetParameters();
-                    if (ps.Length == 8 || ps.Length == 6) { best = m; break; }
-                    if (ps.Length == 5 || ps.Length == 4) { best = m; break; }
-                }
+                    var type = ext.GetType();
+                    System.Reflection.MethodInfo best = null;
+                    foreach (var m in type.GetMethods())
+                    {
+                        if (!m.Name.StartsWith("SaveAs", StringComparison.OrdinalIgnoreCase)) continue;
+                        var ps = m.GetParameters();
+                        if (ps.Length == 8 || ps.Length == 6) { best = m; break; }
+                        if (ps.Length == 5 || ps.Length == 4) { best = m; break; }
+                    }
 
-                if (best == null)
-                {
-                    ErrorHandler.HandleError(proc, "No SaveAs method found on ModelDocExtension");
-                    return false;
-                }
+                    if (best == null)
+                    {
+                        ErrorHandler.HandleError(nameof(SaveAs), "No SaveAs method found on ModelDocExtension");
+                        return false;
+                    }
 
-                var parms = best.GetParameters();
-                var args = new object[parms.Length];
-                for (int i = 0; i < parms.Length; i++)
-                {
-                    var p = parms[i];
-                    var pt = p.ParameterType.IsByRef ? p.ParameterType.GetElementType() : p.ParameterType;
-                    string name = p.Name?.ToLowerInvariant() ?? string.Empty;
-
-                    if (pt == typeof(string))
-                    {
-                        args[i] = newPath;
-                    }
-                    else if (pt == typeof(int) && (name.Contains("version") || i == 1))
-                    {
-                        args[i] = (int)version;
-                    }
-                    else if (pt == typeof(int) && (name.Contains("option") || name.Contains("options")))
-                    {
-                        args[i] = (int)options;
-                    }
-                    else if (pt == typeof(bool))
-                    {
-                        // Silent parameter if present
-                        args[i] = true;
-                    }
-                    else if (pt == typeof(object))
-                    {
-                        // ExportData/SelectionData
-                        args[i] = null;
-                    }
-                    else if (p.ParameterType.IsByRef && pt == typeof(int))
-                    {
-                        args[i] = 0; // errors/warnings out parameters
-                    }
-                    else
-                    {
-                        // Fallback ints
-                        args[i] = pt.IsValueType ? Activator.CreateInstance(pt) : null;
-                    }
-                }
-
-                var result = best.Invoke(ext, args);
-                bool ok = Convert.ToBoolean(result ?? false);
-                if (!ok)
-                {
-                    // Try alternate ordering for version/options if the first attempt failed
+                    var parms = best.GetParameters();
+                    var args = new object[parms.Length];
                     for (int i = 0; i < parms.Length; i++)
                     {
                         var p = parms[i];
                         var pt = p.ParameterType.IsByRef ? p.ParameterType.GetElementType() : p.ParameterType;
-                        if (pt == typeof(int) && (p.Name?.ToLowerInvariant().Contains("version") == true)) args[i] = (int)version;
-                        else if (pt == typeof(int) && (p.Name?.ToLowerInvariant().Contains("option") == true)) args[i] = (int)options;
-                    }
-                    result = best.Invoke(ext, args);
-                    ok = Convert.ToBoolean(result ?? false);
-                }
+                        string name = p.Name?.ToLowerInvariant() ?? string.Empty;
 
-                if (!ok)
+                        if (pt == typeof(string))
+                            args[i] = newPath;
+                        else if (pt == typeof(int) && (name.Contains("version") || i == 1))
+                            args[i] = (int)version;
+                        else if (pt == typeof(int) && (name.Contains("option") || name.Contains("options")))
+                            args[i] = (int)options;
+                        else if (pt == typeof(bool))
+                            args[i] = true;
+                        else if (pt == typeof(object))
+                            args[i] = null;
+                        else if (p.ParameterType.IsByRef && pt == typeof(int))
+                            args[i] = 0;
+                        else
+                            args[i] = pt.IsValueType ? Activator.CreateInstance(pt) : null;
+                    }
+
+                    var result = best.Invoke(ext, args);
+                    bool ok = Convert.ToBoolean(result ?? false);
+                    if (!ok)
+                    {
+                        for (int i = 0; i < parms.Length; i++)
+                        {
+                            var p = parms[i];
+                            var pt = p.ParameterType.IsByRef ? p.ParameterType.GetElementType() : p.ParameterType;
+                            if (pt == typeof(int) && (p.Name?.ToLowerInvariant().Contains("version") == true)) args[i] = (int)version;
+                            else if (pt == typeof(int) && (p.Name?.ToLowerInvariant().Contains("option") == true)) args[i] = (int)options;
+                        }
+                        result = best.Invoke(ext, args);
+                        ok = Convert.ToBoolean(result ?? false);
+                    }
+
+                    if (!ok)
+                    {
+                        ErrorHandler.HandleError(nameof(SaveAs), $"SaveAs failed via '{best.Name}' for '{newPath}'");
+                        return false;
+                    }
+                    return true;
+                }
+                catch (Exception ex)
                 {
-                    ErrorHandler.HandleError(proc, $"SaveAs failed via '{best.Name}' for '{newPath}'");
+                    ErrorHandler.HandleError(nameof(SaveAs), $"Exception SaveAs: {newPath}", ex);
                     return false;
                 }
-                return true;
             }
-            catch (Exception ex)
-            {
-                ErrorHandler.HandleError(proc, $"Exception SaveAs: {newPath}", ex);
-                return false;
-            }
-            finally { ErrorHandler.PopCallStack(); }
         }
         #endregion
 
