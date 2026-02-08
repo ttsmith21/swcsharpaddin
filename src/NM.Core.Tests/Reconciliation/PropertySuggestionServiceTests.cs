@@ -45,21 +45,34 @@ namespace NM.Core.Tests.Reconciliation
         }
 
         [Fact]
-        public void PartSuggestions_MapsMaterialToRbMaterialType()
+        public void PartSuggestions_MapsPartNumberToPrint()
+        {
+            var recon = new ReconciliationResult();
+            recon.GapFills.Add(new GapFill { Field = "PartNumber", Value = "12345-01", Source = "PDF title block", Confidence = 0.90 });
+
+            var suggestions = _service.GeneratePartSuggestions(recon, new Dictionary<string, string>());
+
+            // PartNumber maps to "Print" property name (tab builder field)
+            Assert.Contains(suggestions, s => s.PropertyName == "Print" && s.Value == "12345-01");
+        }
+
+        [Fact]
+        public void PartSuggestions_MapsMaterialToOptiMaterial()
         {
             var recon = new ReconciliationResult();
             recon.GapFills.Add(new GapFill { Field = "Material", Value = "304 SS", Source = "PDF title block", Confidence = 0.85 });
 
             var suggestions = _service.GeneratePartSuggestions(recon, new Dictionary<string, string>());
 
-            // Material maps to "rbMaterialType" property name
-            Assert.Contains(suggestions, s => s.PropertyName == "rbMaterialType" && s.Value == "304 SS");
+            // Material maps to "OptiMaterial" (NOT rbMaterialType which is a RadioButton 0/1/2)
+            Assert.Contains(suggestions, s => s.PropertyName == "OptiMaterial" && s.Value == "304 SS");
+            Assert.DoesNotContain(suggestions, s => s.PropertyName == "rbMaterialType");
         }
 
-        // --- Part routing suggestions ---
+        // --- Part routing: fixed slots ---
 
         [Fact]
-        public void PartSuggestions_DeburNote_MapsToF210()
+        public void PartSuggestions_DeburNote_EnablesF210AndSetsRN()
         {
             var recon = new ReconciliationResult();
             recon.RoutingSuggestions.Add(new RoutingSuggestion
@@ -73,13 +86,16 @@ namespace NM.Core.Tests.Reconciliation
 
             var suggestions = _service.GeneratePartSuggestions(recon, new Dictionary<string, string>());
 
-            var note = suggestions.First(s => s.PropertyName == "F210_Note");
-            Assert.Equal("BREAK ALL EDGES", note.Value);
-            Assert.Equal(PropertyCategory.Routing, note.Category);
+            // Should enable F210 checkbox
+            Assert.Contains(suggestions, s => s.PropertyName == "F210" && s.Value == "1");
+            // Should set routing note to F210_RN (not F210_Note)
+            var rn = suggestions.First(s => s.PropertyName == "F210_RN");
+            Assert.Equal("BREAK ALL EDGES", rn.Value);
+            Assert.Equal(PropertyCategory.Routing, rn.Category);
         }
 
         [Fact]
-        public void PartSuggestions_TapNote_MapsToF220()
+        public void PartSuggestions_TapNote_EnablesF220AndSetsRN()
         {
             var recon = new ReconciliationResult();
             recon.RoutingSuggestions.Add(new RoutingSuggestion
@@ -93,11 +109,14 @@ namespace NM.Core.Tests.Reconciliation
 
             var suggestions = _service.GeneratePartSuggestions(recon, new Dictionary<string, string>());
 
-            Assert.Contains(suggestions, s => s.PropertyName == "F220_Note" && s.Value.Contains("TAP 1/4-20"));
+            // Should enable F220 checkbox
+            Assert.Contains(suggestions, s => s.PropertyName == "F220" && s.Value == "1");
+            // Should set routing note to F220_RN (not F220_Note)
+            Assert.Contains(suggestions, s => s.PropertyName == "F220_RN" && s.Value.Contains("TAP 1/4-20"));
         }
 
         [Fact]
-        public void PartSuggestions_ProcessOverride_MapsToOP20WorkCenter()
+        public void PartSuggestions_ProcessOverride_MapsToOP20()
         {
             var recon = new ReconciliationResult();
             recon.RoutingSuggestions.Add(new RoutingSuggestion
@@ -111,11 +130,16 @@ namespace NM.Core.Tests.Reconciliation
 
             var suggestions = _service.GeneratePartSuggestions(recon, new Dictionary<string, string>());
 
-            Assert.Contains(suggestions, s => s.PropertyName == "OP20_WorkCenter" && s.Value == "F110");
+            // Work center goes to "OP20" (the ComboBox), not "OP20_WorkCenter"
+            Assert.Contains(suggestions, s => s.PropertyName == "OP20" && s.Value == "F110");
+            // Routing note goes to OP20_RN
+            Assert.Contains(suggestions, s => s.PropertyName == "OP20_RN" && s.Value == "WATERJET ONLY");
         }
 
+        // --- Part routing: outsource ---
+
         [Fact]
-        public void PartSuggestions_OutsideProcess_AddsNote()
+        public void PartSuggestions_OutsideProcess_MapsToOS()
         {
             var recon = new ReconciliationResult();
             recon.RoutingSuggestions.Add(new RoutingSuggestion
@@ -128,8 +152,87 @@ namespace NM.Core.Tests.Reconciliation
 
             var suggestions = _service.GeneratePartSuggestions(recon, new Dictionary<string, string>());
 
-            Assert.Contains(suggestions, s => s.PropertyName == "OutsideProcessNote");
+            // Outside process routes to OS_RN
+            Assert.Contains(suggestions, s => s.PropertyName == "OS_RN" && s.Value == "GALVANIZE");
         }
+
+        [Fact]
+        public void PartSuggestions_FinishNote_MapsToOSWithWorkCenter()
+        {
+            var recon = new ReconciliationResult();
+            recon.RoutingSuggestions.Add(new RoutingSuggestion
+            {
+                Operation = RoutingOp.Finish,
+                WorkCenter = "N140",
+                NoteText = "POWDER COAT BLACK",
+                SourceNote = "POWDER COAT BLACK",
+                Confidence = 0.85
+            });
+
+            var suggestions = _service.GeneratePartSuggestions(recon, new Dictionary<string, string>());
+
+            Assert.Contains(suggestions, s => s.PropertyName == "OS_WC" && s.Value == "N140");
+            Assert.Contains(suggestions, s => s.PropertyName == "OS_RN" && s.Value == "POWDER COAT BLACK");
+        }
+
+        // --- Part routing: Other WC slots ---
+
+        [Fact]
+        public void PartSuggestions_WeldNote_UsesOtherWCSlot1()
+        {
+            var recon = new ReconciliationResult();
+            recon.RoutingSuggestions.Add(new RoutingSuggestion
+            {
+                Operation = RoutingOp.Weld,
+                WorkCenter = "F400",
+                NoteText = "WELD PER DWG",
+                SourceNote = "WELD PER DWG",
+                Confidence = 0.90
+            });
+
+            var suggestions = _service.GeneratePartSuggestions(recon, new Dictionary<string, string>());
+
+            // Slot 1 uses: OtherWC_CB, OtherOP, Other_WC, Other_RN
+            Assert.Contains(suggestions, s => s.PropertyName == "OtherWC_CB" && s.Value == "1");
+            Assert.Contains(suggestions, s => s.PropertyName == "OtherOP" && s.Value == "60");
+            Assert.Contains(suggestions, s => s.PropertyName == "Other_WC" && s.Value == "F400");
+            Assert.Contains(suggestions, s => s.PropertyName == "Other_RN" && s.Value == "WELD PER DWG");
+        }
+
+        [Fact]
+        public void PartSuggestions_TwoOtherOps_UsesSlots1And2()
+        {
+            var recon = new ReconciliationResult();
+            recon.RoutingSuggestions.Add(new RoutingSuggestion
+            {
+                Operation = RoutingOp.Weld,
+                WorkCenter = "F400",
+                NoteText = "WELD PER DWG",
+                SourceNote = "WELD PER DWG",
+                Confidence = 0.90
+            });
+            recon.RoutingSuggestions.Add(new RoutingSuggestion
+            {
+                Operation = RoutingOp.Inspect,
+                NoteText = "INSPECT ALL WELDS",
+                SourceNote = "INSPECT ALL WELDS",
+                Confidence = 0.85
+            });
+
+            var suggestions = _service.GeneratePartSuggestions(recon, new Dictionary<string, string>());
+
+            // Slot 1 (Weld)
+            Assert.Contains(suggestions, s => s.PropertyName == "OtherWC_CB" && s.Value == "1");
+            Assert.Contains(suggestions, s => s.PropertyName == "Other_WC" && s.Value == "F400");
+            Assert.Contains(suggestions, s => s.PropertyName == "Other_RN" && s.Value == "WELD PER DWG");
+
+            // Slot 2 (Inspect) — uses {N} suffix pattern
+            Assert.Contains(suggestions, s => s.PropertyName == "OtherWC_CB2" && s.Value == "1");
+            Assert.Contains(suggestions, s => s.PropertyName == "Other_OP2" && s.Value == "70");
+            Assert.Contains(suggestions, s => s.PropertyName == "Other_RN2" && s.Value == "INSPECT ALL WELDS");
+        }
+
+        // --- Appending notes ---
 
         [Fact]
         public void PartSuggestions_AppendsToExistingNote()
@@ -145,12 +248,12 @@ namespace NM.Core.Tests.Reconciliation
 
             var currentProps = new Dictionary<string, string>
             {
-                { "F210_Note", "BREAK ALL EDGES" }
+                { "F210_RN", "BREAK ALL EDGES" }
             };
 
             var suggestions = _service.GeneratePartSuggestions(recon, currentProps);
 
-            var note = suggestions.First(s => s.PropertyName == "F210_Note");
+            var note = suggestions.First(s => s.PropertyName == "F210_RN");
             Assert.Contains("BREAK ALL EDGES", note.Value);
             Assert.Contains("TUMBLE DEBURR", note.Value);
             Assert.True(note.IsOverride); // Changing existing value
@@ -193,7 +296,7 @@ namespace NM.Core.Tests.Reconciliation
         }
 
         [Fact]
-        public void AssemblyOperations_ToProperties_GeneratesCorrectKeys()
+        public void AssemblyOperations_ToProperties_UsesOP_NotOP_WC()
         {
             var op = new AssemblyOperationSuggestion
             {
@@ -206,7 +309,9 @@ namespace NM.Core.Tests.Reconciliation
 
             var props = op.ToProperties();
 
-            Assert.Equal("F400", props["OP30_WC"]);
+            // Work center is stored in OP## (e.g., "OP30"), NOT "OP30_WC"
+            Assert.Equal("F400", props["OP30"]);
+            Assert.False(props.ContainsKey("OP30_WC"));
             Assert.Equal("15", props["OP30_S"]);
             Assert.Equal("10", props["OP30_R"]);
             Assert.Equal("WELD PER DWG", props["OP30_RN"]);
@@ -231,8 +336,8 @@ namespace NM.Core.Tests.Reconciliation
             // Identity
             Assert.Contains(suggestions, s => s.PropertyName == "Description" && s.Value == "WELDMENT ASM");
 
-            // Routing
-            Assert.Contains(suggestions, s => s.PropertyName == "OP20_WC" && s.Value == "F400");
+            // Routing — uses OP## for work center (not OP##_WC)
+            Assert.Contains(suggestions, s => s.PropertyName == "OP20" && s.Value == "F400");
             Assert.Contains(suggestions, s => s.PropertyName == "OP20_RN" && s.Value == "WELD PER DWG");
         }
 
@@ -278,6 +383,26 @@ namespace NM.Core.Tests.Reconciliation
             var s = new PropertySuggestion { Value = "SAME", CurrentValue = "SAME" };
             Assert.False(s.IsGapFill);
             Assert.False(s.IsOverride);
+        }
+
+        [Fact]
+        public void PartSuggestions_OtherWCSlot_IncludesSetupAndRun()
+        {
+            var recon = new ReconciliationResult();
+            recon.RoutingSuggestions.Add(new RoutingSuggestion
+            {
+                Operation = RoutingOp.Weld,
+                WorkCenter = "F400",
+                NoteText = "WELD PER DWG",
+                SourceNote = "WELD PER DWG",
+                Confidence = 0.90
+            });
+
+            var suggestions = _service.GeneratePartSuggestions(recon, new Dictionary<string, string>());
+
+            // Weld default: setup=15, run=10
+            Assert.Contains(suggestions, s => s.PropertyName == "Other_S" && s.Value == "15");
+            Assert.Contains(suggestions, s => s.PropertyName == "Other_R" && s.Value == "10");
         }
     }
 }

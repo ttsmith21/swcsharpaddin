@@ -9,7 +9,7 @@ namespace NM.Core.Reconciliation.Models
     /// </summary>
     public sealed class PropertySuggestion
     {
-        /// <summary>SolidWorks custom property name (e.g., "Description", "F220_Note").</summary>
+        /// <summary>SolidWorks custom property name (e.g., "Description", "F210_RN", "OP20").</summary>
         public string PropertyName { get; set; }
 
         /// <summary>Suggested value to write.</summary>
@@ -41,6 +41,8 @@ namespace NM.Core.Reconciliation.Models
     /// <summary>
     /// An assembly operation slot — represents one row in the
     /// assembly custom property tab builder's free-form operation list.
+    /// Assembly work center is stored in OP## (e.g., "OP20" = "F400"),
+    /// with setup/run/note in OP##_S, OP##_R, OP##_RN.
     /// </summary>
     public sealed class AssemblyOperationSuggestion
     {
@@ -67,15 +69,16 @@ namespace NM.Core.Reconciliation.Models
 
         /// <summary>
         /// Returns the custom property names for this operation slot.
-        /// Assembly operations use a generic OP##_WC, OP##_S, OP##_R, OP##_RN pattern.
+        /// Assembly tab builder pattern: OP## (work center), OP##_S, OP##_R, OP##_RN.
         /// </summary>
         public Dictionary<string, string> ToProperties()
         {
             string prefix = $"OP{OpNumber}";
             var props = new Dictionary<string, string>();
 
+            // Work center is stored in the OP## property itself (ComboBox), not OP##_WC
             if (!string.IsNullOrEmpty(WorkCenter))
-                props[$"{prefix}_WC"] = WorkCenter;
+                props[prefix] = WorkCenter;
             if (Setup_min > 0)
                 props[$"{prefix}_S"] = Setup_min.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
             if (Run_min > 0)
@@ -98,8 +101,8 @@ namespace NM.Core.Reconciliation.Models
 
     public enum PropertyCategory
     {
-        Identity,        // PartNumber, Description, Revision
-        Material,        // Material, Finish, OptiMaterial
+        Identity,        // Print, Description, Revision
+        Material,        // OptiMaterial, rbMaterialType
         Routing,         // Operation WC, setup, run, notes
         Geometry,        // Thickness, dimensions
         Quality          // GD&T, inspection requirements
