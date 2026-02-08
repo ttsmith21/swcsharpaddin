@@ -232,8 +232,9 @@ namespace NM.SwAddin.Pipeline
                 int faceCount = facesObj?.Length ?? 0;
                 int edgeCount = edgesObj?.Length ?? 0;
                 double heuristicMass = SwMassPropertiesHelper.GetModelMass(doc);
-                // Get bounding box max dimension
+                // Get bounding box dimensions
                 double bboxMax = 0;
+                double bboxMin = 0;
                 try
                 {
                     var bbox = (double[])body.GetBodyBox();
@@ -243,6 +244,7 @@ namespace NM.SwAddin.Pipeline
                         double dy = Math.Abs(bbox[4] - bbox[1]);
                         double dz = Math.Abs(bbox[5] - bbox[2]);
                         bboxMax = Math.Max(dx, Math.Max(dy, dz));
+                        bboxMin = Math.Min(dx, Math.Min(dy, dz));
                     }
                 }
                 catch { }
@@ -253,6 +255,7 @@ namespace NM.SwAddin.Pipeline
                     FaceCount = faceCount,
                     EdgeCount = edgeCount,
                     BBoxMaxDimM = bboxMax,
+                    BBoxMinDimM = bboxMin,
                     FileName = System.IO.Path.GetFileNameWithoutExtension(pathOrTitle)
                 };
                 var hResult = PurchasedPartHeuristics.Analyze(hInput);

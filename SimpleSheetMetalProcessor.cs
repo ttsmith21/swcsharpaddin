@@ -150,6 +150,7 @@ namespace NM.SwAddin
                 {
                     ErrorHandler.DebugLog("[SMDBG] FAIL: Could not extract thickness from probe");
                     try { model.EditUndo2(2); } catch { }
+                    CleanupFailedConversion(model);
                     Fail(info, "Could not extract sheet metal thickness from probe feature");
                     return false;
                 }
@@ -166,6 +167,7 @@ namespace NM.SwAddin
                     {
                         ErrorHandler.DebugLog("[SMDBG] FAIL: Probe volume check failed (±3%)");
                         try { model.EditUndo2(2); } catch { }
+                        CleanupFailedConversion(model);
                         Fail(info, "Probe volume check failed (±3%)");
                         return false;
                     }
@@ -180,6 +182,7 @@ namespace NM.SwAddin
                 {
                     ErrorHandler.DebugLog("[SMDBG] FAIL: Could not flatten probe");
                     try { model.EditUndo2(2); } catch { }
+                    CleanupFailedConversion(model);
                     Fail(info, "Could not flatten probe for validation");
                     return false;
                 }
@@ -207,6 +210,7 @@ namespace NM.SwAddin
                     {
                         ErrorHandler.DebugLog("[SMDBG] FAIL: Mass comparison failed (±3%)");
                         try { model.EditUndo2(2); } catch { }
+                        CleanupFailedConversion(model);
                         Fail(info, $"Mass validation failed (±3%): {percentDiff:F1}% difference");
                         return false;
                     }
@@ -294,6 +298,7 @@ namespace NM.SwAddin
                     ErrorHandler.DebugLog("[SMDBG] FAIL: Final InsertBends2 failed - undoing broken features");
                     try { model.EditUndo2(2); } catch { }
                     try { model.EditRebuild3(); } catch { }
+                    CleanupFailedConversion(model);
                     Fail(info, "Final InsertBends2 failed");
                     return false;
                 }
@@ -312,6 +317,7 @@ namespace NM.SwAddin
                         ErrorHandler.DebugLog("[SMDBG] FAIL: Final TryFlatten failed - undoing InsertBends2");
                         try { model.EditUndo2(2); } catch { }
                         try { model.EditRebuild3(); } catch { }
+                        CleanupFailedConversion(model);
                         return false;
                     }
                     ErrorHandler.DebugLog("[SMDBG] Final flatten: SUCCESS");
@@ -826,6 +832,41 @@ namespace NM.SwAddin
         private static double SafeGetVolume(IModelDoc2 model)
         {
             try { return SwMassPropertiesHelper.GetModelVolume(model); } catch { return 0.0; }
+        }
+
+        /// <summary>
+        /// Cleans up residual sheet metal features after a failed conversion.
+        /// EditUndo2(2) doesn't always fully undo InsertBends on STEP-imported parts,
+        /// leaving FlatPattern features unsuppressed and SheetMetal warnings.
+        /// </summary>
+        private static void CleanupFailedConversion(IModelDoc2 model)
+        {
+            if (model == null) return;
+
+            try
+            {
+                // 1. If FlatPattern is unsuppressed (part shows flat), suppress it
+                var bendMgr = new NM.SwAddin.SheetMetal.BendStateManager();
+                if (bendMgr.IsFlattened(model))
+                {
+                    bendMgr.UnFlattenPart(model); // suppress flat pattern
+                    ErrorHandler.DebugLog("[SMDBG] CleanupFailedConversion: Suppressed FlatPattern");
+                }
+
+                // 2. If SheetMetal features still remain after undo, try additional undo
+                if (SwGeometryHelper.HasSheetMetalFeature(model))
+                {
+                    try { model.EditUndo2(1); } catch { }
+                    ErrorHandler.DebugLog("[SMDBG] CleanupFailedConversion: Extra undo for residual SM features");
+                }
+
+                // 3. Force rebuild to clean state
+                try { model.ForceRebuild3(false); } catch { }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"[SMDBG] CleanupFailedConversion exception: {ex.Message}");
+            }
         }
 
         private static void Fail(ModelInfo info, string reason, Exception ex = null)

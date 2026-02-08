@@ -153,6 +153,34 @@ namespace NM.SwAddin.Pipeline
                 if (context.GoodModels.Count > 0)
                 {
                     ProcessGoodModelsPass2(context, options);
+
+                    // Step 4b: Show problem wizard for processing failures
+                    if (context.FailedModels.Count > 0 && !context.UserCanceled)
+                    {
+                        ErrorHandler.DebugLog($"[WORKFLOW] {context.FailedModels.Count} parts failed processing - showing problem wizard");
+
+                        // Move FailedModels into ProblemModels so the wizard can display them
+                        foreach (var failed in context.FailedModels)
+                        {
+                            var category = GuessProblemCategory(failed.ProblemDescription);
+                            ProblemPartManager.Instance.AddProblemPart(
+                                failed.FilePath,
+                                failed.Configuration ?? string.Empty,
+                                failed.ComponentName ?? string.Empty,
+                                failed.ProblemDescription ?? "Processing failed",
+                                category);
+                            context.ProblemModels.Add(failed);
+                        }
+                        context.FailedModels.Clear();
+
+                        var postAction = ShowProblemPartsDialog(context);
+                        if (postAction == ProblemAction.Cancel)
+                        {
+                            context.UserCanceled = true;
+                        }
+                        // Fixed items were moved from ProblemModels to GoodModels by ShowProblemPartsDialog
+                    }
+
                     AggregateCosts(context);  // Aggregate costs after processing
                     GenerateErpExport(context);  // Generate Import.prn if enabled
                 }
