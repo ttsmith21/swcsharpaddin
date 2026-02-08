@@ -230,7 +230,7 @@ namespace NM.SwAddin.Pipeline
                 var edgesObj = body.GetEdges() as object[];
                 int faceCount = facesObj?.Length ?? 0;
                 int edgeCount = edgesObj?.Length ?? 0;
-                double heuristicMass = SolidWorksApiWrapper.GetModelMass(doc);
+                double heuristicMass = SwMassPropertiesHelper.GetModelMass(doc);
                 // Get bounding box max dimension
                 double bboxMax = 0;
                 try
