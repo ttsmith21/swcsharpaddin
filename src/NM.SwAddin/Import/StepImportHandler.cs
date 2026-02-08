@@ -37,8 +37,9 @@ namespace NM.SwAddin.Import
                 int errs = 0, warns = 0;
                 IModelDoc2 model = _swApp.OpenDoc6(sourcePath, (int)swDocumentTypes_e.swDocPART,
                     (int)swOpenDocOptions_e.swOpenDocOptions_Silent, string.Empty, ref errs, ref warns);
-
-                if (model == null || errs != 0)
+                if (errs != 0 || warns != 0)
+                    ErrorHandler.DebugLog($"[{proc}] OpenDoc6 returned errs={errs}, warns={warns} (non-fatal for neutral files)");
+                if (model == null)
                 {
                     ErrorHandler.HandleError(proc, $"Open failed: {sourcePath} (errs={errs}, warns={warns})");
                     return null;
@@ -68,7 +69,8 @@ namespace NM.SwAddin.Import
 
         /// <summary>
         /// Opens a neutral assembly (STEP/IGES/XT). Saves as a native SolidWorks assembly with externalized components.
-        /// Returns the new .sldasm path or null on failure.
+        /// Falls back to part import if assembly import fails.
+        /// Returns the new .sldasm or .sldprt path, or null on failure.
         /// </summary>
         public string ImportToAssembly(string sourcePath, bool overwrite = false)
         {
@@ -83,16 +85,49 @@ namespace NM.SwAddin.Import
                 }
 
                 int errs = 0, warns = 0;
-                // Let SW open the neutral file as an assembly when applicable
-                IModelDoc2 model = _swApp.OpenDoc6(sourcePath, (int)swDocumentTypes_e.swDocASSEMBLY,
-                    (int)swOpenDocOptions_e.swOpenDocOptions_Silent, string.Empty, ref errs, ref warns);
-                if (model == null || errs != 0)
+
+                // Use LoadFile4 with GetImportFileData — the proper API for neutral file import.
+                // This lets SolidWorks decide whether to open as assembly or part.
+                Console.WriteLine($"[{proc}] Loading STEP via LoadFile4: {sourcePath}");
+                var importData = _swApp.GetImportFileData(sourcePath);
+                IModelDoc2 model = _swApp.LoadFile4(sourcePath, "r", importData, ref errs);
+                Console.WriteLine($"[{proc}] LoadFile4 result: model={model != null}, errs={errs}");
+
+                // Fallback: check ActiveDoc (some SW versions load successfully but return null)
+                if (model == null)
                 {
-                    ErrorHandler.HandleError(proc, $"Open failed: {sourcePath} (errs={errs}, warns={warns})");
+                    model = _swApp.ActiveDoc as IModelDoc2;
+                    if (model != null)
+                        Console.WriteLine($"[{proc}] Retrieved model from ActiveDoc: {model.GetTitle()}");
+                }
+
+                if (model == null)
+                {
+                    ErrorHandler.HandleError(proc, $"LoadFile4 failed: {sourcePath} (errs={errs})");
                     return null;
                 }
 
+                var docType = (swDocumentTypes_e)model.GetType();
+                ErrorHandler.DebugLog($"[{proc}] Opened as {docType}: {model.GetTitle()}");
+
                 var fileOps = new SolidWorksFileOperations(_swApp);
+
+                // If SW opened as a part, save as .sldprt
+                if (docType == swDocumentTypes_e.swDocPART)
+                {
+                    string targetPrt = Path.ChangeExtension(sourcePath, ".sldprt");
+                    if (!overwrite && File.Exists(targetPrt))
+                    {
+                        var baseName = Path.GetFileNameWithoutExtension(sourcePath);
+                        var dir2 = Path.GetDirectoryName(sourcePath) ?? string.Empty;
+                        targetPrt = Path.Combine(dir2, baseName + "_import.sldprt");
+                    }
+                    bool okPrt = fileOps.SaveAs(model, targetPrt);
+                    try { fileOps.CloseSWDocument(model); } catch { }
+                    return okPrt ? targetPrt : null;
+                }
+
+                // Assembly path
                 string targetAsm = Path.ChangeExtension(sourcePath, ".sldasm");
                 if (!overwrite && File.Exists(targetAsm))
                 {
@@ -117,6 +152,7 @@ namespace NM.SwAddin.Import
                         var compObjs = asm.GetComponents(false) as object[];
                         if (compObjs != null)
                         {
+                            ErrorHandler.DebugLog($"[{proc}] Externalizing {compObjs.Length} components...");
                             foreach (var o in compObjs)
                             {
                                 var c = o as IComponent2; if (c == null) continue;
@@ -131,13 +167,17 @@ namespace NM.SwAddin.Import
                                     string ext = child is IPartDoc ? ".sldprt" : ".sldasm";
                                     string outPath = Path.Combine(dir, name + ext);
 
-                                    // Save child out as an external file
                                     try
                                     {
                                         child.Extension.SaveAs(outPath, (int)swSaveAsVersion_e.swSaveAsCurrentVersion,
                                             (int)swSaveAsOptions_e.swSaveAsOptions_Silent, null, ref errs, ref warns);
+                                        ErrorHandler.DebugLog($"[{proc}] Externalized: {name}{ext}");
                                     }
                                     catch { }
+                                }
+                                else
+                                {
+                                    ErrorHandler.DebugLog($"[{proc}] Already external: {Path.GetFileName(childPath)}");
                                 }
                             }
                         }

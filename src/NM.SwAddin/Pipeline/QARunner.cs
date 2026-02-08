@@ -326,6 +326,30 @@ namespace NM.SwAddin.Pipeline
                     return summary;
                 }
                 QALog($"[{proc}] STEP imported to: {asmPath}");
+                bool isAssemblyImport = asmPath.EndsWith(".sldasm", StringComparison.OrdinalIgnoreCase);
+
+                // If import produced a part (not assembly), just process it as a single part
+                if (!isAssemblyImport)
+                {
+                    QALog($"[{proc}] STEP imported as part (not assembly) - processing as single file");
+                    summary.TotalFiles = 1;
+                    var partOpts = new ProcessingOptions { SaveChanges = false };
+                    var result = ProcessSingleFile(asmPath, partOpts, summary.PartDataCollection);
+                    summary.Results.Add(result);
+                    if (result.Status == "Success") summary.Passed++;
+                    else if (result.Status == "Failed") summary.Failed++;
+                    else summary.Errors++;
+
+                    sw.Stop();
+                    summary.TotalElapsedMs = sw.Elapsed.TotalMilliseconds;
+                    summary.CompletedAt = DateTime.UtcNow;
+
+                    var singleResultsPath = Path.Combine(outputDir, "results.json");
+                    ExportTimingData(summary, singleResultsPath);
+                    WriteResults(summary, singleResultsPath);
+                    QALog($"[{proc}] Single-part STEP QA complete: {result.Status}");
+                    return summary;
+                }
 
                 // 2. Open the resulting assembly
                 int errs = 0, warns = 0;
