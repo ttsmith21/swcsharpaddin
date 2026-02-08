@@ -290,6 +290,9 @@
     <Compile Include="src\NM.Core\Pdf\DrawingPackageScanner.cs" />
     <Compile Include="src\NM.Core\Pdf\ComponentDrawingMatcher.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\BatchAnalysisRunner.cs" />
+    <Compile Include="src\NM.SwAddin\UI\ConfigEditorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->
@@ -312,7 +315,7 @@
     <EmbeddedResource Include="Icons\ToolbarStrip_128.png" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Configuration JSON files — copied to bin\Debug\config\ at build time -->
+    <!-- Configuration JSON files â€” copied to bin\Debug\config\ at build time -->
     <Content Include="config\nm-config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>config\nm-config.json</Link>

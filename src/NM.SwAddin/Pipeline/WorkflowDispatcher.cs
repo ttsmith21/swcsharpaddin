@@ -722,6 +722,10 @@ namespace NM.SwAddin.Pipeline
                 object alreadyProcessed;
                 if (fixedItem.Metadata.TryGetValue("AlreadyProcessed", out alreadyProcessed))
                 {
+                    // Transition through valid state machine: Problem → Unprocessed → Validated → Processing → Processed
+                    match.ResetState();
+                    match.MarkValidated(true);
+                    match.StartProcessing();
                     match.CompleteProcessing(true);
                     object resultObj;
                     if (fixedItem.Metadata.TryGetValue("ProcessingResult", out resultObj) && resultObj is NM.Core.DataModel.PartData pd)

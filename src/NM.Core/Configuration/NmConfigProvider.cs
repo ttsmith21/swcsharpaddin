@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using NM.Core.Config.Tables;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 
 namespace NM.Core.Config
 {
@@ -104,6 +105,54 @@ namespace NM.Core.Config
                 LastValidation = Array.Empty<ConfigValidator.ValidationMessage>();
                 _initialized = true;
             }
+        }
+
+        /// <summary>
+        /// Save the current configuration to disk as JSON, then reload.
+        /// </summary>
+        /// <param name="path">Target file path, or null to use LoadedConfigPath / fallback.</param>
+        public static void Save(string path = null)
+        {
+            lock (_lock)
+            {
+                string target = path
+                    ?? LoadedConfigPath
+                    ?? FallbackConfigPath();
+
+                string dir = Path.GetDirectoryName(target);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+
+                var settings = new JsonSerializerSettings
+                {
+                    ContractResolver = new CamelCasePropertyNamesContractResolver(),
+                    Formatting = Formatting.Indented,
+                    NullValueHandling = NullValueHandling.Ignore
+                };
+
+                string json = JsonConvert.SerializeObject(Current, settings);
+                File.WriteAllText(target, json);
+
+                LoadedConfigPath = target;
+                _initialized = false;
+                Initialize(Path.GetDirectoryName(target));
+            }
+        }
+
+        /// <summary>
+        /// Returns the default config file path beside the DLL: {asmDir}/config/nm-config.json.
+        /// </summary>
+        public static string FallbackConfigPath()
+        {
+            try
+            {
+                string asmDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+                if (!string.IsNullOrEmpty(asmDir))
+                    return Path.Combine(asmDir, "config", "nm-config.json");
+            }
+            catch { }
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "NM_AutoPilot", "nm-config.json");
         }
 
         private static string ResolveConfigDir(string explicitDir)

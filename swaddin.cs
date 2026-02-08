@@ -46,6 +46,7 @@ namespace swcsharpaddin
         public const int mainItemID5 = 4;   // QA Runner (DEBUG)
         public const int mainItemID6 = 5;   // Review Problems
         public const int mainItemID7 = 6;   // Analyze Drawing (AI)
+        public const int mainItemID8 = 7;   // Settings
 
         #region Event Handler Variables
         Hashtable openDocs = new Hashtable();
@@ -264,9 +265,9 @@ namespace swcsharpaddin
 
             // All command IDs that will be registered - must match exactly
 #if DEBUG
-            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID5, mainItemID3 };
+            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID8, mainItemID5, mainItemID3 };
 #else
-            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7 };
+            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID8 };
 #endif
 
             if (getDataResult)
@@ -275,6 +276,11 @@ namespace swcsharpaddin
                 {
                     ignorePrevious = true;
                 }
+            }
+            else
+            {
+                // No registry data - force rebuild to ensure toolbar is current
+                ignorePrevious = true;
             }
 
             cmdGroup = iCmdMgr.CreateCommandGroup2(mainCmdGroupID, Title, ToolTip, "", -1, ignorePrevious, ref cmdGroupErr);
@@ -309,7 +315,12 @@ namespace swcsharpaddin
             int cmdIndexAnalyze = cmdGroup.AddCommandItem2("Analyze Drawing", -1,
                 "AI-powered PDF drawing analysis: extract properties, routing notes, and cross-validate with 3D model",
                 "Analyze Drawing",
-                0, "AnalyzeDrawing", "", mainItemID7, menuToolbarOption);
+                4, "AnalyzeDrawing", "", mainItemID7, menuToolbarOption);
+
+            int cmdIndexSettings = cmdGroup.AddCommandItem2("Settings", -1,
+                "Edit NM AutoPilot configuration (rates, materials, paths)",
+                "Settings",
+                5, "OpenSettings", "", mainItemID8, menuToolbarOption);
 
 #if DEBUG
             int cmdIndexQA = cmdGroup.AddCommandItem2("Run QA", -1,
@@ -342,8 +353,8 @@ namespace swcsharpaddin
                     CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
 
 #if DEBUG
-                    int[] cmdIDs = new int[5];
-                    int[] TextType = new int[5];
+                    int[] cmdIDs = new int[6];
+                    int[] TextType = new int[6];
 
                     cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
                     TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
@@ -354,14 +365,17 @@ namespace swcsharpaddin
                     cmdIDs[2] = cmdGroup.get_CommandID(cmdIndexAnalyze);
                     TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                    cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexQA);
+                    cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexSettings);
                     TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                    cmdIDs[4] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    cmdIDs[4] = cmdGroup.get_CommandID(cmdIndexQA);
                     TextType[4] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[5] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    TextType[5] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #else
-                    int[] cmdIDs = new int[3];
-                    int[] TextType = new int[3];
+                    int[] cmdIDs = new int[4];
+                    int[] TextType = new int[4];
 
                     cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
                     TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
@@ -371,6 +385,9 @@ namespace swcsharpaddin
 
                     cmdIDs[2] = cmdGroup.get_CommandID(cmdIndexAnalyze);
                     TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexSettings);
+                    TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #endif
 
                     cmdBox.AddCommands(cmdIDs, TextType);
@@ -716,6 +733,31 @@ namespace swcsharpaddin
             {
                 NM.Core.ErrorHandler.HandleError("AnalyzeDrawing", ex.Message, ex, NM.Core.ErrorHandler.LogLevel.Error);
                 System.Windows.Forms.MessageBox.Show($"Drawing analysis error: {ex.Message}", "Error");
+            }
+            finally
+            {
+                NM.Core.ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Opens the configuration editor form to edit rates, materials, paths, and logging settings.
+        /// Called by SolidWorks when user clicks "Settings" button.
+        /// </summary>
+        public void OpenSettings()
+        {
+            NM.Core.ErrorHandler.PushCallStack("OpenSettings");
+            try
+            {
+                using (var form = new ConfigEditorForm())
+                {
+                    form.ShowDialog();
+                }
+            }
+            catch (System.Exception ex)
+            {
+                NM.Core.ErrorHandler.HandleError("OpenSettings", ex.Message, ex, NM.Core.ErrorHandler.LogLevel.Error);
+                System.Windows.Forms.MessageBox.Show($"Settings error: {ex.Message}", "Error");
             }
             finally
             {
