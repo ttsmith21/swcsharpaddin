@@ -60,6 +60,30 @@
       <HintPath>$(NuGetPackageRoot)newtonsoft.json\13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="UglyToad.PdfPig">
+      <HintPath>$(NuGetPackageRoot)pdfpig\0.1.9\lib\net471\UglyToad.PdfPig.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="UglyToad.PdfPig.Core">
+      <HintPath>$(NuGetPackageRoot)pdfpig\0.1.9\lib\net471\UglyToad.PdfPig.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="UglyToad.PdfPig.DocumentLayoutAnalysis">
+      <HintPath>$(NuGetPackageRoot)pdfpig\0.1.9\lib\net471\UglyToad.PdfPig.DocumentLayoutAnalysis.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="UglyToad.PdfPig.Fonts">
+      <HintPath>$(NuGetPackageRoot)pdfpig\0.1.9\lib\net471\UglyToad.PdfPig.Fonts.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="UglyToad.PdfPig.Tokens">
+      <HintPath>$(NuGetPackageRoot)pdfpig\0.1.9\lib\net471\UglyToad.PdfPig.Tokens.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="UglyToad.PdfPig.Tokenization">
+      <HintPath>$(NuGetPackageRoot)pdfpig\0.1.9\lib\net471\UglyToad.PdfPig.Tokenization.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
@@ -262,7 +286,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- PDF Analysis -->
-    <PackageReference Include="UglyToad.PdfPig" Version="0.1.9" />
+    <PackageReference Include="PdfPig" Version="0.1.9" />
     <!-- Static Analyzers -->
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="Roslynator.Analyzers" Version="4.12.0">
