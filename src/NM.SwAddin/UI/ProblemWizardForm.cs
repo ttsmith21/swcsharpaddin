@@ -460,6 +460,9 @@ namespace NM.SwAddin.UI
                 if (result?.Status == NM.Core.DataModel.ProcessingStatus.Success)
                 {
                     SwDocumentHelper.SaveDocument(_currentDoc);
+                    // Mark as already processed so Pass 2 skips re-processing
+                    item.Metadata["AlreadyProcessed"] = "true";
+                    item.Metadata["ProcessingResult"] = result;
                     _fixedProblems.Add(item);
                     ProblemPartManager.Instance.RemoveResolvedPart(item);
                     _lblStatus.Text = $"Processed as {classification}: {item.DisplayName}";

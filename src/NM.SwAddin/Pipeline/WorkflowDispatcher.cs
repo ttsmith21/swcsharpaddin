@@ -648,15 +648,30 @@ namespace NM.SwAddin.Pipeline
                 System.Threading.Thread.Sleep(50);
             }
 
-            // Update good count based on fixed problems
+            // Update good/processed counts based on fixed problems
             foreach (var fixedItem in wizard.FixedProblems)
             {
-                // Find and move from ProblemModels to GoodModels
                 var match = context.ProblemModels.FirstOrDefault(m =>
                     string.Equals(m.FilePath, fixedItem.FilePath, StringComparison.OrdinalIgnoreCase));
-                if (match != null)
+                if (match == null) continue;
+
+                context.ProblemModels.Remove(match);
+
+                // Items processed via SM/TUBE buttons are already fully processed —
+                // route to ProcessedModels so Pass 2 doesn't re-process them
+                object alreadyProcessed;
+                if (fixedItem.Metadata.TryGetValue("AlreadyProcessed", out alreadyProcessed))
                 {
-                    context.ProblemModels.Remove(match);
+                    match.CompleteProcessing(true);
+                    object resultObj;
+                    if (fixedItem.Metadata.TryGetValue("ProcessingResult", out resultObj) && resultObj is NM.Core.DataModel.PartData pd)
+                        match.ProcessingResult = pd;
+                    context.ProcessedModels.Add(match);
+                    ErrorHandler.DebugLog($"[WORKFLOW] Already processed via wizard: {match.FileName} → ProcessedModels");
+                }
+                else
+                {
+                    // PUR/MACH/CUST or Retry — still needs Pass 2
                     match.ResetState();
                     match.MarkValidated(true);
                     context.GoodModels.Add(match);
