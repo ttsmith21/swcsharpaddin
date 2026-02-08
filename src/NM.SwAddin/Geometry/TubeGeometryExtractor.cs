@@ -730,97 +730,35 @@ namespace NM.SwAddin.Geometry
         }
 
         /// <summary>
-        /// Selects all edges that contribute to cut length calculation.
-        /// Highlights in SolidWorks with a specific color/mark.
+        /// Selects all edges that contribute to cut length calculation (Mark 1).
         /// </summary>
-        public void SelectCutLengthEdges(IModelDoc2 model, TubeDiagnosticInfo diagnostics, int colorRGB = 0x00FF00)
+        public void SelectCutLengthEdges(IModelDoc2 model, TubeDiagnosticInfo diagnostics)
         {
-            if (model == null || diagnostics == null) return;
-
-            model.ClearSelection2(true);
-            var selMgr = (ISelectionMgr)model.SelectionManager;
-            var selectData = selMgr.CreateSelectData();
-            selectData.Mark = 1;
-
-            foreach (var edge in diagnostics.CutLengthEdges)
-            {
-                var entity = (IEntity)edge;
-                entity.Select4(true, selectData);
-            }
-
-            // Set highlight color if model extension supports it
-            try
-            {
-                var ext = model.Extension;
-                // Note: Actual color highlighting requires more complex approach
-                // This selects the edges which shows them highlighted in default selection color
-            }
-            catch { }
-
-            ErrorHandler.DebugLog($"[TUBE-DIAG] Selected {diagnostics.CutLengthEdges.Count} cut length edges");
+            SelectDiagnosticElements(model, diagnostics?.CutLengthEdges, 1, "cut length edges");
         }
 
         /// <summary>
-        /// Selects all hole edges detected on the profile.
+        /// Selects all hole edges detected on the profile (Mark 2).
         /// </summary>
         public void SelectHoleEdges(IModelDoc2 model, TubeDiagnosticInfo diagnostics)
         {
-            if (model == null || diagnostics == null) return;
-
-            model.ClearSelection2(true);
-            var selMgr = (ISelectionMgr)model.SelectionManager;
-            var selectData = selMgr.CreateSelectData();
-            selectData.Mark = 2;
-
-            foreach (var edge in diagnostics.HoleEdges)
-            {
-                var entity = (IEntity)edge;
-                entity.Select4(true, selectData);
-            }
-
-            ErrorHandler.DebugLog($"[TUBE-DIAG] Selected {diagnostics.HoleEdges.Count} hole edges");
+            SelectDiagnosticElements(model, diagnostics?.HoleEdges, 2, "hole edges");
         }
 
         /// <summary>
-        /// Selects profile boundary edges (edges at the profile perimeter).
+        /// Selects profile boundary edges (Mark 3).
         /// </summary>
         public void SelectBoundaryEdges(IModelDoc2 model, TubeDiagnosticInfo diagnostics)
         {
-            if (model == null || diagnostics == null) return;
-
-            model.ClearSelection2(true);
-            var selMgr = (ISelectionMgr)model.SelectionManager;
-            var selectData = selMgr.CreateSelectData();
-            selectData.Mark = 3;
-
-            foreach (var edge in diagnostics.BoundaryEdges)
-            {
-                var entity = (IEntity)edge;
-                entity.Select4(true, selectData);
-            }
-
-            ErrorHandler.DebugLog($"[TUBE-DIAG] Selected {diagnostics.BoundaryEdges.Count} boundary edges");
+            SelectDiagnosticElements(model, diagnostics?.BoundaryEdges, 3, "boundary edges");
         }
 
         /// <summary>
-        /// Selects all faces used for profile dimension calculation.
+        /// Selects all faces used for profile dimension calculation (Mark 4).
         /// </summary>
         public void SelectProfileFaces(IModelDoc2 model, TubeDiagnosticInfo diagnostics)
         {
-            if (model == null || diagnostics == null) return;
-
-            model.ClearSelection2(true);
-            var selMgr = (ISelectionMgr)model.SelectionManager;
-            var selectData = selMgr.CreateSelectData();
-            selectData.Mark = 4;
-
-            foreach (var face in diagnostics.ProfileFaces)
-            {
-                var entity = (IEntity)face;
-                entity.Select4(true, selectData);
-            }
-
-            ErrorHandler.DebugLog($"[TUBE-DIAG] Selected {diagnostics.ProfileFaces.Count} profile faces");
+            SelectDiagnosticElements(model, diagnostics?.ProfileFaces, 4, "profile faces");
         }
 
         /// <summary>
@@ -832,47 +770,44 @@ namespace NM.SwAddin.Geometry
             if (model == null || diagnostics == null) return;
 
             model.ClearSelection2(true);
-            var selMgr = (ISelectionMgr)model.SelectionManager;
-
-            // Select profile faces first (Mark 4)
-            var selectData4 = selMgr.CreateSelectData();
-            selectData4.Mark = 4;
-            foreach (var face in diagnostics.ProfileFaces)
-            {
-                var entity = (IEntity)face;
-                entity.Select4(true, selectData4);
-            }
-
-            // Select boundary edges (Mark 3)
-            var selectData3 = selMgr.CreateSelectData();
-            selectData3.Mark = 3;
-            foreach (var edge in diagnostics.BoundaryEdges)
-            {
-                var entity = (IEntity)edge;
-                entity.Select4(true, selectData3);
-            }
-
-            // Select hole edges (Mark 2)
-            var selectData2 = selMgr.CreateSelectData();
-            selectData2.Mark = 2;
-            foreach (var edge in diagnostics.HoleEdges)
-            {
-                var entity = (IEntity)edge;
-                entity.Select4(true, selectData2);
-            }
-
-            // Select cut length edges (Mark 1) - these may overlap with boundary/hole
-            var selectData1 = selMgr.CreateSelectData();
-            selectData1.Mark = 1;
-            foreach (var edge in diagnostics.CutLengthEdges)
-            {
-                var entity = (IEntity)edge;
-                entity.Select4(true, selectData1);
-            }
+            SelectEntitiesWithMark(model, diagnostics.ProfileFaces, 4);
+            SelectEntitiesWithMark(model, diagnostics.BoundaryEdges, 3);
+            SelectEntitiesWithMark(model, diagnostics.HoleEdges, 2);
+            SelectEntitiesWithMark(model, diagnostics.CutLengthEdges, 1);
 
             ErrorHandler.DebugLog($"[TUBE-DIAG] Selected all diagnostics: " +
                 $"{diagnostics.ProfileFaces.Count} faces, {diagnostics.BoundaryEdges.Count} boundary, " +
                 $"{diagnostics.HoleEdges.Count} holes, {diagnostics.CutLengthEdges.Count} cut length");
+        }
+
+        /// <summary>
+        /// Selects a collection of COM objects in SolidWorks with a given mark, clearing the selection first.
+        /// </summary>
+        private void SelectDiagnosticElements<T>(IModelDoc2 model, System.Collections.Generic.IReadOnlyList<T> elements, int mark, string description)
+        {
+            if (model == null || elements == null) return;
+
+            model.ClearSelection2(true);
+            SelectEntitiesWithMark(model, elements, mark);
+            ErrorHandler.DebugLog($"[TUBE-DIAG] Selected {elements.Count} {description}");
+        }
+
+        /// <summary>
+        /// Selects entities with a specific mark value without clearing existing selection.
+        /// </summary>
+        private void SelectEntitiesWithMark<T>(IModelDoc2 model, System.Collections.Generic.IReadOnlyList<T> elements, int mark)
+        {
+            if (elements == null || elements.Count == 0) return;
+
+            var selMgr = (ISelectionMgr)model.SelectionManager;
+            var selectData = selMgr.CreateSelectData();
+            selectData.Mark = mark;
+
+            foreach (var element in elements)
+            {
+                var entity = (IEntity)element;
+                entity.Select4(true, selectData);
+            }
         }
 
         #endregion

@@ -220,8 +220,9 @@ namespace NM.SwAddin.Pipeline
                     pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
                     pd.Status = ProcessingStatus.Success;
 
-                    // Skip to ERP property copy (bypass classification + processing)
-                    goto ErpPropertyCopy;
+                    // Bypass classification + processing, go straight to property write
+                    FinalizeAndWriteProperties(doc, info, pd, swModel, options);
+                    return pd;
                 }
 
                 // ====== PURCHASED PART HEURISTIC CHECK ======
@@ -483,210 +484,9 @@ namespace NM.SwAddin.Pipeline
                 pd.Status = ProcessingStatus.Success;
                 if (pd.Classification == PartType.Unknown) pd.Classification = PartType.Generic;
 
-                // Mass (kg)
-                var mass = SwMassPropertiesHelper.GetModelMass(doc);
-                if (mass >= 0) pd.Mass_kg = mass;
-
-                // Bounding box (inches -> meters)
-                try
-                {
-                    var bboxExtractor = new BoundingBoxExtractor();
-                    var blankSize = bboxExtractor.GetBlankSize(doc);
-                    if (blankSize.length > 0)
-                    {
-                        pd.BBoxLength_m = blankSize.length * InchesToMeters;
-                        pd.BBoxWidth_m = blankSize.width * InchesToMeters;
-                    }
-                }
-                catch (Exception bboxEx)
-                {
-                    ErrorHandler.HandleError("MainRunner", "BBox extraction failed", bboxEx, ErrorHandler.LogLevel.Warning);
-                }
-
-                // Thickness (inches) to meters if present in cache
-                var thicknessIn = info.CustomProperties.Thickness; // inches
-                if (thicknessIn > 0)
-                {
-                    pd.Thickness_m = thicknessIn * NM.Core.Configuration.Materials.InchesToMeters;
-                }
-
-                // Sheet percent if written by processors
-                pd.SheetPercent = info.CustomProperties.SheetPercent;
-
-                // Extract bend data directly from the model feature tree
-                // (custom properties may not have BendCount after InsertBends2)
-                // Note: countSuppressed=true because the model is flattened at this point,
-                // so bend features are suppressed but still valid.
-                if (isSheetMetal)
-                {
-                    var bends = BendAnalyzer.AnalyzeBends(doc, countSuppressed: true);
-                    if (bends != null && bends.Count > 0)
-                    {
-                        pd.Sheet.IsSheetMetal = true;
-                        pd.Sheet.BendCount = bends.Count;
-                        pd.Sheet.BendsBothDirections = bends.NeedsFlip;
-                        // Store bend geometry for F325/F140 calculations
-                        if (bends.MaxRadiusIn > 0)
-                            pd.Extra["MaxBendRadiusIn"] = bends.MaxRadiusIn.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
-                        if (bends.LongestBendIn > 0)
-                            pd.Extra["LongestBendIn"] = bends.LongestBendIn.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
-                    }
-                }
-                else if (info.CustomProperties.BendCount > 0)
-                {
-                    pd.Sheet.IsSheetMetal = true;
-                    pd.Sheet.BendCount = info.CustomProperties.BendCount;
-                }
-
-                // Extract flat pattern metrics (cut lengths, pierce count) for sheet metal
-                if (isSheetMetal)
-                {
-                    try
-                    {
-                        var faceAnalyzer = new FaceAnalyzer();
-                        var flatFace = faceAnalyzer.GetProcessingFace(doc);
-                        if (flatFace != null)
-                        {
-                            var cutMetrics = FlatPatternAnalyzer.Extract(doc, flatFace);
-                            if (cutMetrics != null && cutMetrics.TotalCutLengthIn > 0)
-                            {
-                                pd.Sheet.TotalCutLength_m = cutMetrics.TotalCutLengthIn * InchesToMeters;
-                                pd.Extra["CutMetrics_PerimeterIn"] = cutMetrics.PerimeterLengthIn.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                                pd.Extra["CutMetrics_InternalIn"] = cutMetrics.InternalCutLengthIn.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                                pd.Extra["CutMetrics_PierceCount"] = cutMetrics.PierceCount.ToString();
-                                pd.Extra["CutMetrics_HoleCount"] = cutMetrics.HoleCount.ToString();
-                            }
-                        }
-                    }
-                    catch (Exception flatEx)
-                    {
-                        ErrorHandler.HandleError("MainRunner", "FlatPattern extraction failed", flatEx, ErrorHandler.LogLevel.Warning);
-                    }
-                }
-
-                // ====== OVERSIZE VALIDATION ======
-                // Parts exceeding maximum material stock are flagged as problems.
-                // Sheet: 60" x 240" max blank size. Cylinder: 24" OD max.
-                const double MAX_SHEET_WIDTH_IN = 60.0;
-                const double MAX_SHEET_LENGTH_IN = 240.0;
-                const double MAX_CYLINDER_OD_IN = 24.0;
-
-                if (isSheetMetal && pd.BBoxLength_m > 0 && pd.BBoxWidth_m > 0)
-                {
-                    double blankLengthIn = pd.BBoxLength_m * MetersToInches;
-                    double blankWidthIn = pd.BBoxWidth_m * MetersToInches;
-                    if (blankLengthIn > MAX_SHEET_LENGTH_IN || blankWidthIn > MAX_SHEET_WIDTH_IN)
-                    {
-                        pd.Status = ProcessingStatus.Failed;
-                        pd.FailureReason = $"Oversize sheet ({blankLengthIn:F1}\" x {blankWidthIn:F1}\" exceeds {MAX_SHEET_LENGTH_IN}\" x {MAX_SHEET_WIDTH_IN}\" max)";
-                        ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
-                        goto ErpPropertyCopy;
-                    }
-                }
-
-                if (isTube && pd.Tube.OD_m > 0)
-                {
-                    double odIn = pd.Tube.OD_m * MetersToInches;
-                    double tubeLengthIn = pd.Tube.Length_m * MetersToInches;
-
-                    if (odIn > MAX_CYLINDER_OD_IN)
-                    {
-                        pd.Status = ProcessingStatus.Failed;
-                        pd.FailureReason = $"Oversize cylinder ({odIn:F2}\" OD exceeds {MAX_CYLINDER_OD_IN}\" max)";
-                        ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
-                        goto ErpPropertyCopy;
-                    }
-
-                    if (tubeLengthIn > MAX_SHEET_LENGTH_IN)
-                    {
-                        pd.Status = ProcessingStatus.Failed;
-                        pd.FailureReason = $"Oversize tube/bar ({tubeLengthIn:F1}\" long exceeds {MAX_SHEET_LENGTH_IN}\" max)";
-                        ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
-                        goto ErpPropertyCopy;
-                    }
-                }
-
-                ErpPropertyCopy:
-                // ====== COPY ERP-RELEVANT CUSTOM PROPERTIES ======
-                // These properties are used by ErpExportDataBuilder for VBA-parity export
-                string[] erpProps = { "rbPartType", "rbPartTypeSub", "OS_WC", "OS_WC_A",
-                                      "CustPartNumber", "PurchasedPartNumber", "Print",
-                                      "Description", "Revision", "OP20" };
-                foreach (var prop in erpProps)
-                {
-                    var val = info.CustomProperties.GetPropertyValue(prop);
-                    if (val != null && !string.IsNullOrEmpty(val.ToString()))
-                        pd.Extra[prop] = val.ToString();
-                }
-
-                // ====== DESCRIPTION GENERATION ======
-                var description = DescriptionGenerator.Generate(pd);
-                if (!string.IsNullOrEmpty(description))
-                    pd.Extra["Description"] = description;
-
-                // ====== OPTIMATERIAL RESOLUTION ======
-                // Use static service as fallback when Excel data unavailable
-                if (string.IsNullOrEmpty(pd.OptiMaterial))
-                {
-                    var optiCode = StaticOptiMaterialService.Resolve(pd);
-                    if (!string.IsNullOrEmpty(optiCode))
-                        pd.OptiMaterial = optiCode;
-                }
-
-                // ====== RAW WEIGHT CALCULATION ======
-                // Use ManufacturingCalculator with custom properties (rbWeightCalc, NestEfficiency, Length, Width)
-                // to compute raw blank weight with nest efficiency and thickness scrap multiplier
-                try
-                {
-                    var partMetrics = MetricsExtractor.FromModel(doc, info);
-                    // Override with our already-computed values (more reliable than re-reading)
-                    if (pd.Mass_kg > 0) partMetrics.MassKg = pd.Mass_kg;
-                    if (pd.Thickness_m > 0) partMetrics.ThicknessIn = pd.Thickness_m * MetersToInches;
-                    if (!string.IsNullOrEmpty(pd.Material)) partMetrics.MaterialCode = pd.Material;
-
-                    var calcResult = ManufacturingCalculator.Compute(partMetrics, new CalcOptions());
-                    if (calcResult.RawWeightLb > 0)
-                    {
-                        pd.Cost.MaterialWeight_lb = calcResult.RawWeightLb;
-                        pd.SheetPercent = calcResult.SheetPercent;
-                    }
-                }
-                catch (Exception mfgEx)
-                {
-                    ErrorHandler.HandleError("MainRunner", "Raw weight calculation failed", mfgEx, ErrorHandler.LogLevel.Warning);
-                }
-
-                // ====== COST CALCULATIONS ======
-                PerformanceTracker.Instance.StartTimer("CostCalculation");
-                CalculateCosts(pd, info, options ?? new ProcessingOptions());
-                PerformanceTracker.Instance.StopTimer("CostCalculation");
-
-                // ====== PROPERTY WRITE ======
-                // Map DTO -> properties and batch save
-                PerformanceTracker.Instance.StartTimer("PropertyWrite");
-                var mapped = PartDataPropertyMap.ToProperties(pd);
-                foreach (var kv in mapped)
-                {
-                    // best-effort numeric detection for typing
-                    if (double.TryParse(kv.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
-                        info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Number);
-                    else
-                        info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
-                }
-
-                // Only save if SaveChanges is enabled (default true, but QA disables it)
-                var opts2 = options ?? new ProcessingOptions();
-                if (opts2.SaveChanges && info.CustomProperties.IsDirty)
-                {
-                    if (!swModel.SavePropertiesToSolidWorks())
-                    {
-                        PerformanceTracker.Instance.StopTimer("PropertyWrite");
-                        pd.Status = ProcessingStatus.Failed;
-                        pd.FailureReason = "Property writeback failed";
-                        return pd;
-                    }
-                }
-                PerformanceTracker.Instance.StopTimer("PropertyWrite");
+                ExtractMetrics(doc, info, pd, isSheetMetal);
+                ValidateDimensions(pd, isSheetMetal, isTube);
+                FinalizeAndWriteProperties(doc, info, pd, swModel, options);
 
                 return pd;
             }
@@ -701,6 +501,218 @@ namespace NM.SwAddin.Pipeline
                 PerformanceTracker.Instance.StopTimer("RunSinglePartData");
                 ErrorHandler.PopCallStack();
             }
+        }
+
+        /// <summary>
+        /// Extracts mass, bounding box, thickness, bend data, and flat pattern metrics from the model.
+        /// </summary>
+        private static void ExtractMetrics(IModelDoc2 doc, ModelInfo info, PartData pd, bool isSheetMetal)
+        {
+            // Mass (kg)
+            var mass = SwMassPropertiesHelper.GetModelMass(doc);
+            if (mass >= 0) pd.Mass_kg = mass;
+
+            // Bounding box (inches -> meters)
+            try
+            {
+                var bboxExtractor = new BoundingBoxExtractor();
+                var blankSize = bboxExtractor.GetBlankSize(doc);
+                if (blankSize.length > 0)
+                {
+                    pd.BBoxLength_m = blankSize.length * InchesToMeters;
+                    pd.BBoxWidth_m = blankSize.width * InchesToMeters;
+                }
+            }
+            catch (Exception bboxEx)
+            {
+                ErrorHandler.HandleError("MainRunner", "BBox extraction failed", bboxEx, ErrorHandler.LogLevel.Warning);
+            }
+
+            // Thickness (inches) to meters if present in cache
+            var thicknessIn = info.CustomProperties.Thickness; // inches
+            if (thicknessIn > 0)
+            {
+                pd.Thickness_m = thicknessIn * NM.Core.Configuration.Materials.InchesToMeters;
+            }
+
+            // Sheet percent if written by processors
+            pd.SheetPercent = info.CustomProperties.SheetPercent;
+
+            // Extract bend data directly from the model feature tree
+            // Note: countSuppressed=true because the model is flattened at this point,
+            // so bend features are suppressed but still valid.
+            if (isSheetMetal)
+            {
+                var bends = BendAnalyzer.AnalyzeBends(doc, countSuppressed: true);
+                if (bends != null && bends.Count > 0)
+                {
+                    pd.Sheet.IsSheetMetal = true;
+                    pd.Sheet.BendCount = bends.Count;
+                    pd.Sheet.BendsBothDirections = bends.NeedsFlip;
+                    if (bends.MaxRadiusIn > 0)
+                        pd.Extra["MaxBendRadiusIn"] = bends.MaxRadiusIn.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+                    if (bends.LongestBendIn > 0)
+                        pd.Extra["LongestBendIn"] = bends.LongestBendIn.ToString("F4", System.Globalization.CultureInfo.InvariantCulture);
+                }
+            }
+            else if (info.CustomProperties.BendCount > 0)
+            {
+                pd.Sheet.IsSheetMetal = true;
+                pd.Sheet.BendCount = info.CustomProperties.BendCount;
+            }
+
+            // Extract flat pattern metrics (cut lengths, pierce count) for sheet metal
+            if (isSheetMetal)
+            {
+                try
+                {
+                    var faceAnalyzer = new FaceAnalyzer();
+                    var flatFace = faceAnalyzer.GetProcessingFace(doc);
+                    if (flatFace != null)
+                    {
+                        var cutMetrics = FlatPatternAnalyzer.Extract(doc, flatFace);
+                        if (cutMetrics != null && cutMetrics.TotalCutLengthIn > 0)
+                        {
+                            pd.Sheet.TotalCutLength_m = cutMetrics.TotalCutLengthIn * InchesToMeters;
+                            pd.Extra["CutMetrics_PerimeterIn"] = cutMetrics.PerimeterLengthIn.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            pd.Extra["CutMetrics_InternalIn"] = cutMetrics.InternalCutLengthIn.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            pd.Extra["CutMetrics_PierceCount"] = cutMetrics.PierceCount.ToString();
+                            pd.Extra["CutMetrics_HoleCount"] = cutMetrics.HoleCount.ToString();
+                        }
+                    }
+                }
+                catch (Exception flatEx)
+                {
+                    ErrorHandler.HandleError("MainRunner", "FlatPattern extraction failed", flatEx, ErrorHandler.LogLevel.Warning);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Validates that sheet metal blank size and tube dimensions don't exceed stock limits.
+        /// Sets pd.Status to Failed and pd.FailureReason if oversize.
+        /// </summary>
+        private static void ValidateDimensions(PartData pd, bool isSheetMetal, bool isTube)
+        {
+            const double MAX_SHEET_WIDTH_IN = 60.0;
+            const double MAX_SHEET_LENGTH_IN = 240.0;
+            const double MAX_CYLINDER_OD_IN = 24.0;
+
+            if (isSheetMetal && pd.BBoxLength_m > 0 && pd.BBoxWidth_m > 0)
+            {
+                double blankLengthIn = pd.BBoxLength_m * MetersToInches;
+                double blankWidthIn = pd.BBoxWidth_m * MetersToInches;
+                if (blankLengthIn > MAX_SHEET_LENGTH_IN || blankWidthIn > MAX_SHEET_WIDTH_IN)
+                {
+                    pd.Status = ProcessingStatus.Failed;
+                    pd.FailureReason = $"Oversize sheet ({blankLengthIn:F1}\" x {blankWidthIn:F1}\" exceeds {MAX_SHEET_LENGTH_IN}\" x {MAX_SHEET_WIDTH_IN}\" max)";
+                    ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
+                    return;
+                }
+            }
+
+            if (isTube && pd.Tube.OD_m > 0)
+            {
+                double odIn = pd.Tube.OD_m * MetersToInches;
+                double tubeLengthIn = pd.Tube.Length_m * MetersToInches;
+
+                if (odIn > MAX_CYLINDER_OD_IN)
+                {
+                    pd.Status = ProcessingStatus.Failed;
+                    pd.FailureReason = $"Oversize cylinder ({odIn:F2}\" OD exceeds {MAX_CYLINDER_OD_IN}\" max)";
+                    ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
+                    return;
+                }
+
+                if (tubeLengthIn > MAX_SHEET_LENGTH_IN)
+                {
+                    pd.Status = ProcessingStatus.Failed;
+                    pd.FailureReason = $"Oversize tube/bar ({tubeLengthIn:F1}\" long exceeds {MAX_SHEET_LENGTH_IN}\" max)";
+                    ErrorHandler.DebugLog($"[OVERSIZE] {pd.PartName}: {pd.FailureReason}");
+                    return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Copies ERP properties, generates description, resolves material, calculates costs,
+        /// and writes all properties back to SolidWorks.
+        /// </summary>
+        private static void FinalizeAndWriteProperties(IModelDoc2 doc, ModelInfo info, PartData pd,
+            SolidWorksModel swModel, ProcessingOptions options)
+        {
+            // Copy ERP-relevant custom properties
+            string[] erpProps = { "rbPartType", "rbPartTypeSub", "OS_WC", "OS_WC_A",
+                                  "CustPartNumber", "PurchasedPartNumber", "Print",
+                                  "Description", "Revision", "OP20" };
+            foreach (var prop in erpProps)
+            {
+                var val = info.CustomProperties.GetPropertyValue(prop);
+                if (val != null && !string.IsNullOrEmpty(val.ToString()))
+                    pd.Extra[prop] = val.ToString();
+            }
+
+            // Description generation
+            var description = DescriptionGenerator.Generate(pd);
+            if (!string.IsNullOrEmpty(description))
+                pd.Extra["Description"] = description;
+
+            // OptiMaterial resolution (fallback when Excel data unavailable)
+            if (string.IsNullOrEmpty(pd.OptiMaterial))
+            {
+                var optiCode = StaticOptiMaterialService.Resolve(pd);
+                if (!string.IsNullOrEmpty(optiCode))
+                    pd.OptiMaterial = optiCode;
+            }
+
+            // Raw weight calculation
+            try
+            {
+                var partMetrics = MetricsExtractor.FromModel(doc, info);
+                if (pd.Mass_kg > 0) partMetrics.MassKg = pd.Mass_kg;
+                if (pd.Thickness_m > 0) partMetrics.ThicknessIn = pd.Thickness_m * MetersToInches;
+                if (!string.IsNullOrEmpty(pd.Material)) partMetrics.MaterialCode = pd.Material;
+
+                var calcResult = ManufacturingCalculator.Compute(partMetrics, new CalcOptions());
+                if (calcResult.RawWeightLb > 0)
+                {
+                    pd.Cost.MaterialWeight_lb = calcResult.RawWeightLb;
+                    pd.SheetPercent = calcResult.SheetPercent;
+                }
+            }
+            catch (Exception mfgEx)
+            {
+                ErrorHandler.HandleError("MainRunner", "Raw weight calculation failed", mfgEx, ErrorHandler.LogLevel.Warning);
+            }
+
+            // Cost calculations
+            PerformanceTracker.Instance.StartTimer("CostCalculation");
+            CalculateCosts(pd, info, options ?? new ProcessingOptions());
+            PerformanceTracker.Instance.StopTimer("CostCalculation");
+
+            // Map DTO -> properties and batch save
+            PerformanceTracker.Instance.StartTimer("PropertyWrite");
+            var mapped = PartDataPropertyMap.ToProperties(pd);
+            foreach (var kv in mapped)
+            {
+                if (double.TryParse(kv.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
+                    info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Number);
+                else
+                    info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
+            }
+
+            var opts2 = options ?? new ProcessingOptions();
+            if (opts2.SaveChanges && info.CustomProperties.IsDirty)
+            {
+                if (!swModel.SavePropertiesToSolidWorks())
+                {
+                    PerformanceTracker.Instance.StopTimer("PropertyWrite");
+                    pd.Status = ProcessingStatus.Failed;
+                    pd.FailureReason = "Property writeback failed";
+                    return;
+                }
+            }
+            PerformanceTracker.Instance.StopTimer("PropertyWrite");
         }
 
         /// <summary>
