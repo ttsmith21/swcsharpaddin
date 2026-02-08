@@ -264,6 +264,9 @@
     <Compile Include="src\NM.Core\Pdf\ToleranceAnalyzer.cs" />
     <!-- GD&T Feature Control Frame Extraction -->
     <Compile Include="src\NM.Core\Pdf\GdtExtractor.cs" />
+    <!-- Fabrication-Aware Tolerance Classification (ISO 13920/2768, bend stackup) -->
+    <Compile Include="src\NM.Core\Pdf\IsoToleranceStandard.cs" />
+    <Compile Include="src\NM.Core\Pdf\FabricationToleranceClassifier.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->

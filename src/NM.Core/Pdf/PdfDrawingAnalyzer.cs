@@ -25,6 +25,7 @@ namespace NM.Core.Pdf
         private readonly SpecRecognizer _specRecognizer;
         private readonly ToleranceAnalyzer _toleranceAnalyzer;
         private readonly GdtExtractor _gdtExtractor;
+        private readonly FabricationToleranceClassifier _fabClassifier;
         private readonly IDrawingVisionService _visionService;
 
         /// <summary>
@@ -46,6 +47,7 @@ namespace NM.Core.Pdf
             _specRecognizer = new SpecRecognizer();
             _toleranceAnalyzer = new ToleranceAnalyzer();
             _gdtExtractor = new GdtExtractor();
+            _fabClassifier = new FabricationToleranceClassifier();
             _visionService = visionService ?? new OfflineVisionService();
         }
 
@@ -182,6 +184,17 @@ namespace NM.Core.Pdf
                         result.ToleranceAnalysis.CostFlags.AddRange(_gdtExtractor.ToCostFlags(gdtCallouts));
                     }
                     result.RoutingHints.AddRange(_gdtExtractor.ToRoutingHints(gdtCallouts));
+                }
+
+                // Step 3e: Fabrication-aware tolerance classification
+                // Reclassifies tolerances and GD&T against fab shop thresholds
+                // (ISO 13920 BF standard, not machining thresholds)
+                var fabResult = _fabClassifier.Classify(
+                    result.RawText, result.ToleranceAnalysis, result.GdtCallouts.ToList());
+                result.FabricationAnalysis = fabResult;
+                if (fabResult.CostFlags.Count > 0)
+                {
+                    result.RoutingHints.AddRange(_fabClassifier.ToRoutingHints(fabResult));
                 }
 
                 // Step 4: Generate routing hints from notes

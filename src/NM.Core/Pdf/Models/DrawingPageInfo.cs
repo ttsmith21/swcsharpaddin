@@ -54,6 +54,9 @@ namespace NM.Core.Pdf.Models
         /// <summary>Tolerance analysis results for this page.</summary>
         public ToleranceAnalysisResult ToleranceAnalysis { get; set; }
 
+        /// <summary>Fabrication-aware tolerance classification for this page.</summary>
+        public FabricationToleranceResult FabricationAnalysis { get; set; }
+
         /// <summary>Confidence in the title block extraction (0.0 - 1.0).</summary>
         public double Confidence { get; set; }
 

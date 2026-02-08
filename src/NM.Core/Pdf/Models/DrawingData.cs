@@ -47,6 +47,9 @@ namespace NM.Core.Pdf.Models
         // Tolerance analysis results (general, specific, surface finish, cost flags)
         public ToleranceAnalysisResult ToleranceAnalysis { get; set; }
 
+        // Fabrication-aware tolerance classification (ISO 13920/2768, bend stackup)
+        public FabricationToleranceResult FabricationAnalysis { get; set; }
+
         // Source tracking
         public string SourcePdfPath { get; set; }
         public int PageCount { get; set; }

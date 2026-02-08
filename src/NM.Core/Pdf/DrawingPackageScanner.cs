@@ -20,6 +20,7 @@ namespace NM.Core.Pdf
         private readonly SpecRecognizer _specRecognizer;
         private readonly ToleranceAnalyzer _toleranceAnalyzer;
         private readonly GdtExtractor _gdtExtractor;
+        private readonly FabricationToleranceClassifier _fabClassifier;
 
         public DrawingPackageScanner()
         {
@@ -29,6 +30,7 @@ namespace NM.Core.Pdf
             _specRecognizer = new SpecRecognizer();
             _toleranceAnalyzer = new ToleranceAnalyzer();
             _gdtExtractor = new GdtExtractor();
+            _fabClassifier = new FabricationToleranceClassifier();
         }
 
         /// <summary>
@@ -195,6 +197,18 @@ namespace NM.Core.Pdf
                 foreach (var gdtHint in _gdtExtractor.ToRoutingHints(gdtCallouts))
                 {
                     pageInfo.RoutingHints.Add(gdtHint);
+                }
+            }
+
+            // Fabrication-aware tolerance classification
+            var fabResult = _fabClassifier.Classify(
+                page.FullText, pageInfo.ToleranceAnalysis, pageInfo.GdtCallouts.ToList());
+            pageInfo.FabricationAnalysis = fabResult;
+            if (fabResult.CostFlags.Count > 0)
+            {
+                foreach (var fabHint in _fabClassifier.ToRoutingHints(fabResult))
+                {
+                    pageInfo.RoutingHints.Add(fabHint);
                 }
             }
 
