@@ -69,7 +69,7 @@ namespace NM.SwAddin.Pipeline
 
                 // 2. Find companion PDF
                 var analyzer = new PdfDrawingAnalyzer(_visionService);
-                string pdfPath = analyzer.FindCompanionPdf(modelPath);
+                string pdfPath = PdfDrawingAnalyzer.FindCompanionPdf(modelPath);
 
                 if (string.IsNullOrEmpty(pdfPath))
                 {
@@ -153,9 +153,9 @@ namespace NM.SwAddin.Pipeline
                 }
 
                 // 8. Show wizard
-                string analysisDesc = drawingData.AnalysisMethod == AnalysisMethod.TextOnly
+                string analysisDesc = drawingData.Method == AnalysisMethod.TextOnly
                     ? "Text extraction only"
-                    : drawingData.AnalysisMethod == AnalysisMethod.VisionAI
+                    : drawingData.Method == AnalysisMethod.VisionAI
                         ? "AI Vision analysis"
                         : "Hybrid (text + AI vision)";
 
