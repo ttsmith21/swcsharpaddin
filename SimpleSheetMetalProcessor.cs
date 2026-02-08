@@ -62,7 +62,7 @@ namespace NM.SwAddin
                 }
 
                 ErrorHandler.DebugLog("[SMDBG] VBA approach: Try sheet metal first, let geometry decide");
-                var body = SolidWorksApiWrapper.GetMainBody(model);
+                var body = SwGeometryHelper.GetMainBody(model);
                 if (body == null)
                 {
                     ErrorHandler.DebugLog("[SMDBG] FAIL: No solid body detected");
@@ -72,7 +72,7 @@ namespace NM.SwAddin
                 ErrorHandler.DebugLog("[SMDBG] [1] Solid body OK");
 
                 // Check if already sheet metal
-                if (SolidWorksApiWrapper.HasSheetMetalFeature(model))
+                if (SwGeometryHelper.HasSheetMetalFeature(model))
                 {
                     ErrorHandler.DebugLog("[SMDBG] [2] Already sheet metal");
                     if (flatten && !TryFlatten(model, info))
@@ -130,7 +130,7 @@ namespace NM.SwAddin
                 bool okProbe = part.InsertBends2(seedRadius, string.Empty, seedK, -1, true, 1.0, true);
                 PerformanceTracker.Instance.StopTimer("InsertBends2_Probe");
 
-                if (!okProbe || !SolidWorksApiWrapper.HasSheetMetalFeature(model))
+                if (!okProbe || !SwGeometryHelper.HasSheetMetalFeature(model))
                 {
                     ErrorHandler.DebugLog("[SMDBG] FAIL: Probe InsertBends2 failed - part cannot be converted");
                     Fail(info, "InsertBends2 probe failed - part may not be convertible to sheet metal");
@@ -185,7 +185,7 @@ namespace NM.SwAddin
                 }
 
                 // Mass comparison: blankArea × thickness ≈ actualVolume (±3%)
-                body = SolidWorksApiWrapper.GetMainBody(model);
+                body = SwGeometryHelper.GetMainBody(model);
                 double biggestAreaM2;
                 GetLargestFace(body, out biggestAreaM2);
                 if (biggestAreaM2 > 0 && thickness > 0)
@@ -221,7 +221,7 @@ namespace NM.SwAddin
                 try { model.EditRebuild3(); } catch { }
 
                 // Reselect reference after undo
-                body = SolidWorksApiWrapper.GetMainBody(model);
+                body = SwGeometryHelper.GetMainBody(model);
                 if (body == null)
                 {
                     ErrorHandler.DebugLog("[SMDBG] FAIL: Body lost after undo");
@@ -256,7 +256,7 @@ namespace NM.SwAddin
                     PerformanceTracker.Instance.StartTimer("InsertBends2_Final_BendTable");
                     finalOk = part.InsertBends2(finalR, bendPath, -1.0, -1, true, 1.0, true);
                     PerformanceTracker.Instance.StopTimer("InsertBends2_Final_BendTable");
-                    if (finalOk && SolidWorksApiWrapper.HasSheetMetalFeature(model))
+                    if (finalOk && SwGeometryHelper.HasSheetMetalFeature(model))
                     {
                         usedBendTable = true;
                         ErrorHandler.DebugLog($"[SMDBG] Final insert with bend table: SUCCESS");
@@ -267,7 +267,7 @@ namespace NM.SwAddin
                         ErrorHandler.DebugLog($"[SMDBG] Bend table insert failed, will try K-factor");
                         finalOk = false;
                         // Need to reselect for K-factor attempt
-                        body = SolidWorksApiWrapper.GetMainBody(model);
+                        body = SwGeometryHelper.GetMainBody(model);
                         if (body != null)
                         {
                             SolidWorksApiWrapper.ClearSelection(model);
@@ -289,7 +289,7 @@ namespace NM.SwAddin
                     }
                 }
 
-                if (!finalOk || !SolidWorksApiWrapper.HasSheetMetalFeature(model))
+                if (!finalOk || !SwGeometryHelper.HasSheetMetalFeature(model))
                 {
                     ErrorHandler.DebugLog("[SMDBG] FAIL: Final InsertBends2 failed - undoing broken features");
                     try { model.EditUndo2(2); } catch { }

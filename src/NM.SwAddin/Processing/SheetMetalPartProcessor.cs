@@ -31,7 +31,7 @@ namespace NM.SwAddin.Processing
             if (model.GetType() != (int)swDocumentTypes_e.swDocPART) return false;
 
             // Check for existing sheet metal features
-            return SolidWorksApiWrapper.HasSheetMetalFeature(model);
+            return SwGeometryHelper.HasSheetMetalFeature(model);
         }
 
         /// <summary>
@@ -51,7 +51,7 @@ namespace NM.SwAddin.Processing
                 }
 
                 // Check if already has sheet metal features
-                bool hasExistingFeatures = SolidWorksApiWrapper.HasSheetMetalFeature(model);
+                bool hasExistingFeatures = SwGeometryHelper.HasSheetMetalFeature(model);
                 ErrorHandler.DebugLog($"[SMDBG] HasSheetMetalFeature={hasExistingFeatures}");
 
                 ErrorHandler.DebugLog("[SMDBG] Creating SimpleSheetMetalProcessor...");

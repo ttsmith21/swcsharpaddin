@@ -44,10 +44,10 @@ namespace NM.SwAddin.Geometry
         {
             try
             {
-                if (!NM.SwAddin.SolidWorksApiWrapper.HasSheetMetalFeature(model)) return null;
-                var body = NM.SwAddin.SolidWorksApiWrapper.GetMainBody(model);
+                if (!NM.SwAddin.SwGeometryHelper.HasSheetMetalFeature(model)) return null;
+                var body = NM.SwAddin.SwGeometryHelper.GetMainBody(model);
                 if (body == null) return null;
-                return NM.SwAddin.SolidWorksApiWrapper.GetLargestPlanarFace(body);
+                return NM.SwAddin.SwGeometryHelper.GetLargestPlanarFace(body);
             }
             catch { return null; }
         }

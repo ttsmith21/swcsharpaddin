@@ -393,7 +393,7 @@ namespace NM.SwAddin.UI
 
             try
             {
-                SolidWorksApiWrapper.SaveDocument(_currentDoc);
+                SwDocumentHelper.SaveDocument(_currentDoc);
             }
             catch (Exception ex)
             {
@@ -402,7 +402,7 @@ namespace NM.SwAddin.UI
 
             try
             {
-                SolidWorksApiWrapper.CloseDocument(_swApp, _currentDoc);
+                SwDocumentHelper.CloseDocument(_swApp, _currentDoc);
             }
             catch (Exception ex)
             {
@@ -479,11 +479,11 @@ namespace NM.SwAddin.UI
             // Write rbPartType=1 and rbPartTypeSub to the part's custom properties
             if (_currentDoc != null)
             {
-                SolidWorksApiWrapper.AddCustomProperty(_currentDoc, "rbPartType",
+                SwPropertyHelper.AddCustomProperty(_currentDoc, "rbPartType",
                     swCustomInfoType_e.swCustomInfoNumber, "1", "");
-                SolidWorksApiWrapper.AddCustomProperty(_currentDoc, "rbPartTypeSub",
+                SwPropertyHelper.AddCustomProperty(_currentDoc, "rbPartTypeSub",
                     swCustomInfoType_e.swCustomInfoNumber, ((int)typeOverride).ToString(), "");
-                SolidWorksApiWrapper.SaveDocument(_currentDoc);
+                SwDocumentHelper.SaveDocument(_currentDoc);
             }
 
             // Mark as resolved - it's classified now
@@ -613,7 +613,7 @@ namespace NM.SwAddin.UI
                 string reason = item.ProblemDescription ?? "Unknown";
                 string value = $"{reason} [Skipped {DateTime.Now:yyyy-MM-dd HH:mm}]";
 
-                SolidWorksApiWrapper.AddCustomProperty(
+                SwPropertyHelper.AddCustomProperty(
                     _currentDoc,
                     "NM_SkippedReason",
                     swCustomInfoType_e.swCustomInfoText,

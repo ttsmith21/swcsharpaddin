@@ -748,11 +748,11 @@ namespace swcsharpaddin
                     // Custom property add/get/delete
                     try
                     {
-                        var added = SolidWorksApiWrapper.AddCustomProperty(doc, "TestProp", swCustomInfoType_e.swCustomInfoText, "Hello", "");
-                        SolidWorksApiWrapper.GetCustomProperties(doc, "", out var names, out var types, out var values);
+                        var added = SwPropertyHelper.AddCustomProperty(doc, "TestProp", swCustomInfoType_e.swCustomInfoText, "Hello", "");
+                        SwPropertyHelper.GetCustomProperties(doc, "", out var names, out var types, out var values);
                         var idx = Array.FindIndex(names, n => string.Equals(n, "TestProp", StringComparison.OrdinalIgnoreCase));
                         bool found = idx >= 0;
-                        var deleted = SolidWorksApiWrapper.DeleteCustomProperty(doc, "TestProp", "");
+                        var deleted = SwPropertyHelper.DeleteCustomProperty(doc, "TestProp", "");
                         sb.AppendLine($"CustomProps: add={(added ? "OK" : "FAIL")}, found={(found ? "YES" : "NO")}, delete={(deleted ? "OK" : "FAIL")}");
                     }
                     catch (Exception ex)
@@ -763,7 +763,7 @@ namespace swcsharpaddin
                     // Rebuild
                     try
                     {
-                        bool rebuilt = SolidWorksApiWrapper.ForceRebuildDoc(doc);
+                        bool rebuilt = SwDocumentHelper.ForceRebuildDoc(doc);
                         sb.AppendLine("Rebuild: " + (rebuilt ? "OK" : "SKIPPED/NO-OP"));
                     }
                     catch (Exception ex)

@@ -308,8 +308,8 @@ namespace NM.SwAddin.Pipeline
                     // Debug: Check IsTube property right after file opens (before any processing)
                     string cfg = "";
                     try { cfg = doc.ConfigurationManager?.ActiveConfiguration?.Name ?? ""; } catch { }
-                    string isTubeOnOpen = SolidWorksApiWrapper.GetCustomPropertyValue(doc, "IsTube", cfg);
-                    string isTubeGlobal = SolidWorksApiWrapper.GetCustomPropertyValue(doc, "IsTube", "");
+                    string isTubeOnOpen = SwPropertyHelper.GetCustomPropertyValue(doc, "IsTube", cfg);
+                    string isTubeGlobal = SwPropertyHelper.GetCustomPropertyValue(doc, "IsTube", "");
                     QALog($"[{proc}] ON OPEN: IsTube(config='{cfg}')='{isTubeOnOpen}', IsTube(global)='{isTubeGlobal}'");
 
                     // Process using MainRunner
@@ -542,7 +542,7 @@ namespace NM.SwAddin.Pipeline
                     // Read global (file-level) properties
                     string[] names, values;
                     int[] types;
-                    if (SolidWorksApiWrapper.GetCustomProperties(doc, "", out names, out types, out values))
+                    if (SwPropertyHelper.GetCustomProperties(doc, "", out names, out types, out values))
                     {
                         for (int i = 0; i < names.Length; i++)
                         {
@@ -556,7 +556,7 @@ namespace NM.SwAddin.Pipeline
                     try { cfg = doc.ConfigurationManager?.ActiveConfiguration?.Name ?? ""; } catch { }
                     if (!string.IsNullOrEmpty(cfg))
                     {
-                        if (SolidWorksApiWrapper.GetCustomProperties(doc, cfg, out names, out types, out values))
+                        if (SwPropertyHelper.GetCustomProperties(doc, cfg, out names, out types, out values))
                         {
                             for (int i = 0; i < names.Length; i++)
                             {
