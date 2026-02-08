@@ -318,13 +318,24 @@ namespace NM.SwAddin.Manufacturing
                     double t = startParam + (endParam - startParam) * s / SamplesPerEdge;
                     try
                     {
-                        var evalResult = curve.Evaluate2(t, 0) as object[];
-                        if (evalResult != null && evalResult.Length >= 3)
+                        object raw = curve.Evaluate2(t, 0);
+                        if (raw == null) continue;
+
+                        // COM may return double[] or object[] depending on runtime
+                        double x, y;
+                        if (raw is double[] dArr && dArr.Length >= 2)
                         {
-                            double x = Convert.ToDouble(evalResult[0]);
-                            double y = Convert.ToDouble(evalResult[1]);
-                            points.Add(new Point2D(x, y));
+                            x = dArr[0];
+                            y = dArr[1];
                         }
+                        else if (raw is object[] oArr && oArr.Length >= 2)
+                        {
+                            x = Convert.ToDouble(oArr[0]);
+                            y = Convert.ToDouble(oArr[1]);
+                        }
+                        else continue;
+
+                        points.Add(new Point2D(x, y));
                     }
                     catch { }
                 }
