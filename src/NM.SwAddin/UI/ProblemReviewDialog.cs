@@ -298,7 +298,7 @@ namespace NM.SwAddin.UI
             try
             {
                 var extractor = new TubeGeometryExtractor(_swApp);
-                extractor.SelectCutLengthEdges(_openedModel, _tubeDiagnostics, 0x00FF00); // Green
+                extractor.SelectCutLengthEdges(_openedModel, _tubeDiagnostics);
                 _lblDiagStatus.Text = $"Selected {_tubeDiagnostics.CutLengthEdges.Count} cut length edges (green).";
             }
             catch (Exception ex)

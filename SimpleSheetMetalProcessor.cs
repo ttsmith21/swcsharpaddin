@@ -869,22 +869,7 @@ namespace NM.SwAddin
                     {
                         // If unsuppress fails, try SetBendState fallback before failing
                         ErrorHandler.HandleError("SimpleSM.Flatten", "Failed to unsuppress Flat-Pattern; attempting SetBendState fallback", ex, ErrorHandler.LogLevel.Warning);
-                        try
-                        {
-                            var t = ((object)model).GetType();
-                            var setBs = t.GetMethod("SetBendState");
-                            ErrorHandler.DebugLog($"[6] TryFlatten: SetBendState method present={(setBs!=null)}");
-                            if (setBs != null)
-                            {
-                                var okObj = setBs.Invoke(model, new object[] { 2 }); // 2 = flattened
-                                bool ok = okObj is bool b ? b : true;
-                                if (ok) { ErrorHandler.DebugLog("[6] SetBendState(Flattened) OK"); return true; }
-                            }
-                        }
-                        catch (Exception ex2)
-                        {
-                            ErrorHandler.HandleError("SimpleSM.Flatten", "SetBendState fallback failed", ex2, ErrorHandler.LogLevel.Warning);
-                        }
+                        if (TrySetBendStateFlattened(model)) return true;
                         Fail(info, "Failed to unsuppress Flat-Pattern", ex);
                         return false;
                     }
@@ -892,19 +877,7 @@ namespace NM.SwAddin
                 else
                 {
                     // API fallback when no Flat-Pattern exists
-                    try
-                    {
-                        var t = ((object)model).GetType();
-                        var setBs = t.GetMethod("SetBendState");
-                        ErrorHandler.DebugLog($"[6] TryFlatten: no Flat-Pattern; SetBendState present={(setBs!=null)}");
-                        if (setBs != null)
-                        {
-                            var okObj = setBs.Invoke(model, new object[] { 2 }); // 2 = flattened
-                            bool ok = okObj is bool b ? b : true;
-                            if (ok) { ErrorHandler.DebugLog("[6] SetBendState(Flattened) OK"); return true; }
-                        }
-                    }
-                    catch { }
+                    TrySetBendStateFlattened(model);
 
                     ErrorHandler.DebugLog("[6] No Flat-Pattern; skipping flatten");
                     return true;
@@ -915,6 +888,30 @@ namespace NM.SwAddin
                 Fail(info, "Exception while flattening", ex);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Attempts to flatten the model using reflection-based SetBendState(2) call.
+        /// This is a fallback when FlatPattern feature manipulation fails or doesn't exist.
+        /// </summary>
+        private static bool TrySetBendStateFlattened(IModelDoc2 model)
+        {
+            try
+            {
+                var t = ((object)model).GetType();
+                var setBs = t.GetMethod("SetBendState");
+                if (setBs != null)
+                {
+                    var okObj = setBs.Invoke(model, new object[] { 2 }); // 2 = flattened
+                    bool ok = okObj is bool b ? b : true;
+                    if (ok) { ErrorHandler.DebugLog("[SheetMetal] SetBendState(Flattened) OK"); return true; }
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError("SimpleSM.Flatten", "SetBendState fallback failed", ex, ErrorHandler.LogLevel.Warning);
+            }
+            return false;
         }
     }
 }
