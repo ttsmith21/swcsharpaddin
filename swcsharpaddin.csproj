@@ -123,6 +123,7 @@
     <Compile Include="src\NM.Core\Manufacturing\F220Calculator.cs" />
     <Compile Include="src\NM.Core\Manufacturing\F325Calculator.cs" />
     <Compile Include="src\NM.Core\Manufacturing\ManufacturingCalculator.cs" />
+    <Compile Include="src\NM.Core\Manufacturing\NestingEfficiencyEvaluator.cs" />
     <Compile Include="src\NM.Core\Manufacturing\Models.cs" />
     <Compile Include="src\NM.Core\Manufacturing\Rates.cs" />
     <Compile Include="src\NM.Core\Manufacturing\Laser\LaserCalculator.cs" />

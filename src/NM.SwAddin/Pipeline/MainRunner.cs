@@ -856,6 +856,70 @@ namespace NM.SwAddin.Pipeline
                     pd.OptiMaterial = optiCode;
             }
 
+            // Auto nesting efficiency override (sheet metal only, after successful conversion)
+            if (pd.Classification == PartType.SheetMetal &&
+                pd.BBoxLength_m > 0 && pd.BBoxWidth_m > 0 &&
+                pd.Thickness_m > 0 && pd.Mass_kg > 0)
+            {
+                try
+                {
+                    double partMassLb = pd.Mass_kg * KgToLbs;
+                    double bboxLengthIn = pd.BBoxLength_m * MetersToInches;
+                    double bboxWidthIn = pd.BBoxWidth_m * MetersToInches;
+                    double thicknessIn = pd.Thickness_m * MetersToInches;
+                    string materialCode = pd.Material ?? SolidWorksApiWrapper.GetMaterialName(doc) ?? "";
+                    double densityLbPerIn3 = Rates.GetDensityLbPerIn3(materialCode);
+
+                    string currentCalcMode = info.CustomProperties.GetPropertyValue("rbWeightCalc")?.ToString() ?? "0";
+                    double currentNestEff = 80.0;
+                    var nestEffStr = info.CustomProperties.GetPropertyValue("NestEfficiency")?.ToString();
+                    if (!string.IsNullOrEmpty(nestEffStr) && double.TryParse(nestEffStr,
+                        System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedEff))
+                    {
+                        currentNestEff = parsedEff;
+                    }
+
+                    var evalResult = NestingEfficiencyEvaluator.Evaluate(
+                        partMassLb, bboxLengthIn, bboxWidthIn, thicknessIn,
+                        densityLbPerIn3, currentCalcMode, currentNestEff);
+
+                    if (evalResult.ShouldOverride)
+                    {
+                        // Switch to L×W mode with bounding-box blank dimensions
+                        info.CustomProperties.SetPropertyValue("rbWeightCalc", "1", CustomPropertyType.Text);
+                        info.CustomProperties.SetPropertyValue("Length",
+                            evalResult.BlankLengthIn.ToString("F3", System.Globalization.CultureInfo.InvariantCulture),
+                            CustomPropertyType.Number);
+                        info.CustomProperties.SetPropertyValue("Width",
+                            evalResult.BlankWidthIn.ToString("F3", System.Globalization.CultureInfo.InvariantCulture),
+                            CustomPropertyType.Number);
+
+                        // Store the computed efficiency for diagnostics
+                        pd.Extra["NestingEfficiency_BBox"] = evalResult.BBoxEfficiencyPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+                        pd.Extra["NestingEfficiency_Override"] = "true";
+
+                        ErrorHandler.DebugLog($"[NEST] Auto-override: bbox efficiency {evalResult.BBoxEfficiencyPercent:F1}% < 80%. " +
+                            $"Blank: {evalResult.BlankLengthIn:F2}\" x {evalResult.BlankWidthIn:F2}\". Switched to L×W mode.");
+
+                        // Flag for user review via problem parts workflow
+                        ProblemPartManager.Instance.AddProblemPart(
+                            info.FilePath, info.ConfigurationName, string.Empty,
+                            $"Nesting efficiency auto-override: bounding-box efficiency is {evalResult.BBoxEfficiencyPercent:F1}% " +
+                            $"(below default 80%). Switched to L×W mode ({evalResult.BlankLengthIn:F2}\" × {evalResult.BlankWidthIn:F2}\"). " +
+                            $"Revert if this part nests with others on the sheet.",
+                            ProblemPartManager.ProblemCategory.NestingEfficiencyOverride);
+                    }
+                    else
+                    {
+                        ErrorHandler.DebugLog($"[NEST] {evalResult.Reason}");
+                    }
+                }
+                catch (Exception nestEx)
+                {
+                    ErrorHandler.HandleError("MainRunner", "Nesting efficiency evaluation failed", nestEx, ErrorHandler.LogLevel.Warning);
+                }
+            }
+
             // Raw weight calculation
             try
             {

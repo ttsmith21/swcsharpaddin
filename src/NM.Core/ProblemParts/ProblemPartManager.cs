@@ -30,6 +30,7 @@ namespace NM.Core.ProblemParts
             ProcessingError,
             ClassificationFailed,
             ManufacturingWarning,
+            NestingEfficiencyOverride,
             Fatal
         }
 

@@ -66,6 +66,7 @@ namespace NM.SwAddin.UI
         // Actions
         private Button _btnRetry;
         private Button _btnSkip;
+        private Button _btnRevertNesting;
         private Button _btnFinish;
         private Button _btnCancel;
 
@@ -195,6 +196,9 @@ namespace NM.SwAddin.UI
             _btnSkip = new Button { Left = 160, Top = 520, Width = 90, Height = 35, Text = "Skip" };
             _btnSkip.Click += OnSkip;
 
+            _btnRevertNesting = new Button { Left = 460, Top = 520, Width = 110, Height = 35, Text = "Revert to 80%", BackColor = Color.LightSalmon, Visible = false };
+            _btnRevertNesting.Click += OnRevertNestingOverride;
+
             _btnFinish = new Button { Left = 260, Top = 520, Width = 90, Height = 35, Text = "Finish" };
             _btnFinish.Click += OnFinish;
 
@@ -214,7 +218,7 @@ namespace NM.SwAddin.UI
                 _lblFileName, _lblPath, _lblConfig, _lblCategory,
                 lblError, _txtError, lblSuggestions, _lstSuggestions,
                 _grpPartType, _grpTubeDiag, separator2,
-                _btnRetry, _btnSkip, _btnFinish, _btnCancel,
+                _btnRetry, _btnSkip, _btnRevertNesting, _btnFinish, _btnCancel,
                 _progressBar, _lblFixedCount, _lblStatus
             });
         }
@@ -252,6 +256,9 @@ namespace NM.SwAddin.UI
             LoadSuggestions(item);
             UpdateNavigationButtons();
             UpdatePartTypeHint(item);
+
+            // Show/hide nesting efficiency revert button
+            _btnRevertNesting.Visible = (item.Category == ProblemPartManager.ProblemCategory.NestingEfficiencyOverride);
 
             // Reset tube diagnostics
             _tubeDiagnostics = null;
@@ -762,6 +769,63 @@ namespace NM.SwAddin.UI
             catch (Exception ex)
             {
                 NM.Core.ErrorHandler.DebugLog($"[Wizard] Failed to mark skipped: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Reverts a nesting efficiency auto-override back to the default 80% efficiency mode.
+        /// Writes rbWeightCalc=0 and NestEfficiency=80 to the part's custom properties.
+        /// </summary>
+        private void OnRevertNestingOverride(object sender, EventArgs e)
+        {
+            if (_problems.Count == 0 || _currentIndex >= _problems.Count) return;
+            var item = _problems[_currentIndex];
+
+            if (item.Category != ProblemPartManager.ProblemCategory.NestingEfficiencyOverride)
+                return;
+
+            try
+            {
+                if (_currentDoc != null)
+                {
+                    // Revert to efficiency mode with 80% default
+                    SwPropertyHelper.AddCustomProperty(_currentDoc, "rbWeightCalc",
+                        swCustomInfoType_e.swCustomInfoText, "0", "");
+                    SwPropertyHelper.AddCustomProperty(_currentDoc, "NestEfficiency",
+                        swCustomInfoType_e.swCustomInfoNumber, "80", "");
+                    SwDocumentHelper.SaveDocument(_currentDoc);
+
+                    NM.Core.ErrorHandler.DebugLog($"[Wizard] Reverted nesting override: {item.DisplayName} -> 80% efficiency mode");
+                }
+
+                // Mark as resolved
+                _fixedProblems.Add(item);
+                ProblemPartManager.Instance.RemoveResolvedPart(item);
+
+                _lblStatus.Text = $"Reverted to 80% efficiency: {item.DisplayName}";
+                _txtError.BackColor = Color.LightGoldenrodYellow;
+                _txtError.Text = "Reverted to default 80% nesting efficiency mode. Part will use standard material estimate.";
+
+                UpdateProgress();
+
+                // Auto-advance
+                if (_currentIndex < _problems.Count - 1)
+                {
+                    _lblStatus.Text += " - Moving to next problem...";
+                    Application.DoEvents();
+                    System.Threading.Thread.Sleep(500);
+                    _currentIndex++;
+                    LoadCurrentProblem();
+                }
+                else
+                {
+                    _lblStatus.Text += " - All problems reviewed!";
+                }
+            }
+            catch (Exception ex)
+            {
+                _lblStatus.Text = $"Revert failed: {ex.Message}";
+                NM.Core.ErrorHandler.DebugLog($"[Wizard] Revert nesting override failed: {ex.Message}");
             }
         }
 
