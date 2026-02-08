@@ -108,6 +108,10 @@
       <HintPath>$(NuGetPackageRoot)system.io.packaging\6.0.0\lib\net461\System.IO.Packaging.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Irony">
+      <HintPath>$(NuGetPackageRoot)irony.netcore\1.0.11\lib\net461\Irony.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
