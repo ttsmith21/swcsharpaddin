@@ -1,0 +1,26 @@
+{
+  "odbc": {
+    "dsn": "ProfitKey",
+    "connectionString": null
+  },
+  "query": "SELECT work_center_id, hourly_rate FROM work_center_rates WHERE active = 1",
+  "columnMapping": {
+    "idColumn": "work_center_id",
+    "rateColumn": "hourly_rate"
+  },
+  "workCenterMapping": {
+    "F115": "F115_LaserCutting",
+    "F140": "F140_PressBrake",
+    "F145": "F145_CncBending",
+    "F155": "F155_Waterjet",
+    "F210": "F210_Deburring",
+    "F220": "F220_Tapping",
+    "F300": "F300_MaterialHandling",
+    "F325": "F325_RollForming",
+    "F385": "F385_Assembly",
+    "F400": "F400_Welding",
+    "F500": "F500_Finishing",
+    "F525": "F525_Packaging",
+    "ENG": "ENG_Engineering"
+  }
+}

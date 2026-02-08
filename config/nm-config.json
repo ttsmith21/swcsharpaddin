@@ -1,5 +1,6 @@
 {
   "schemaVersion": 1,
+  "lastErpSync": null,
   "workCenters": {
     "F115_LaserCutting": 120.0,
     "F140_PressBrake": 80.0,
