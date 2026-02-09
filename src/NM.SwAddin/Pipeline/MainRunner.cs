@@ -883,18 +883,25 @@ namespace NM.SwAddin.Pipeline
             if (!string.IsNullOrEmpty(description))
                 pd.Extra["Description"] = description;
 
-            // OptiMaterial: preserve user-selected value from Tab Builder (e.g., "S.316L14GA")
-            // Only auto-resolve for new parts where it hasn't been set yet.
+            // OptiMaterial: When the user explicitly selects a material from the form,
+            // always re-resolve OptiMaterial to match their selection. Only preserve the
+            // existing value when no material was specified (i.e., batch/auto mode where
+            // a user may have manually edited OptiMaterial in Tab Builder).
             if (string.IsNullOrEmpty(pd.OptiMaterial))
             {
+                bool userSelectedMaterial = opts != null && !string.IsNullOrEmpty(opts.Material);
                 var existing = info.CustomProperties.GetPropertyValue("OptiMaterial")?.ToString();
-                if (!string.IsNullOrEmpty(existing))
+
+                if (!userSelectedMaterial && !string.IsNullOrEmpty(existing))
                 {
                     pd.OptiMaterial = existing;
+                    ErrorHandler.DebugLog($"[PROPWRITE] OptiMaterial: preserved existing='{existing}'");
                 }
                 else
                 {
+                    ErrorHandler.DebugLog($"[PROPWRITE] OptiMaterial: resolving (material='{pd.Material}', classification={pd.Classification}, thickness_m={pd.Thickness_m:F6}, isSheetMetal={pd.Sheet?.IsSheetMetal})");
                     var optiCode = StaticOptiMaterialService.Resolve(pd);
+                    ErrorHandler.DebugLog($"[PROPWRITE] OptiMaterial: resolved='{optiCode ?? "(null)"}'");
                     if (!string.IsNullOrEmpty(optiCode))
                         pd.OptiMaterial = optiCode;
                 }
@@ -992,15 +999,17 @@ namespace NM.SwAddin.Pipeline
             CalculateCosts(pd, info, options ?? new ProcessingOptions());
             PerformanceTracker.Instance.StopTimer("CostCalculation");
 
-            // VBA parity: preserve existing OP20 value if already set to a valid selection.
+            // VBA parity: preserve existing OP20 value if already set to a valid ComboBox selection.
             // VBA only auto-assigns OP20 when empty or set to a generic auto-detected value.
             // If the user (or a previous VBA run) chose a specific machine, keep it.
-            // NOTE: Store in a local variable, NOT pd.Extra, to avoid leaking a temp key
-            // into the Extras→properties loop which would create a junk SolidWorks property.
+            // IMPORTANT: Only preserve values that look like valid ComboBox entries (contain " - "),
+            // e.g., "N120 - 5040". Raw work center codes like "F115" are stale values from
+            // old code runs before the OP20Descriptions mapping was added — let the mapping fix them.
             string preservedOP20 = null;
             var existingOP20 = info.CustomProperties.GetPropertyValue("OP20")?.ToString();
-            if (!string.IsNullOrEmpty(existingOP20))
+            if (!string.IsNullOrEmpty(existingOP20) && existingOP20.Contains(" - "))
                 preservedOP20 = existingOP20;
+            ErrorHandler.DebugLog($"[PROPWRITE] OP20 preservation: existing='{existingOP20}', preserved='{preservedOP20 ?? "(null)"}'");
 
             // Map DTO -> properties and batch save.
             // Use ForceSetPropertyValue (not SetPropertyValue) so calculated values are
