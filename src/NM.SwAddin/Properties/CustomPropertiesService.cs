@@ -66,13 +66,16 @@ namespace NM.SwAddin.Properties
 
         /// <summary>
         /// Always write to global scope so Tab Builder sees properties.
-        /// Also write to config scope when a non-empty config is active (for BOM tables / assembly context).
+        /// Also write to config scope for non-default configurations (BOM tables / assembly context).
+        /// Skips config write for "Default" since global is sufficient.
         /// </summary>
         public bool WritePending(IModelDoc2 model, ModelInfo info)
         {
             string cfgName = info?.ConfigurationName ?? string.Empty;
+            bool isDefault = string.IsNullOrWhiteSpace(cfgName)
+                || string.Equals(cfgName, "Default", StringComparison.OrdinalIgnoreCase);
             bool writeGlobal = true; // Tab Builder reads from global ("")
-            bool writeConfig = !string.IsNullOrWhiteSpace(cfgName);
+            bool writeConfig = !isDefault; // Only dual-write for non-default configs
             return WritePending(model, info, writeGlobal, writeConfig);
         }
 
