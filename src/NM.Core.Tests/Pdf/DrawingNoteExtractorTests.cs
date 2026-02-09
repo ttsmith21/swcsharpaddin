@@ -195,5 +195,38 @@ namespace NM.Core.Tests.Pdf
             var notes = _extractor.ExtractNotes(text);
             Assert.All(notes, n => Assert.True(n.Confidence > 0));
         }
+
+        // --- False positive tests ---
+
+        [Theory]
+        [InlineData("BRACKET-BREAK-AWAY ASSEMBLY", NoteCategory.Deburr)]
+        [InlineData("DEBURRING WHEEL 6\" DIA", NoteCategory.Deburr)]
+        [InlineData("PAINT CAN HOLDER ASSY", NoteCategory.Finish)]
+        [InlineData("PAINT BOOTH VENTILATION DRAWING", NoteCategory.Finish)]
+        [InlineData("PAINT MASK FIXTURE", NoteCategory.Finish)]
+        [InlineData("PRIMED HOUSING SUBASSEMBLY", NoteCategory.Finish)]
+        [InlineData("DRILL PRESS MODEL 4200", NoteCategory.Machine)]
+        [InlineData("NORMALIZE DATA VALUES", NoteCategory.HeatTreat)]
+        [InlineData("COUNTERSINK1 FEATURE SUPPRESSED", NoteCategory.Machine)]
+        [InlineData("E-COATED FASTENER KIT", NoteCategory.Finish)]
+        public void ShouldNotMatchFalsePositives(string text, NoteCategory unexpectedCategory)
+        {
+            var notes = _extractor.ExtractNotes(text);
+            Assert.DoesNotContain(notes, n => n.Category == unexpectedCategory);
+        }
+
+        [Fact]
+        public void BomDescriptionsDoNotTriggerNotes()
+        {
+            string pageText = "NOTES:\n1. BREAK ALL EDGES\n2. POWDER COAT BLACK\n\n" +
+                "BILL OF MATERIAL\n1  12345  LASER CUT BRACKET       4\n" +
+                "2  67890  PAINT CAN HOLDER ASSY   2\n3  11111  GALVANIZED ANGLE IRON   8";
+            var notes = _extractor.ExtractNotes(pageText);
+            Assert.Contains(notes, n => n.Text.Contains("BREAK ALL EDGES"));
+            Assert.Contains(notes, n => n.Text.Contains("POWDER COAT"));
+            Assert.DoesNotContain(notes, n => n.Text.Contains("LASER CUT BRACKET"));
+            Assert.DoesNotContain(notes, n => n.Text.Contains("PAINT CAN HOLDER"));
+            Assert.DoesNotContain(notes, n => n.Text.Contains("GALVANIZED ANGLE"));
+        }
     }
 }
