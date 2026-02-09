@@ -894,17 +894,8 @@ namespace NM.SwAddin.Pipeline
                             evalResult.BlankWidthIn.ToString("F3", System.Globalization.CultureInfo.InvariantCulture),
                             CustomPropertyType.Number);
 
-                        // Write directly to SW document at GLOBAL scope so Tab Builder sees them.
-                        // SavePropertiesToSolidWorks writes to config scope, but Tab Builder
-                        // reads from global (ApplyTo="Global" in the XML template).
-                        string blankLStr = evalResult.BlankLengthIn.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
-                        string blankWStr = evalResult.BlankWidthIn.ToString("F3", System.Globalization.CultureInfo.InvariantCulture);
-                        SwPropertyHelper.AddCustomProperty(doc, "rbWeightCalc",
-                            swCustomInfoType_e.swCustomInfoText, "1", "");
-                        SwPropertyHelper.AddCustomProperty(doc, "Length",
-                            swCustomInfoType_e.swCustomInfoNumber, blankLStr, "");
-                        SwPropertyHelper.AddCustomProperty(doc, "Width",
-                            swCustomInfoType_e.swCustomInfoNumber, blankWStr, "");
+                        // No manual global-scope workaround needed — SavePropertiesToSolidWorks
+                        // now writes all properties to both global and config scopes.
 
                         // Store the computed efficiency for diagnostics
                         pd.Extra["NestingEfficiency_BBox"] = evalResult.BBoxEfficiencyPercent.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);

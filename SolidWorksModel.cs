@@ -197,10 +197,11 @@ namespace NM.SwAddin
                 }
 
                 string config = Info.ConfigurationName ?? string.Empty;
+                bool alsoWriteConfig = !string.IsNullOrWhiteSpace(config);
                 var states = Info.CustomProperties.GetPropertyStates();
                 var values = Info.CustomProperties.GetProperties();
                 var types = Info.CustomProperties.GetPropertyTypes();
-                ErrorHandler.DebugLog($"Saving {states.Count} properties to config '{config}' (empty = document-level) for '{Document?.GetTitle()}'");
+                ErrorHandler.DebugLog($"Saving {states.Count} properties: always global + config '{config}' for '{Document?.GetTitle()}'");
                 bool ok = true;
 
                 foreach (var kv in states)
@@ -215,16 +216,23 @@ namespace NM.SwAddin
                     {
                         case PropertyState.Added:
                             ErrorHandler.DebugLog($"Add prop '{name}'='{val}'");
-                            ok &= SwPropertyHelper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, config);
+                            // Always write to global ("") so Tab Builder sees properties
+                            ok &= SwPropertyHelper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, "");
+                            // Also write to active config for BOM tables / assembly context
+                            if (alsoWriteConfig)
+                                ok &= SwPropertyHelper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, config);
                             break;
                         case PropertyState.Modified:
-                            // VBA pattern: Always delete-then-add for reliability
                             ErrorHandler.DebugLog($"Modify prop '{name}'='{val}' (using delete+add)");
-                            ok &= SwPropertyHelper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, config);
+                            ok &= SwPropertyHelper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, "");
+                            if (alsoWriteConfig)
+                                ok &= SwPropertyHelper.AddCustomProperty(Document, name, (swCustomInfoType_e)tp, val, config);
                             break;
                         case PropertyState.Deleted:
                             ErrorHandler.DebugLog($"Delete prop '{name}'");
-                            ok &= SwPropertyHelper.DeleteCustomProperty(Document, name, config);
+                            ok &= SwPropertyHelper.DeleteCustomProperty(Document, name, "");
+                            if (alsoWriteConfig)
+                                ok &= SwPropertyHelper.DeleteCustomProperty(Document, name, config);
                             break;
                     }
                 }
