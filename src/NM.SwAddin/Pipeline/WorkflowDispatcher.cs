@@ -137,92 +137,22 @@ namespace NM.SwAddin.Pipeline
                     return !seen.Add(key);
                 });
 
-                // Step 3: Show problems if any
+                // Step 3: Show problems (non-blocking) or continue directly
                 ErrorHandler.DebugLog($"[WORKFLOW] Before ShowProblemPartsDialog check: ProblemModels.Count={context.ProblemModels.Count}");
                 if (context.ProblemModels.Count > 0)
                 {
-                    var action = ShowProblemPartsDialog(context);
-
-                    switch (action)
+                    // Non-blocking: show form, return immediately.
+                    // SolidWorks' message loop continues running (keyboard + shortcuts work).
+                    // ContinueAfterProblemReview runs when the user closes the form.
+                    ShowProblemPartsDialog(context, action =>
                     {
-                        case ProblemAction.Cancel:
-                            context.UserCanceled = true;
-                            context.StopTiming();
-                            return context;
-
-                        case ProblemAction.Retry:
-                            // User may have fixed some - re-validate problem models
-                            var nowGood = _validator.RevalidateModels(context.ProblemModels);
-                            foreach (var model in nowGood)
-                            {
-                                context.ProblemModels.Remove(model);
-                                context.GoodModels.Add(model);
-                            }
-                            break;
-
-                        case ProblemAction.ContinueWithGood:
-                            // Proceed with good models only
-                            break;
-                    }
+                        ContinueAfterProblemReview(context, options, action);
+                    });
                 }
-
-                // Step 4: PASS 2 - Process good models
-                if (context.GoodModels.Count > 0)
+                else
                 {
-                    ProcessGoodModelsPass2(context, options);
-
-                    // Step 4b: Show problem wizard for processing failures
-                    if (context.FailedModels.Count > 0 && !context.UserCanceled)
-                    {
-                        ErrorHandler.DebugLog($"[WORKFLOW] {context.FailedModels.Count} parts failed processing - showing problem wizard");
-
-                        // Move FailedModels into ProblemModels so the wizard can display them
-                        foreach (var failed in context.FailedModels)
-                        {
-                            var category = GuessProblemCategory(failed.ProblemDescription);
-                            ProblemPartManager.Instance.AddProblemPart(
-                                failed.FilePath,
-                                failed.Configuration ?? string.Empty,
-                                failed.ComponentName ?? string.Empty,
-                                failed.ProblemDescription ?? "Processing failed",
-                                category);
-                            context.ProblemModels.Add(failed);
-                        }
-                        context.FailedModels.Clear();
-
-                        var postAction = ShowProblemPartsDialog(context);
-                        if (postAction == ProblemAction.Cancel)
-                        {
-                            context.UserCanceled = true;
-                        }
-                        // Fixed items were moved from ProblemModels to GoodModels by ShowProblemPartsDialog
-                    }
-
-                    AggregateCosts(context);  // Aggregate costs after processing
-                    GenerateErpExport(context);  // Generate Import.prn if enabled
-                    GenerateQuoteReport(context);  // Generate Excel quote report if enabled
+                    ContinueAfterProblemReview(context, options, ProblemAction.ContinueWithGood);
                 }
-
-                // Rebuild and save assembly after all parts are processed
-                if (context.Source == WorkflowContext.SourceType.Assembly && context.SourceDocument != null)
-                {
-                    try
-                    {
-                        ErrorHandler.DebugLog("[WORKFLOW] Rebuilding and saving assembly...");
-                        context.SourceDocument.ForceRebuild3(true);
-                        SwDocumentHelper.SaveDocument(context.SourceDocument);
-                        ErrorHandler.DebugLog("[WORKFLOW] Assembly rebuilt and saved.");
-                    }
-                    catch (Exception ex)
-                    {
-                        ErrorHandler.DebugLog($"[WORKFLOW] Assembly rebuild/save failed: {ex.Message}");
-                    }
-                }
-
-                context.ProcessingComplete = true;
-
-                // Step 5: Show final summary
-                ShowFinalSummary(context);
             }
             catch (Exception ex)
             {
@@ -326,6 +256,121 @@ namespace NM.SwAddin.Pipeline
                 sw.Stop();
                 context.ProcessingElapsed = sw.Elapsed;
                 progressForm.Close();
+            }
+        }
+
+        /// <summary>
+        /// Continuation after user reviews validation problems (Step 3 result).
+        /// Handles Pass 2 processing and post-processing problem review.
+        /// </summary>
+        private void ContinueAfterProblemReview(WorkflowContext context, ProcessingOptions options, ProblemAction action)
+        {
+            try
+            {
+                switch (action)
+                {
+                    case ProblemAction.Cancel:
+                        context.UserCanceled = true;
+                        context.StopTiming();
+                        return;
+
+                    case ProblemAction.Retry:
+                        var nowGood = _validator.RevalidateModels(context.ProblemModels);
+                        foreach (var model in nowGood)
+                        {
+                            context.ProblemModels.Remove(model);
+                            context.GoodModels.Add(model);
+                        }
+                        break;
+
+                    case ProblemAction.ContinueWithGood:
+                        break;
+                }
+
+                // Step 4: PASS 2 - Process good models
+                if (context.GoodModels.Count > 0)
+                {
+                    ProcessGoodModelsPass2(context, options);
+
+                    // Step 4b: Show problem wizard for processing failures
+                    if (context.FailedModels.Count > 0 && !context.UserCanceled)
+                    {
+                        ErrorHandler.DebugLog($"[WORKFLOW] {context.FailedModels.Count} parts failed processing - showing problem wizard");
+
+                        foreach (var failed in context.FailedModels)
+                        {
+                            var category = GuessProblemCategory(failed.ProblemDescription);
+                            ProblemPartManager.Instance.AddProblemPart(
+                                failed.FilePath,
+                                failed.Configuration ?? string.Empty,
+                                failed.ComponentName ?? string.Empty,
+                                failed.ProblemDescription ?? "Processing failed",
+                                category);
+                            context.ProblemModels.Add(failed);
+                        }
+                        context.FailedModels.Clear();
+
+                        // Non-blocking: show form, continuation handles finalization
+                        ShowProblemPartsDialog(context, postAction =>
+                        {
+                            ContinueAfterPostProcessReview(context, options, postAction);
+                        });
+                        return;
+                    }
+                }
+
+                ContinueAfterPostProcessReview(context, options, ProblemAction.ContinueWithGood);
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError("ContinueAfterProblemReview", "Workflow failed", ex, ErrorHandler.LogLevel.Error);
+                ShowMessage($"Workflow error: {ex.Message}", "Error");
+                context.StopTiming();
+            }
+        }
+
+        /// <summary>
+        /// Continuation after user reviews post-processing failures.
+        /// Handles cost aggregation, export, assembly rebuild, and final summary.
+        /// </summary>
+        private void ContinueAfterPostProcessReview(WorkflowContext context, ProcessingOptions options, ProblemAction action)
+        {
+            try
+            {
+                if (action == ProblemAction.Cancel)
+                    context.UserCanceled = true;
+
+                AggregateCosts(context);
+                GenerateErpExport(context);
+                GenerateQuoteReport(context);
+
+                // Rebuild and save assembly after all parts are processed
+                if (context.Source == WorkflowContext.SourceType.Assembly && context.SourceDocument != null)
+                {
+                    try
+                    {
+                        ErrorHandler.DebugLog("[WORKFLOW] Rebuilding and saving assembly...");
+                        context.SourceDocument.ForceRebuild3(true);
+                        SwDocumentHelper.SaveDocument(context.SourceDocument);
+                        ErrorHandler.DebugLog("[WORKFLOW] Assembly rebuilt and saved.");
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorHandler.DebugLog($"[WORKFLOW] Assembly rebuild/save failed: {ex.Message}");
+                    }
+                }
+
+                context.ProcessingComplete = true;
+                ShowFinalSummary(context);
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError("ContinueAfterPostProcessReview", "Workflow failed", ex, ErrorHandler.LogLevel.Error);
+                ShowMessage($"Workflow error: {ex.Message}", "Error");
+            }
+            finally
+            {
+                context.StopTiming();
             }
         }
 
@@ -700,7 +745,11 @@ namespace NM.SwAddin.Pipeline
             return null;
         }
 
-        private ProblemAction ShowProblemPartsDialog(WorkflowContext context)
+        /// <summary>
+        /// Shows the problem parts dialog non-modally and invokes the callback when the user finishes.
+        /// Does NOT block the SolidWorks message loop — keyboard and shortcuts continue working.
+        /// </summary>
+        private void ShowProblemPartsDialog(WorkflowContext context, Action<ProblemAction> onComplete)
         {
             // Register problem models with ProblemPartManager so the form can display them
             foreach (var problem in context.ProblemModels)
@@ -721,43 +770,30 @@ namespace NM.SwAddin.Pipeline
             bool useTaskPane = _options != null && _options.UseTaskPane
                 && _taskPaneManager != null && _taskPaneManager.IsCreated;
 
-            ProblemAction action;
-            List<ProblemPartManager.ProblemItem> fixedProblems;
-
             if (useTaskPane)
             {
-                _taskPaneManager.LoadProblems(problems, goodCount);
-
-                while (_taskPaneManager.IsWaitingForAction)
+                // Non-blocking: TaskPaneManager fires callback via OnActionCompleted
+                _taskPaneManager.LoadProblems(problems, goodCount, action =>
                 {
-                    Application.DoEvents();
-                    System.Threading.Thread.Sleep(50);
-                }
-
-                action = _taskPaneManager.LastAction;
-                fixedProblems = _taskPaneManager.FixedProblems;
-                _taskPaneManager.ClearProblems();
+                    TransferFixedProblems(context, _taskPaneManager.FixedProblems);
+                    _taskPaneManager.ClearProblems();
+                    onComplete(action);
+                });
             }
             else
             {
+                // Non-blocking: show wizard, wire FormClosed to resume processing
                 var wizard = new ProblemWizardForm(problems, _swApp, goodCount);
-                wizard.Show();
-
-                while (wizard.Visible)
+                wizard.FormClosed += (s, e) =>
                 {
-                    Application.DoEvents();
-                    System.Threading.Thread.Sleep(50);
-                }
-
-                action = wizard.SelectedAction;
-                fixedProblems = wizard.FixedProblems;
-                wizard.Dispose();
+                    var action = wizard.SelectedAction;
+                    TransferFixedProblems(context, wizard.FixedProblems);
+                    wizard.Dispose();
+                    onComplete(action);
+                };
+                wizard.Show();
+                // Returns immediately — SolidWorks' message loop continues running
             }
-
-            // Update good/processed counts based on fixed problems
-            TransferFixedProblems(context, fixedProblems);
-
-            return action;
         }
 
         /// <summary>

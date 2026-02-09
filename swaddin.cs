@@ -648,59 +648,49 @@ namespace swcsharpaddin
                     return;
                 }
 
-                // If task pane is available, load problems there and wait
+                // If task pane is available, load problems there (non-blocking)
                 if (_taskPaneManager != null && _taskPaneManager.IsCreated)
                 {
-                    _taskPaneManager.LoadProblems(problems, 0);
-
-                    // Wait for user action (same pattern as wizard DoEvents loop)
-                    while (_taskPaneManager.IsWaitingForAction)
+                    _taskPaneManager.LoadProblems(problems, 0, action =>
                     {
-                        System.Windows.Forms.Application.DoEvents();
-                        System.Threading.Thread.Sleep(50);
-                    }
+                        int fixedCount = _taskPaneManager.FixedProblems.Count;
+                        NM.Core.ErrorHandler.DebugLog($"[ReviewProblems] TaskPane closed. Fixed: {fixedCount}, Action: {action}");
 
-                    int fixedCount = _taskPaneManager.FixedProblems.Count;
-                    NM.Core.ErrorHandler.DebugLog($"[ReviewProblems] TaskPane closed. Fixed: {fixedCount}, Action: {_taskPaneManager.LastAction}");
+                        if (fixedCount > 0)
+                        {
+                            System.Windows.Forms.MessageBox.Show(
+                                $"Fixed {fixedCount} problem part(s).\n\n" +
+                                $"Remaining problems: {NM.Core.ProblemParts.ProblemPartManager.Instance.GetProblemParts().Count}",
+                                "Review Complete",
+                                System.Windows.Forms.MessageBoxButtons.OK,
+                                System.Windows.Forms.MessageBoxIcon.Information);
+                        }
 
-                    if (fixedCount > 0)
+                        _taskPaneManager.ClearProblems();
+                    });
+                    return;
+                }
+
+                // Fallback: floating wizard form (non-blocking)
+                var wizard = new ProblemWizardForm(problems, iSwApp, 0);
+                wizard.FormClosed += (s, e) =>
+                {
+                    int wizFixedCount = wizard.FixedProblems.Count;
+                    NM.Core.ErrorHandler.DebugLog($"[ReviewProblems] Wizard closed. Fixed: {wizFixedCount}, Action: {wizard.SelectedAction}");
+
+                    if (wizFixedCount > 0)
                     {
                         System.Windows.Forms.MessageBox.Show(
-                            $"Fixed {fixedCount} problem part(s).\n\n" +
+                            $"Fixed {wizFixedCount} problem part(s).\n\n" +
                             $"Remaining problems: {NM.Core.ProblemParts.ProblemPartManager.Instance.GetProblemParts().Count}",
                             "Review Complete",
                             System.Windows.Forms.MessageBoxButtons.OK,
                             System.Windows.Forms.MessageBoxIcon.Information);
                     }
 
-                    _taskPaneManager.ClearProblems();
-                    return;
-                }
-
-                // Fallback: floating wizard form
-                var wizard = new ProblemWizardForm(problems, iSwApp, 0);
+                    wizard.Dispose();
+                };
                 wizard.Show();
-
-                while (wizard.Visible)
-                {
-                    System.Windows.Forms.Application.DoEvents();
-                    System.Threading.Thread.Sleep(50);
-                }
-
-                int wizFixedCount = wizard.FixedProblems.Count;
-                NM.Core.ErrorHandler.DebugLog($"[ReviewProblems] Wizard closed. Fixed: {wizFixedCount}, Action: {wizard.SelectedAction}");
-
-                if (wizFixedCount > 0)
-                {
-                    System.Windows.Forms.MessageBox.Show(
-                        $"Fixed {wizFixedCount} problem part(s).\n\n" +
-                        $"Remaining problems: {NM.Core.ProblemParts.ProblemPartManager.Instance.GetProblemParts().Count}",
-                        "Review Complete",
-                        System.Windows.Forms.MessageBoxButtons.OK,
-                        System.Windows.Forms.MessageBoxIcon.Information);
-                }
-
-                wizard.Dispose();
             }
             catch (System.Exception ex)
             {

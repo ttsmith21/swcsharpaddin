@@ -347,6 +347,7 @@
     <Compile Include="src\NM.Core\Pdf\PdfRenderer.cs" />
     <Compile Include="src\NM.Core\Pdf\Models\ExtractionGroundTruth.cs" />
     <Compile Include="src\NM.Core\Pdf\Models\ToleranceCallout.cs" />
+    <Compile Include="src\NM.SwAddin\UI\NativeMessagePump.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->
@@ -369,7 +370,7 @@
     <EmbeddedResource Include="Icons\ToolbarStrip_128.png" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Configuration JSON files ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â copied to bin\Debug\config\ at build time -->
+    <!-- Configuration JSON files ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â copied to bin\Debug\config\ at build time -->
     <Content Include="config\nm-config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>config\nm-config.json</Link>

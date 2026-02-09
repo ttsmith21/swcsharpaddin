@@ -12,58 +12,128 @@ using SolidWorks.Interop.sldworks;
 namespace NM.SwAddin.UI
 {
     /// <summary>
-    /// Forwards keyboard messages to editable WinForms controls (TextBox, ListBox)
-    /// when they have focus inside the task pane. Without this, SolidWorks'
-    /// accelerator table intercepts keystrokes before they reach WinForms.
-    /// Only intercepts for input controls — never steals keys from SolidWorks'
-    /// own property manager or other native UI.
+    /// Win32 thread message hook that intercepts keyboard messages BEFORE
+    /// SolidWorks' TranslateAccelerator can consume them. When an editable
+    /// WinForms control (TextBox, ListBox, ComboBox) inside the task pane has
+    /// focus, this hook calls IsDialogMessage() to route the keystroke to
+    /// the control instead of letting SolidWorks eat it.
+    ///
+    /// This replaces the previous IMessageFilter approach which operated at
+    /// the .NET Application level (after TranslateAccelerator) and interfered
+    /// with SolidWorks' keyboard routing even when our controls didn't have focus.
     /// </summary>
-    internal sealed class TaskPaneKeyboardFilter : IMessageFilter
+    internal sealed class TaskPaneKeyboardHook : IDisposable
     {
+        private const int WH_GETMESSAGE = -1;
+        private const int PM_REMOVE = 0x0001;
         private const int WM_KEYDOWN = 0x0100;
         private const int WM_KEYUP = 0x0101;
         private const int WM_CHAR = 0x0102;
         private const int WM_SYSKEYDOWN = 0x0104;
         private const int WM_SYSKEYUP = 0x0105;
 
+        private delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SetWindowsHookEx(int idHook, HookProc lpfn, IntPtr hMod, uint dwThreadId);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool UnhookWindowsHookEx(IntPtr hhk);
+
         [DllImport("user32.dll")]
-        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetFocus();
 
-        private readonly Control _host;
+        [DllImport("user32.dll")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool IsDialogMessage(IntPtr hDlg, ref MSG lpMsg);
 
-        public TaskPaneKeyboardFilter(Control host)
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSG
+        {
+            public IntPtr hwnd;
+            public int message;
+            public IntPtr wParam;
+            public IntPtr lParam;
+            public uint time;
+            public POINT pt;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT
+        {
+            public int x;
+            public int y;
+        }
+
+        private readonly Control _host;
+        private IntPtr _hookHandle;
+        private HookProc _hookDelegate; // prevent GC collection
+
+        public TaskPaneKeyboardHook(Control host)
         {
             _host = host;
         }
 
-        public bool PreFilterMessage(ref Message m)
+        public void Install()
         {
-            if (m.Msg == WM_KEYDOWN || m.Msg == WM_KEYUP || m.Msg == WM_CHAR ||
-                m.Msg == WM_SYSKEYDOWN || m.Msg == WM_SYSKEYUP)
+            if (_hookHandle != IntPtr.Zero) return;
+            _hookDelegate = HookCallback;
+            _hookHandle = SetWindowsHookEx(WH_GETMESSAGE, _hookDelegate, IntPtr.Zero, GetCurrentThreadId());
+        }
+
+        public void Uninstall()
+        {
+            if (_hookHandle != IntPtr.Zero)
             {
-                // Use Win32 GetFocus to get the actual focused HWND — more reliable
-                // than WinForms ContainsFocus in SolidWorks task pane hosting.
-                IntPtr focusedHwnd = GetFocus();
-                if (focusedHwnd == IntPtr.Zero) return false;
-
-                // Check if the focused HWND belongs to an editable child of our host
-                var focused = Control.FromHandle(focusedHwnd);
-                if (focused == null) return false;
-                if (!IsEditableControl(focused)) return false;
-                if (!_host.Contains(focused) && focused != _host) return false;
-
-                SendMessage(focusedHwnd, m.Msg, m.WParam, m.LParam);
-                return true;
+                UnhookWindowsHookEx(_hookHandle);
+                _hookHandle = IntPtr.Zero;
             }
-            return false;
+        }
+
+        private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0 && wParam.ToInt32() == PM_REMOVE)
+            {
+                var msg = Marshal.PtrToStructure<MSG>(lParam);
+
+                if (msg.message >= WM_KEYDOWN && msg.message <= WM_SYSKEYUP)
+                {
+                    IntPtr focusHwnd = GetFocus();
+                    if (focusHwnd != IntPtr.Zero)
+                    {
+                        var focused = Control.FromHandle(focusHwnd);
+                        if (focused != null && IsEditableControl(focused) &&
+                            (_host.Contains(focused) || focused == _host))
+                        {
+                            // Route to our dialog instead of letting SW consume it
+                            if (IsDialogMessage(_host.Handle, ref msg))
+                            {
+                                // Nullify the message so SolidWorks doesn't also process it
+                                Marshal.WriteInt32(lParam, IntPtr.Size, 0); // msg.message = WM_NULL
+                                return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+                            }
+                        }
+                    }
+                }
+            }
+            return CallNextHookEx(_hookHandle, nCode, wParam, lParam);
         }
 
         private static bool IsEditableControl(Control c)
         {
             return c is TextBox || c is ListBox || c is ComboBox || c is RichTextBox;
+        }
+
+        public void Dispose()
+        {
+            Uninstall();
         }
     }
 
@@ -77,14 +147,7 @@ namespace NM.SwAddin.UI
     [Guid("A7E3F8B1-4C2D-4E9A-B6F5-1D8A3C7E9F02")]
     public sealed class ProblemPartsTaskPaneControl : UserControl
     {
-        // WM_GETDLGCODE constants - tells Windows we want all keyboard input
-        private const int WM_GETDLGCODE = 0x0087;
-        private const int DLGC_WANTALLKEYS = 0x0004;
-        private const int DLGC_WANTARROWS = 0x0001;
-        private const int DLGC_WANTTAB = 0x0002;
-        private const int DLGC_WANTCHARS = 0x0080;
-
-        private TaskPaneKeyboardFilter _keyboardFilter;
+        private TaskPaneKeyboardHook _keyboardHook;
         public const string PROGID = "NM.SwAddin.ProblemPartsTaskPane";
 
         private ISldWorks _swApp;
@@ -154,45 +217,24 @@ namespace NM.SwAddin.UI
 
         public ProblemPartsTaskPaneControl()
         {
-            _keyboardFilter = new TaskPaneKeyboardFilter(this);
+            _keyboardHook = new TaskPaneKeyboardHook(this);
             BuildUI();
             ShowPlaceholder();
-        }
-
-        /// <summary>
-        /// Tell Windows this control wants keyboard input, but only when an
-        /// editable child (TextBox, ListBox) actually has focus. Otherwise
-        /// let SolidWorks handle keys normally (property manager, shortcuts, etc.).
-        /// </summary>
-        protected override void WndProc(ref Message m)
-        {
-            if (m.Msg == WM_GETDLGCODE)
-            {
-                var focused = ActiveControl;
-                if (focused is TextBox || focused is ListBox || focused is ComboBox)
-                {
-                    m.Result = (IntPtr)(DLGC_WANTALLKEYS | DLGC_WANTARROWS | DLGC_WANTTAB | DLGC_WANTCHARS);
-                    return;
-                }
-            }
-            base.WndProc(ref m);
         }
 
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
-            // Register globally at creation — the filter itself checks ContainsFocus
-            // so it only intercepts when this panel (or a child) is focused.
-            // OnEnter/OnLeave on the parent UserControl is unreliable when the user
-            // clicks directly into a child TextBox from outside the control.
-            Application.AddMessageFilter(_keyboardFilter);
+            // Install Win32 thread message hook to intercept keyboard messages
+            // BEFORE SolidWorks' TranslateAccelerator can consume them.
+            _keyboardHook.Install();
         }
 
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                Application.RemoveMessageFilter(_keyboardFilter);
+                _keyboardHook?.Dispose();
             }
             base.Dispose(disposing);
         }

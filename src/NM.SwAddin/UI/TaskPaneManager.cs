@@ -20,6 +20,7 @@ namespace NM.SwAddin.UI
         private ProblemPartsTaskPaneControl _control;
         private bool _waitingForAction;
         private ProblemAction _lastAction;
+        private Action<ProblemAction> _completionCallback;
 
         /// <summary>
         /// Whether the panel currently has problems loaded and is waiting for user action.
@@ -89,10 +90,14 @@ namespace NM.SwAddin.UI
         /// <summary>
         /// Loads problems into the task pane and optionally shows the pane tab.
         /// </summary>
-        public void LoadProblems(List<ProblemPartManager.ProblemItem> problems, int goodCount)
+        /// <param name="problems">Problem items to display.</param>
+        /// <param name="goodCount">Number of good models for display.</param>
+        /// <param name="onComplete">Optional callback invoked when user completes review. If null, caller must poll IsWaitingForAction.</param>
+        public void LoadProblems(List<ProblemPartManager.ProblemItem> problems, int goodCount, Action<ProblemAction> onComplete = null)
         {
             if (_control == null) return;
 
+            _completionCallback = onComplete;
             _waitingForAction = true;
             _lastAction = ProblemAction.Cancel;
             _control.LoadProblems(problems, goodCount);
@@ -161,6 +166,10 @@ namespace NM.SwAddin.UI
         {
             _lastAction = action;
             _waitingForAction = false;
+
+            var callback = _completionCallback;
+            _completionCallback = null;
+            callback?.Invoke(action);
         }
 
         public void Dispose()
