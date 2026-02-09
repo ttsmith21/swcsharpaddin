@@ -173,16 +173,14 @@ namespace NM.SwAddin.UI
             base.WndProc(ref m);
         }
 
-        protected override void OnEnter(EventArgs e)
+        protected override void OnHandleCreated(EventArgs e)
         {
-            base.OnEnter(e);
+            base.OnHandleCreated(e);
+            // Register globally at creation — the filter itself checks ContainsFocus
+            // so it only intercepts when this panel (or a child) is focused.
+            // OnEnter/OnLeave on the parent UserControl is unreliable when the user
+            // clicks directly into a child TextBox from outside the control.
             Application.AddMessageFilter(_keyboardFilter);
-        }
-
-        protected override void OnLeave(EventArgs e)
-        {
-            Application.RemoveMessageFilter(_keyboardFilter);
-            base.OnLeave(e);
         }
 
         protected override void Dispose(bool disposing)
