@@ -138,7 +138,13 @@ namespace NM.SwAddin.Pipeline
                 pd.FilePath = doc.GetPathName();
                 pd.PartName = doc.GetTitle();
                 pd.Configuration = cfg;
-                pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
+                // Use user's material selection from form if provided (e.g., "316L");
+                // fall back to SolidWorks material database name (e.g., "AISI 304").
+                // VBA: material comes from modSetMaterial.strMaterial (user form), not SW.
+                if (options != null && !string.IsNullOrEmpty(options.Material))
+                    pd.Material = options.Material;
+                else
+                    pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
 
                 // Basic geometry check - get all solid bodies
                 var partDoc = doc as IPartDoc;
@@ -217,7 +223,9 @@ namespace NM.SwAddin.Pipeline
                     // Still collect mass for material costing
                     var purchMass = SwMassPropertiesHelper.GetModelMass(doc);
                     if (purchMass >= 0) pd.Mass_kg = purchMass;
-                    pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
+                    // Material already set from options (line ~142) or SW fallback
+                    if (string.IsNullOrEmpty(pd.Material))
+                        pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
                     pd.Status = ProcessingStatus.Success;
 
                     // Bypass classification + processing, go straight to property write
@@ -983,15 +991,40 @@ namespace NM.SwAddin.Pipeline
             CalculateCosts(pd, info, options ?? new ProcessingOptions());
             PerformanceTracker.Instance.StopTimer("CostCalculation");
 
-            // Map DTO -> properties and batch save
+            // VBA parity: preserve existing OP20 value if already set to a valid selection.
+            // VBA only auto-assigns OP20 when empty or set to a generic auto-detected value.
+            // If the user (or a previous VBA run) chose a specific machine, keep it.
+            var existingOP20 = info.CustomProperties.GetPropertyValue("OP20")?.ToString();
+            if (!string.IsNullOrEmpty(existingOP20))
+            {
+                // OP20 already has a value — preserve it for the Tab Builder ComboBox.
+                // We still use OP20_WorkCenter internally for cost calculation routing.
+                pd.Extra["_ExistingOP20"] = existingOP20;
+            }
+
+            // Map DTO -> properties and batch save.
+            // Use ForceSetPropertyValue (not SetPropertyValue) so calculated values are
+            // ALWAYS written to SolidWorks, even if the value hasn't changed from what was
+            // read from the config scope. This matches VBA behavior (delete + add every time)
+            // and prevents the change tracker from silently skipping properties that were
+            // read from config but need to be written to global scope for the Tab Builder.
             PerformanceTracker.Instance.StartTimer("PropertyWrite");
             var mapped = PartDataPropertyMap.ToProperties(pd);
+
+            // VBA parity: if OP20 was already set, preserve the user's machine selection
+            // unless the part had no OP20 (new/unprocessed part).
+            if (pd.Extra.ContainsKey("_ExistingOP20"))
+            {
+                mapped["OP20"] = pd.Extra["_ExistingOP20"];
+                pd.Extra.Remove("_ExistingOP20"); // clean up temp key
+            }
+
             foreach (var kv in mapped)
             {
                 if (double.TryParse(kv.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
-                    info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Number);
+                    info.CustomProperties.ForceSetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Number);
                 else
-                    info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
+                    info.CustomProperties.ForceSetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
             }
 
             var opts2 = options ?? new ProcessingOptions();

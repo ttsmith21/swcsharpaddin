@@ -8,9 +8,44 @@ namespace NM.Core.Processing
 {
     // Converts between strongly-typed PartData and the string-based custom properties schema.
     // Centralizes string conversions and legacy property naming.
+    //
+    // IMPORTANT: All setup/run time properties are written in HOURS (not minutes).
+    // Internally CostingData stores times in minutes (*_min fields), but VBA, Tab Builder,
+    // and ERP Import.prn all expect HOURS. We convert here: hours = minutes / 60.
     public static class PartDataPropertyMap
     {
         private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+
+        /// <summary>
+        /// Maps internal work center codes to the full OP20 property strings
+        /// that match the Tab Builder ComboBox entries (from OP20.txt).
+        /// VBA examples: "N120 - 5040", "F110 - TUBE LASER", "F300 - SAW"
+        /// </summary>
+        private static readonly Dictionary<string, string> OP20Descriptions =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "F115", "N120 - 5040" },         // Default flat laser (VBA default for sheet metal)
+            { "N115", "N115 - ANY FLAT LASER" },
+            { "N120", "N120 - 5040" },
+            { "N125", "N125 - 3060" },
+            { "N135", "N135 - FLOW" },
+            { "F110", "F110 - TUBE LASER" },
+            { "N145", "N145 - 5-AXIS LASER" },
+            { "F300", "F300 - SAW" },
+            { "NPUR", "NPUR - PURCHASED" },
+            { "CUST", "CUST - SUPPLIED" },
+            { "MP",   "MP - MACHINED" },
+        };
+
+        /// <summary>
+        /// Convert minutes to hours, using VBA's format convention.
+        /// VBA minimum for setup: 0.01 hours (36 seconds).
+        /// </summary>
+        private static string MinToHours(double minutes, string format = "0.####")
+        {
+            double hours = minutes / 60.0;
+            return hours.ToString(format, Inv);
+        }
 
         public static IDictionary<string, string> ToProperties(PartData d)
         {
@@ -23,50 +58,56 @@ namespace NM.Core.Processing
             p["SheetPercent"] = d.SheetPercent.ToString("0.####", Inv);
 
             // OP20 work center + times (Tab Builder shows OP20 as a ComboBox)
+            // Write the full description string (e.g., "N120 - 5040") to match OP20.txt entries.
             if (!string.IsNullOrEmpty(d.Cost.OP20_WorkCenter))
             {
-                p["OP20"] = d.Cost.OP20_WorkCenter;
+                string op20Desc;
+                if (OP20Descriptions.TryGetValue(d.Cost.OP20_WorkCenter, out op20Desc))
+                    p["OP20"] = op20Desc;
+                else
+                    p["OP20"] = d.Cost.OP20_WorkCenter; // fallback to raw code if unknown
                 p["OP20_WorkCenter"] = d.Cost.OP20_WorkCenter;
             }
-            p["OP20_S"] = d.Cost.OP20_S_min.ToString("0.####", Inv);
-            p["OP20_R"] = d.Cost.OP20_R_min.ToString("0.####", Inv);
+            // VBA writes times in HOURS; internal storage is minutes → convert
+            p["OP20_S"] = MinToHours(d.Cost.OP20_S_min);
+            p["OP20_R"] = MinToHours(d.Cost.OP20_R_min);
             p["F115_Price"] = d.Cost.F115_Price.ToString("0.####", Inv);
 
-            // F210 Deburr — checkbox "1"/"0" + setup/run
+            // F210 Deburr — checkbox "1"/"0" + setup/run (times in HOURS)
             bool f210Active = d.Cost.F210_S_min > 0 || d.Cost.F210_R_min > 0;
             p["F210"] = f210Active ? "1" : "0";
-            p["F210_S"] = d.Cost.F210_S_min.ToString("0.####", Inv);
-            p["F210_R"] = d.Cost.F210_R_min.ToString("0.####", Inv);
+            p["F210_S"] = MinToHours(d.Cost.F210_S_min);
+            p["F210_R"] = MinToHours(d.Cost.F210_R_min);
             p["F210_Price"] = d.Cost.F210_Price.ToString("0.####", Inv);
 
-            // F220 Tapping — checkbox "1"/"0" + setup/run
+            // F220 Tapping — checkbox "1"/"0" + setup/run (times in HOURS)
             bool f220Active = d.Cost.F220_S_min > 0 || d.Cost.F220_R_min > 0;
             p["F220"] = f220Active ? "1" : "0";
-            p["F220_S"] = d.Cost.F220_S_min.ToString("0.####", Inv);
-            p["F220_R"] = d.Cost.F220_R_min.ToString("0.####", Inv);
+            p["F220_S"] = MinToHours(d.Cost.F220_S_min);
+            p["F220_R"] = MinToHours(d.Cost.F220_R_min);
             p["F220_RN"] = d.Cost.F220_RN.ToString(Inv);
             p["F220_Note"] = d.Cost.F220_Note ?? string.Empty;
             p["F220_Price"] = d.Cost.F220_Price.ToString("0.####", Inv);
             if (d.Cost.F220_RN > 0)
                 p["TappedHoleCount"] = d.Cost.F220_RN.ToString(Inv);
 
-            // F140 Press Brake — checkbox "Checked"/"Unchecked" + setup/run
+            // F140 Press Brake — checkbox "Checked"/"Unchecked" + setup/run (times in HOURS)
             // VBA: PressBrake="Checked" when sheet metal has bends, or heavy tube needs brake
             bool pressBrakeActive = d.Cost.F140_S_min > 0 || d.Cost.F140_R_min > 0
                                   || d.Sheet.BendCount > 0;
             p["PressBrake"] = pressBrakeActive ? "Checked" : "Unchecked";
-            p["F140_S"] = d.Cost.F140_S_min.ToString("0.####", Inv);
-            p["F140_R"] = d.Cost.F140_R_min.ToString("0.####", Inv);
+            p["F140_S"] = MinToHours(d.Cost.F140_S_min);
+            p["F140_R"] = MinToHours(d.Cost.F140_R_min);
             p["F140_S_Cost"] = d.Cost.F140_S_Cost.ToString("0.####", Inv);
             p["F140_Price"] = d.Cost.F140_Price.ToString("0.####", Inv);
             if (d.Sheet.BendCount > 0)
                 p["BendCount"] = d.Sheet.BendCount.ToString(Inv);
 
-            // F325 Roll Forming — checkbox "1"/"0" + setup/run
+            // F325 Roll Forming — checkbox "1"/"0" + setup/run (times in HOURS)
             bool f325Active = d.Cost.F325_S_min > 0 || d.Cost.F325_R_min > 0;
             p["F325"] = f325Active ? "1" : "0";
-            p["F325_S"] = d.Cost.F325_S_min.ToString("0.####", Inv);
-            p["F325_R"] = d.Cost.F325_R_min.ToString("0.####", Inv);
+            p["F325_S"] = MinToHours(d.Cost.F325_S_min);
+            p["F325_R"] = MinToHours(d.Cost.F325_R_min);
             p["F325_Price"] = d.Cost.F325_Price.ToString("0.####", Inv);
 
             // Material costs and totals
@@ -126,31 +167,32 @@ namespace NM.Core.Processing
             d.Mass_kg = D("RawWeight") / KgToLbs; // RawWeight was in lb
             d.SheetPercent = D("SheetPercent");
 
-            d.Cost.OP20_S_min = D("OP20_S");
-            d.Cost.OP20_R_min = D("OP20_R");
+            // Properties store times in HOURS; internal storage is minutes → multiply by 60
+            d.Cost.OP20_S_min = D("OP20_S") * 60.0;
+            d.Cost.OP20_R_min = D("OP20_R") * 60.0;
             d.Cost.F115_Price = D("F115_Price");
 
-            d.Cost.F140_S_min = D("F140_S");
-            d.Cost.F140_R_min = D("F140_R");
+            d.Cost.F140_S_min = D("F140_S") * 60.0;
+            d.Cost.F140_R_min = D("F140_R") * 60.0;
             d.Cost.F140_S_Cost = D("F140_S_Cost");
             d.Cost.F140_Price = D("F140_Price");
 
             // F210 Deburr
-            d.Cost.F210_S_min = D("F210_S");
-            d.Cost.F210_R_min = D("F210_R");
+            d.Cost.F210_S_min = D("F210_S") * 60.0;
+            d.Cost.F210_R_min = D("F210_R") * 60.0;
             d.Cost.F210_Price = D("F210_Price");
 
             // F220 Tapping
             d.Cost.F220_min = D("F220");
-            d.Cost.F220_S_min = D("F220_S");
-            d.Cost.F220_R_min = D("F220_R");
+            d.Cost.F220_S_min = D("F220_S") * 60.0;
+            d.Cost.F220_R_min = D("F220_R") * 60.0;
             d.Cost.F220_RN = I("F220_RN");
             d.Cost.F220_Note = Get(props, "F220_Note");
             d.Cost.F220_Price = D("F220_Price");
 
             // F325 Roll Forming
-            d.Cost.F325_S_min = D("F325_S");
-            d.Cost.F325_R_min = D("F325_R");
+            d.Cost.F325_S_min = D("F325_S") * 60.0;
+            d.Cost.F325_R_min = D("F325_R") * 60.0;
             d.Cost.F325_Price = D("F325_Price");
 
             // Material costs and totals
