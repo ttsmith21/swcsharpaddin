@@ -197,7 +197,12 @@ namespace NM.SwAddin
                 }
 
                 string config = Info.ConfigurationName ?? string.Empty;
-                bool alsoWriteConfig = !string.IsNullOrWhiteSpace(config);
+                // Only dual-write to config scope for non-default configurations.
+                // "Default" config is redundant with global — Tab Builder and BOM tables
+                // both fall back to global when config-specific doesn't exist.
+                bool isDefault = string.IsNullOrWhiteSpace(config)
+                    || string.Equals(config, "Default", StringComparison.OrdinalIgnoreCase);
+                bool alsoWriteConfig = !isDefault;
                 var states = Info.CustomProperties.GetPropertyStates();
                 var values = Info.CustomProperties.GetProperties();
                 var types = Info.CustomProperties.GetPropertyTypes();
