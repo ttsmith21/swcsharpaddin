@@ -238,7 +238,7 @@ namespace NM.SwAddin.UI
                             // appears at the same position/orientation as the original part.
                             if (originalTransform != null)
                             {
-                                inserted.Transform2 = originalTransform;
+                                inserted.Transform2 = (MathTransform)originalTransform;
                                 ErrorHandler.DebugLog("[SPLIT] Applied original transform to inserted sub-assembly");
                             }
 
@@ -248,9 +248,7 @@ namespace NM.SwAddin.UI
                                 try
                                 {
                                     originalComponent.SetSuppression2(
-                                        (int)swComponentSuppressionState_e.swComponentSuppressed,
-                                        (int)swInConfigurationOpts_e.swThisConfiguration,
-                                        null);
+                                        (int)swComponentSuppressionState_e.swComponentSuppressed);
                                     ErrorHandler.DebugLog($"[SPLIT] Suppressed original component: {originalComponent.Name2}");
                                 }
                                 catch (Exception ex)
