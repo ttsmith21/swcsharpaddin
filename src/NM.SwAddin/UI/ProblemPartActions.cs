@@ -139,6 +139,27 @@ namespace NM.SwAddin.UI
             {
                 SwDocumentHelper.SaveDocument(currentDoc);
 
+                // Capture the original component's transform from the parent assembly
+                // BEFORE splitting, so we can position the sub-assembly at the same location.
+                string partPath = currentDoc.GetPathName();
+                IModelDoc2 parentDocPreSplit = FindParentAssembly(swApp, null);
+                IMathTransform originalTransform = null;
+                IComponent2 originalComponent = null;
+
+                if (parentDocPreSplit != null)
+                {
+                    originalComponent = FindComponentByPath(parentDocPreSplit, partPath);
+                    if (originalComponent != null)
+                    {
+                        originalTransform = originalComponent.Transform2;
+                        ErrorHandler.DebugLog($"[SPLIT] Captured original component transform from: {originalComponent.Name2}");
+                    }
+                    else
+                    {
+                        ErrorHandler.DebugLog($"[SPLIT] Could not find component for {Path.GetFileName(partPath)} in parent assembly");
+                    }
+                }
+
                 var splitter = new MultiBodySplitter(swApp);
                 var splitResult = splitter.SplitToAssembly(currentDoc);
 
@@ -194,9 +215,9 @@ namespace NM.SwAddin.UI
                     }
                 }
 
-                // Insert the new sub-assembly into the parent assembly at origin.
-                // Bodies carry original global coordinates, so origin placement is correct.
-                var parentDoc = FindParentAssembly(swApp, splitResult.AssemblyPath);
+                // Insert the new sub-assembly into the parent assembly,
+                // positioned at the original multi-body component's location.
+                var parentDoc = parentDocPreSplit ?? FindParentAssembly(swApp, splitResult.AssemblyPath);
                 if (parentDoc != null)
                 {
                     int actErrors = 0;
@@ -213,9 +234,34 @@ namespace NM.SwAddin.UI
 
                         if (inserted != null)
                         {
+                            // Apply the original component's transform so the sub-assembly
+                            // appears at the same position/orientation as the original part.
+                            if (originalTransform != null)
+                            {
+                                inserted.Transform2 = originalTransform;
+                                ErrorHandler.DebugLog("[SPLIT] Applied original transform to inserted sub-assembly");
+                            }
+
+                            // Suppress the original multi-body component to avoid duplicate geometry.
+                            if (originalComponent != null)
+                            {
+                                try
+                                {
+                                    originalComponent.SetSuppression2(
+                                        (int)swComponentSuppressionState_e.swComponentSuppressed,
+                                        (int)swInConfigurationOpts_e.swThisConfiguration,
+                                        null);
+                                    ErrorHandler.DebugLog($"[SPLIT] Suppressed original component: {originalComponent.Name2}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    ErrorHandler.DebugLog($"[SPLIT] Failed to suppress original component: {ex.Message}");
+                                }
+                            }
+
                             SwDocumentHelper.SaveDocument(parentDoc);
                             statusCallback?.Invoke(
-                                $"Inserted {Path.GetFileName(splitResult.AssemblyPath)} into assembly.");
+                                $"Inserted {Path.GetFileName(splitResult.AssemblyPath)} into assembly at original position.");
                         }
                         else
                         {
@@ -438,6 +484,7 @@ namespace NM.SwAddin.UI
 
         /// <summary>
         /// Finds the parent assembly among open documents (skipping the split sub-assembly itself).
+        /// Pass null for splitAssyPath to skip exclusion filtering (used before split creates the assembly).
         /// </summary>
         private static IModelDoc2 FindParentAssembly(ISldWorks swApp, string splitAssyPath)
         {
@@ -450,11 +497,60 @@ namespace NM.SwAddin.UI
                 if (doc == null) continue;
                 if (doc.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY) continue;
 
-                string docPath = doc.GetPathName() ?? "";
-                if (string.Equals(docPath, splitAssyPath, StringComparison.OrdinalIgnoreCase))
-                    continue;
+                if (splitAssyPath != null)
+                {
+                    string docPath = doc.GetPathName() ?? "";
+                    if (string.Equals(docPath, splitAssyPath, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                }
 
                 return doc;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Finds a component in the assembly tree whose source file matches the given path.
+        /// Traverses recursively through sub-assemblies.
+        /// </summary>
+        private static IComponent2 FindComponentByPath(IModelDoc2 assyDoc, string partPath)
+        {
+            if (assyDoc == null || string.IsNullOrEmpty(partPath)) return null;
+
+            try
+            {
+                var config = assyDoc.ConfigurationManager?.ActiveConfiguration;
+                if (config == null) return null;
+
+                var rootComp = (IComponent2)config.GetRootComponent3(true);
+                if (rootComp == null) return null;
+
+                return FindComponentRecursive(rootComp, partPath);
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"[SPLIT] FindComponentByPath error: {ex.Message}");
+                return null;
+            }
+        }
+
+        private static IComponent2 FindComponentRecursive(IComponent2 parent, string partPath)
+        {
+            var childrenObj = parent.GetChildren() as object[];
+            if (childrenObj == null) return null;
+
+            foreach (var obj in childrenObj)
+            {
+                var child = obj as IComponent2;
+                if (child == null) continue;
+
+                string childPath = child.GetPathName() ?? "";
+                if (string.Equals(childPath, partPath, StringComparison.OrdinalIgnoreCase))
+                    return child;
+
+                // Recurse into sub-assemblies
+                var found = FindComponentRecursive(child, partPath);
+                if (found != null) return found;
             }
             return null;
         }
