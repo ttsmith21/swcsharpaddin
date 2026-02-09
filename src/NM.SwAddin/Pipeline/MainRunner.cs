@@ -832,10 +832,20 @@ namespace NM.SwAddin.Pipeline
         private static void FinalizeAndWriteProperties(IModelDoc2 doc, ModelInfo info, PartData pd,
             SolidWorksModel swModel, ProcessingOptions options)
         {
-            // Copy ERP-relevant custom properties
+            // Copy ERP-relevant custom properties (preserve user-entered values from Tab Builder)
+            // NOTE: OP20 is NOT in this list — it's set programmatically from OP20_WorkCenter
+            // in PartDataPropertyMap. Copying the old (possibly empty) value would overwrite it.
             string[] erpProps = { "rbPartType", "rbPartTypeSub", "OS_WC", "OS_WC_A",
                                   "CustPartNumber", "PurchasedPartNumber", "Print",
-                                  "Description", "Revision", "OP20" };
+                                  "Description", "Revision",
+                                  "cbAttachPrint", "cbAttachCAD", "cbShip",
+                                  "OS_OP", "OS_RN", "MP_RN",
+                                  "PunchRadius", "VDieWidth", "HalfBendDeduction", "BrakeLoc",
+                                  "cbKFactorOK", "EdgeClass", "SurfaceFinish",
+                                  "rbWeightCalc", "NestEfficiency",
+                                  "Grain", "ComCut", "Same", "External", "SheetEdge", "180Degrees",
+                                  "IgnoreWeldCalc", "IgnoreWeldCalcSTD",
+                                  "RevisitBeforeExport", "RevisitNote" };
             foreach (var prop in erpProps)
             {
                 var val = info.CustomProperties.GetPropertyValue(prop);
@@ -843,17 +853,42 @@ namespace NM.SwAddin.Pipeline
                     pd.Extra[prop] = val.ToString();
             }
 
+            // Flow user-form fields from ProcessingOptions into properties.
+            // ProcessingOptions values take precedence; fall back to existing custom properties.
+            var opts = options ?? new ProcessingOptions();
+            if (!string.IsNullOrEmpty(opts.Customer))
+                pd.Extra["Customer"] = opts.Customer;
+            else if (!pd.Extra.ContainsKey("Customer"))
+            {
+                var existingCust = info.CustomProperties.GetPropertyValue("Customer")?.ToString();
+                if (!string.IsNullOrEmpty(existingCust))
+                    pd.Extra["Customer"] = existingCust;
+            }
+            if (!string.IsNullOrEmpty(opts.Print))
+                pd.Extra["Print"] = opts.Print;
+            if (!string.IsNullOrEmpty(opts.Revision))
+                pd.Extra["Revision"] = opts.Revision;
+
             // Description generation
             var description = DescriptionGenerator.Generate(pd);
             if (!string.IsNullOrEmpty(description))
                 pd.Extra["Description"] = description;
 
-            // OptiMaterial resolution (fallback when Excel data unavailable)
+            // OptiMaterial: preserve user-selected value from Tab Builder (e.g., "S.316L14GA")
+            // Only auto-resolve for new parts where it hasn't been set yet.
             if (string.IsNullOrEmpty(pd.OptiMaterial))
             {
-                var optiCode = StaticOptiMaterialService.Resolve(pd);
-                if (!string.IsNullOrEmpty(optiCode))
-                    pd.OptiMaterial = optiCode;
+                var existing = info.CustomProperties.GetPropertyValue("OptiMaterial")?.ToString();
+                if (!string.IsNullOrEmpty(existing))
+                {
+                    pd.OptiMaterial = existing;
+                }
+                else
+                {
+                    var optiCode = StaticOptiMaterialService.Resolve(pd);
+                    if (!string.IsNullOrEmpty(optiCode))
+                        pd.OptiMaterial = optiCode;
+                }
             }
 
             // Auto nesting efficiency override (sheet metal only, after successful conversion)

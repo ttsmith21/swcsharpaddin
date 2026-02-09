@@ -22,31 +22,49 @@ namespace NM.Core.Processing
             p["RawWeight"] = rawWeight_lb.ToString("0.####", Inv);
             p["SheetPercent"] = d.SheetPercent.ToString("0.####", Inv);
 
-            // OP20 / Laser
+            // OP20 work center + times (Tab Builder shows OP20 as a ComboBox)
+            if (!string.IsNullOrEmpty(d.Cost.OP20_WorkCenter))
+            {
+                p["OP20"] = d.Cost.OP20_WorkCenter;
+                p["OP20_WorkCenter"] = d.Cost.OP20_WorkCenter;
+            }
             p["OP20_S"] = d.Cost.OP20_S_min.ToString("0.####", Inv);
             p["OP20_R"] = d.Cost.OP20_R_min.ToString("0.####", Inv);
             p["F115_Price"] = d.Cost.F115_Price.ToString("0.####", Inv);
 
-            // F140
-            p["F140_S"] = d.Cost.F140_S_min.ToString("0.####", Inv);
-            p["F140_R"] = d.Cost.F140_R_min.ToString("0.####", Inv);
-            p["F140_S_Cost"] = d.Cost.F140_S_Cost.ToString("0.####", Inv);
-            p["F140_Price"] = d.Cost.F140_Price.ToString("0.####", Inv);
-
-            // F210 Deburr
+            // F210 Deburr — checkbox "1"/"0" + setup/run
+            bool f210Active = d.Cost.F210_S_min > 0 || d.Cost.F210_R_min > 0;
+            p["F210"] = f210Active ? "1" : "0";
             p["F210_S"] = d.Cost.F210_S_min.ToString("0.####", Inv);
             p["F210_R"] = d.Cost.F210_R_min.ToString("0.####", Inv);
             p["F210_Price"] = d.Cost.F210_Price.ToString("0.####", Inv);
 
-            // F220 Tapping
-            p["F220"] = d.Cost.F220_min.ToString("0.####", Inv);
+            // F220 Tapping — checkbox "1"/"0" + setup/run
+            bool f220Active = d.Cost.F220_S_min > 0 || d.Cost.F220_R_min > 0;
+            p["F220"] = f220Active ? "1" : "0";
             p["F220_S"] = d.Cost.F220_S_min.ToString("0.####", Inv);
             p["F220_R"] = d.Cost.F220_R_min.ToString("0.####", Inv);
             p["F220_RN"] = d.Cost.F220_RN.ToString(Inv);
             p["F220_Note"] = d.Cost.F220_Note ?? string.Empty;
             p["F220_Price"] = d.Cost.F220_Price.ToString("0.####", Inv);
+            if (d.Cost.F220_RN > 0)
+                p["TappedHoleCount"] = d.Cost.F220_RN.ToString(Inv);
 
-            // F325 Roll Forming
+            // F140 Press Brake — checkbox "Checked"/"Unchecked" + setup/run
+            // VBA: PressBrake="Checked" when sheet metal has bends, or heavy tube needs brake
+            bool pressBrakeActive = d.Cost.F140_S_min > 0 || d.Cost.F140_R_min > 0
+                                  || d.Sheet.BendCount > 0;
+            p["PressBrake"] = pressBrakeActive ? "Checked" : "Unchecked";
+            p["F140_S"] = d.Cost.F140_S_min.ToString("0.####", Inv);
+            p["F140_R"] = d.Cost.F140_R_min.ToString("0.####", Inv);
+            p["F140_S_Cost"] = d.Cost.F140_S_Cost.ToString("0.####", Inv);
+            p["F140_Price"] = d.Cost.F140_Price.ToString("0.####", Inv);
+            if (d.Sheet.BendCount > 0)
+                p["BendCount"] = d.Sheet.BendCount.ToString(Inv);
+
+            // F325 Roll Forming — checkbox "1"/"0" + setup/run
+            bool f325Active = d.Cost.F325_S_min > 0 || d.Cost.F325_R_min > 0;
+            p["F325"] = f325Active ? "1" : "0";
             p["F325_S"] = d.Cost.F325_S_min.ToString("0.####", Inv);
             p["F325_R"] = d.Cost.F325_R_min.ToString("0.####", Inv);
             p["F325_Price"] = d.Cost.F325_Price.ToString("0.####", Inv);
@@ -57,8 +75,6 @@ namespace NM.Core.Processing
             p["TotalMaterialCost"] = d.Cost.TotalMaterialCost.ToString("0.##", Inv);
             p["TotalProcessingCost"] = d.Cost.TotalProcessingCost.ToString("0.##", Inv);
             p["TotalCost"] = d.Cost.TotalCost.ToString("0.##", Inv);
-            if (!string.IsNullOrEmpty(d.Cost.OP20_WorkCenter))
-                p["OP20_WorkCenter"] = d.Cost.OP20_WorkCenter;
 
             // Material and basics
             p["MaterialCostPerLB"] = d.MaterialCostPerLB.ToString("0.####", Inv);
@@ -87,8 +103,12 @@ namespace NM.Core.Processing
                     p["TubeSchedule"] = d.Tube.ScheduleCode;
                 if (d.Tube.NumberOfHoles > 0)
                     p["NumberOfHoles"] = d.Tube.NumberOfHoles.ToString(Inv);
+                // Tube cut length for Bar/Pipe/Tube weight calc
+                if (d.Tube.CutLength_m > 0)
+                    p["F300_Length"] = (d.Tube.CutLength_m * MetersToInches).ToString("0.####", Inv);
             }
 
+            // Extras (ERP props, user-entered values, etc.) — written last so they can override
             foreach (var kv in d.Extra)
                 p[kv.Key] = kv.Value ?? string.Empty;
 

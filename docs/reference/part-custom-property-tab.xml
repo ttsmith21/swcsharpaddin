@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SolidWorks Custom Property Tab Builder template for PARTS.
+     All properties use ApplyTo="Global" (file-level scope).
+     Source: Northern Manufacturing production custom property template.
+
+     IMPORTANT: The C# add-in must write ALL computed properties to global scope ("")
+     so this template can read them. See CustomPropertiesService and SolidWorksModel.SavePropertiesToSolidWorks().
+-->
+<CPTemplate>
+  <AppVersion>30</AppVersion>
+  <CPSheet>
+    <GroupBox Label="Reminder" PropName="Groupbox93" DefaultState="Collapsed">
+      <Control Label="Revisit before export" PropName="RevisitBeforeExport" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="Checked" PropValueUnchecked="Unchecked">
+        <ChildControl PropName="RevisitNote" Visibility="IsChecked=true" />
+      </Control>
+      <Control Label="Reminder Note" PropName="RevisitNote" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+    </GroupBox>
+    <GroupBox Label="General" PropName="Groupbox2" DefaultState="Expanded">
+      <Control Label="Customer" PropName="Customer" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="Print Number" PropName="Print" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="Revision" PropName="Revision" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="Description" PropName="Description" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="Part Type" PropName="rbPartType" ApplyTo="Global" Type="RadioButton" ReadOnly="False">
+        <Data>
+          <Item Label="Standard Part" PropValue="0">
+            <ChildControl PropName="Groupbox25" Visibility="IsChecked=true" />
+            <ChildControl PropName="Groupbox20" Visibility="IsChecked=true" />
+            <ChildControl PropName="Groupbox13" Visibility="IsChecked=true" />
+            <ChildControl PropName="IgnoreWeldCalcSTD" Visibility="IsChecked=true" />
+          </Item>
+          <Item Label="Mach / Pur / Cust" PropValue="1">
+            <ChildControl PropName="Groupbox66" Visibility="IsChecked=true" />
+            <ChildControl PropName="IgnoreWeldCalc" Visibility="IsChecked=true" />
+          </Item>
+          <Item Label="Outsource " PropValue="2">
+            <ChildControl PropName="Groupbox25" Visibility="IsChecked=true" />
+            <ChildControl PropName="Groupbox20" Visibility="IsChecked=true" />
+            <ChildControl PropName="Groupbox13" Visibility="IsChecked=true" />
+            <ChildControl PropName="Groupbox68" Visibility="IsChecked=true" />
+            <ChildControl PropName="IgnoreWeldCalcSTD" Visibility="IsChecked=true" />
+          </Item>
+        </Data>
+      </Control>
+      <Control Label="Attach Print" PropName="cbAttachPrint" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="Checked" PropValueUnchecked="Unchecked" />
+      <Control Label="Attach CAD" PropName="cbAttachCAD" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="1" PropValueChecked="Checked" PropValueUnchecked="Unchecked" />
+      <Control Label="SHIP (OP99)" PropName="cbShip" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="Checked" PropValueUnchecked="Unchecked" />
+      <Control Label="Consider item in weld-estimate calc (MP / Pur / Cust)" PropName="IgnoreWeldCalc" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="1" PropValueUnchecked="0" />
+      <Control Label="Consider item in weld-estimate calc (Standard)" PropName="IgnoreWeldCalcSTD" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="1" PropValueChecked="1" PropValueUnchecked="0" />
+    </GroupBox>
+    <GroupBox Label="Machined / Purchased / Cust Supplied" PropName="Groupbox66" DefaultState="Expanded">
+      <Control Label="" PropName="rbPartTypeSub" ApplyTo="Global" Type="RadioButton" ReadOnly="False">
+        <Data>
+          <Item Label="Machined Part" PropValue="0">
+            <ChildControl PropName="MP_RN" Visibility="IsChecked=true" />
+          </Item>
+          <Item Label="Purchased Part" PropValue="1">
+            <ChildControl PropName="PurchasedPartNumber" Visibility="IsChecked=true" />
+          </Item>
+          <Item Label="Customer Supplied" PropValue="2">
+            <ChildControl PropName="CustPartNumber" Visibility="IsChecked=true" />
+          </Item>
+        </Data>
+      </Control>
+      <Control Label="Part Number" PropName="PurchasedPartNumber" ApplyTo="Global" Type="ComboBox" ReadOnly="False" UserDefineable="True">
+        <Data Path="O:\Engineering Department\Solidworks\Custom Property Files\PUR.txt" SourceType="Text" />
+      </Control>
+      <Control Label="&quot;CUST-&quot; Number" PropName="CustPartNumber" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="Routing Notes" PropName="MP_RN" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+    </GroupBox>
+    <GroupBox Label="Outsource" PropName="Groupbox68" DefaultState="Expanded">
+      <Control Label="Outsource Operation" PropName="OS_WC" ApplyTo="Global" Type="ComboBox" ReadOnly="False" UserDefineable="True">
+        <Data Path="" SourceType="List">
+          <Item>OSA - Anodizing</Item>
+          <Item>OSB - Press Brake</Item>
+          <Item>OSC - Customer</Item>
+          <Item>OSF - Finishing</Item>
+          <Item>OSH - Heat Treat</Item>
+          <Item>OSL - Laser</Item>
+          <Item>OSM - Machining</Item>
+          <Item>OSP - Paint/Plating</Item>
+          <Item>OSQ - QC Inspection</Item>
+          <Item>OSW - Welding</Item>
+        </Data>
+      </Control>
+      <Control Label="Operation Number" PropName="OS_OP" ApplyTo="Global" Type="NumericCtrl" ReadOnly="False" DefaultValue="99" />
+      <Control Label="Routing Notes" PropName="OS_RN" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+    </GroupBox>
+    <GroupBox Label="Material Calculations" PropName="Groupbox25" DefaultState="Expanded">
+      <Control Label="PK Material" PropName="OptiMaterial" ApplyTo="Global" Type="ComboBox" ReadOnly="False" UserDefineable="True">
+        <Data Path="O:\Engineering Department\Solidworks\Custom Property Files\MatList.txt" SourceType="Text" />
+      </Control>
+      <Control Label="Material Type" PropName="rbMaterialType" ApplyTo="Global" Type="RadioButton" ReadOnly="False">
+        <Data>
+          <Item Label="Sheet Metal" PropValue="0">
+            <ChildControl PropName="Groupbox96" Visibility="IsChecked=true" />
+          </Item>
+          <Item Label="Bar/Pipe/Tube" PropValue="1">
+            <ChildControl PropName="Groupbox97" Visibility="IsChecked=true" />
+          </Item>
+          <Item Label="Material by Sq. Ft." PropValue="2">
+            <ChildControl PropName="Groupbox101" Visibility="IsChecked=true" />
+          </Item>
+        </Data>
+      </Control>
+    </GroupBox>
+    <GroupBox Label="Sheet/Plate Weight Calculation" PropName="Groupbox96" DefaultState="Expanded">
+      <Control Label="Part Weight Calculation (Ignore for MP)" PropName="rbWeightCalc" ApplyTo="Global" Type="RadioButton" ReadOnly="False">
+        <Data>
+          <Item Label="Scrap %" PropValue="0">
+            <ChildControl PropName="NestEfficiency" Visibility="IsChecked=true" />
+          </Item>
+          <Item Label="Blank Size" PropValue="1">
+            <ChildControl PropName="Length" Visibility="IsChecked=true" />
+            <ChildControl PropName="Width" Visibility="IsChecked=true" />
+          </Item>
+        </Data>
+      </Control>
+      <Control Label="Percent Efficiency" PropName="NestEfficiency" ApplyTo="Global" Type="NumericCtrl" ReadOnly="False" DefaultValue="80" />
+      <Control Label="Length" PropName="Length" ApplyTo="Global" Type="NumericCtrl" ReadOnly="False" DefaultValue="0" />
+      <Control Label="Width" PropName="Width" ApplyTo="Global" Type="NumericCtrl" ReadOnly="False" DefaultValue="0" />
+    </GroupBox>
+    <GroupBox Label="Bar/Pipe/Tube Length w/scrap" PropName="Groupbox97" DefaultState="Expanded">
+      <Control Label="Cut Length" PropName="F300_Length" ApplyTo="Global" Type="NumericCtrl" ReadOnly="False" DefaultValue="0" />
+    </GroupBox>
+    <GroupBox Label="Material by Square Feet" PropName="Groupbox101" DefaultState="Expanded">
+      <Control Label="Amount in Square Feet" PropName="Matl_SF" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+    </GroupBox>
+    <GroupBox Label="Work Centers" PropName="Groupbox20" DefaultState="Expanded">
+      <Control Label="OP20" PropName="OP20" ApplyTo="Global" Type="ComboBox" ReadOnly="False" UserDefineable="False">
+        <Data Path="O:\Engineering Department\Solidworks\Custom Property Files\REV4\OP20.txt" SourceType="Text" />
+      </Control>
+      <Control Label="OP#20 Setup" PropName="OP20_S" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="OP#20 Run" PropName="OP20_R" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="OP 20 Routing Notes" PropName="OP20_RN" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="N210 - Edge Deburring (OP30)" PropName="F210" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="1" PropValueUnchecked="0">
+        <ChildControl PropName="F210_S" Visibility="IsChecked=true" />
+        <ChildControl PropName="F210_R" Visibility="IsChecked=true" />
+        <ChildControl PropName="EdgeClass" Visibility="IsChecked=true" />
+        <ChildControl PropName="F210_RN" Visibility="IsChecked=true" />
+        <ChildControl PropName="SurfaceFinish" Visibility="IsChecked=true" />
+      </Control>
+      <Control Label="N210 Setup" PropName="F210_S" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="0.15" Mode="Text" />
+      <Control Label="N210 Run" PropName="F210_R" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="N210 Route Notes" PropName="F210_RN" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="Edge Class" PropName="EdgeClass" ApplyTo="Global" Type="ComboBox" ReadOnly="False" UserDefineable="False">
+        <Data Path="" SourceType="List">
+          <Item>Class 1 - Full Radius Edge</Item>
+          <Item>Class 2 - Corners Broken</Item>
+        </Data>
+      </Control>
+      <Control Label="Surface Finish" PropName="SurfaceFinish" ApplyTo="Global" Type="ComboBox" ReadOnly="False" UserDefineable="False">
+        <Data Path="" SourceType="List">
+          <Item>Class 1A</Item>
+          <Item>Class 1B</Item>
+          <Item>Class 2</Item>
+          <Item>Class 3</Item>
+        </Data>
+      </Control>
+      <Control Label="N220 - Drill Cell (OP35)" PropName="F220" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="1" PropValueUnchecked="0">
+        <ChildControl PropName="F220_S" Visibility="IsChecked=true" />
+        <ChildControl PropName="F220_R" Visibility="IsChecked=true" />
+        <ChildControl PropName="F220_RN" Visibility="IsChecked=true" />
+      </Control>
+      <Control Label="N220 Setup" PropName="F220_S" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="0.15" Mode="Text" />
+      <Control Label="N220 Run" PropName="F220_R" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="N220 Route Notes" PropName="F220_RN" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="K-factor OK?" PropName="cbKFactorOK" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="Checked" PropValueUnchecked="Unchecked" />
+      <Control Label="N140 - Press Brake (OP40)" PropName="PressBrake" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="Checked" PropValueUnchecked="Unchecked">
+        <ChildControl PropName="F140_S" Visibility="IsChecked=true" />
+        <ChildControl PropName="F140_R" Visibility="IsChecked=true" />
+        <ChildControl PropName="PunchRadius" Visibility="IsChecked=true" />
+        <ChildControl PropName="VDieWidth" Visibility="IsChecked=true" />
+        <ChildControl PropName="HalfBendDeduction" Visibility="IsChecked=true" />
+        <ChildControl PropName="BrakeLoc" Visibility="IsChecked=true" />
+      </Control>
+      <Control Label="ERMAK Required" PropName="BrakeLoc" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="Checked" PropValueUnchecked="Unchecked" />
+      <Control Label="Punch Radius" PropName="PunchRadius" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="STD" Mode="Text" />
+      <Control Label="V-Die Width" PropName="VDieWidth" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="STD" Mode="Text" />
+      <Control Label="1/2 Bend Deduction" PropName="HalfBendDeduction" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="STD" Mode="Text" />
+      <Control Label="N140 Calculated Setup" PropName="F140_S" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="N140 Calculated Run" PropName="F140_R" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="N325 - Pinch Roll (OP50)" PropName="F325" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="1" PropValueUnchecked="0">
+        <ChildControl PropName="F325_S" Visibility="IsChecked=true" />
+        <ChildControl PropName="F325_R" Visibility="IsChecked=true" />
+      </Control>
+      <Control Label="N325 Setup" PropName="F325_S" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="N325 Run" PropName="F325_R" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="Other WC 1" PropName="OtherWC_CB" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="1" PropValueUnchecked="0">
+        <ChildControl PropName="OtherOP" Visibility="IsChecked=true" />
+        <ChildControl PropName="Other_S" Visibility="IsChecked=true" />
+        <ChildControl PropName="Other_R" Visibility="IsChecked=true" />
+        <ChildControl PropName="Other_RN" Visibility="IsChecked=true" />
+        <ChildControl PropName="Other_WC" Visibility="IsChecked=true" />
+        <ChildControl PropName="OtherWC_CB2" Visibility="IsChecked=true" />
+      </Control>
+      <Control Label="OP#" PropName="OtherOP" ApplyTo="Global" Type="NumericCtrl" ReadOnly="False" DefaultValue="60" />
+      <Control Label="Work Center" PropName="Other_WC" ApplyTo="Global" Type="ComboBox" ReadOnly="False" UserDefineable="True">
+        <Data Path="O:\Engineering Department\Solidworks\Custom Property Files\OtherOps.txt" SourceType="Text" />
+      </Control>
+      <Control Label="Other Setup" PropName="Other_S" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="Other Run" PropName="Other_R" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <Control Label="Other Routing Notes" PropName="Other_RN" ApplyTo="Global" Type="TextBox" ReadOnly="False" DefaultValue="" Mode="Text" />
+      <!-- Other WC slots 2-6 omitted for brevity - same pattern with suffixes 2-6 -->
+    </GroupBox>
+    <GroupBox Label="Programming" PropName="Groupbox13" DefaultState="Collapsed">
+      <Control Label="Grain Constraint?" PropName="Grain" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="Y" PropValueUnchecked="N" />
+      <Control Label="Common Cut?" PropName="ComCut" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="" PropValueUnchecked="N">
+        <ChildControl PropName="Same" Visibility="IsChecked=true" />
+        <ChildControl PropName="External" Visibility="IsChecked=true" />
+        <ChildControl PropName="SheetEdge" Visibility="IsChecked=true" />
+        <ChildControl PropName="180Degrees" Visibility="IsChecked=true" />
+      </Control>
+      <Control Label="Same Part Only" PropName="Same" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="1" PropValueChecked="P" PropValueUnchecked="" />
+      <Control Label="External Path" PropName="External" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="1" PropValueChecked="E" PropValueUnchecked="" />
+      <Control Label="Sheet Edge" PropName="SheetEdge" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="S" PropValueUnchecked="" />
+      <Control Label="180 Degrees" PropName="180Degrees" ApplyTo="Global" Type="CheckBox" ReadOnly="False" DefaultValue="0" PropValueChecked="D" PropValueUnchecked="" />
+    </GroupBox>
+  </CPSheet>
+</CPTemplate>
