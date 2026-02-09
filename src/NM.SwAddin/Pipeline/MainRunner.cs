@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using NM.Core;
 using NM.Core.DataModel;
 using NM.Core.Manufacturing;
@@ -994,13 +995,12 @@ namespace NM.SwAddin.Pipeline
             // VBA parity: preserve existing OP20 value if already set to a valid selection.
             // VBA only auto-assigns OP20 when empty or set to a generic auto-detected value.
             // If the user (or a previous VBA run) chose a specific machine, keep it.
+            // NOTE: Store in a local variable, NOT pd.Extra, to avoid leaking a temp key
+            // into the Extras→properties loop which would create a junk SolidWorks property.
+            string preservedOP20 = null;
             var existingOP20 = info.CustomProperties.GetPropertyValue("OP20")?.ToString();
             if (!string.IsNullOrEmpty(existingOP20))
-            {
-                // OP20 already has a value — preserve it for the Tab Builder ComboBox.
-                // We still use OP20_WorkCenter internally for cost calculation routing.
-                pd.Extra["_ExistingOP20"] = existingOP20;
-            }
+                preservedOP20 = existingOP20;
 
             // Map DTO -> properties and batch save.
             // Use ForceSetPropertyValue (not SetPropertyValue) so calculated values are
@@ -1013,11 +1013,16 @@ namespace NM.SwAddin.Pipeline
 
             // VBA parity: if OP20 was already set, preserve the user's machine selection
             // unless the part had no OP20 (new/unprocessed part).
-            if (pd.Extra.ContainsKey("_ExistingOP20"))
-            {
-                mapped["OP20"] = pd.Extra["_ExistingOP20"];
-                pd.Extra.Remove("_ExistingOP20"); // clean up temp key
-            }
+            if (preservedOP20 != null)
+                mapped["OP20"] = preservedOP20;
+
+            // Remove any leftover temp keys that shouldn't be SolidWorks properties
+            mapped.Remove("_ExistingOP20");
+
+            // Log key property values for diagnostics
+            ErrorHandler.DebugLog($"[PROPWRITE] OP20={Dbg(mapped, "OP20")}, OP20_S={Dbg(mapped, "OP20_S")}, OP20_R={Dbg(mapped, "OP20_R")}");
+            ErrorHandler.DebugLog($"[PROPWRITE] Customer={Dbg(mapped, "Customer")}, OptiMaterial={Dbg(mapped, "OptiMaterial")}, Material={pd.Material}");
+            ErrorHandler.DebugLog($"[PROPWRITE] F140_S={Dbg(mapped, "F140_S")}, F140_R={Dbg(mapped, "F140_R")}, PressBrake={Dbg(mapped, "PressBrake")}");
 
             foreach (var kv in mapped)
             {
@@ -1205,6 +1210,10 @@ namespace NM.SwAddin.Pipeline
             }
         }
 
+        /// <summary>Debug helper: safely get value from mapped dictionary.</summary>
+        private static string Dbg(IDictionary<string, string> m, string k)
+            => m != null && m.TryGetValue(k, out var v) ? (v ?? "(null)") : "(missing)";
+
         /// <summary>
         /// Calculates sheet metal work center costs.
         /// F210 (Deburr), F140 (Press Brake), F220 (Tapping), F325 (Roll Forming if large radius).
@@ -1233,7 +1242,11 @@ namespace NM.SwAddin.Pipeline
                     };
                     ILaserSpeedProvider speedProvider = new StaticLaserSpeedProvider();
                     var laserResult = LaserCalculator.Compute(partMetrics, speedProvider, isWaterjet: false, rawWeightLb: rawWeightLb);
-                    pd.Cost.OP20_S_min = laserResult.SetupHours * 60.0;
+                    // VBA enforces minimum 0.01 hours (0.6 min) for laser setup:
+                    //   If dblAccLaserSetupTime < 0.01 Then dblAccLaserSetupTime = 0.01
+                    double setupHrs = laserResult.SetupHours;
+                    if (setupHrs < 0.01) setupHrs = 0.01;
+                    pd.Cost.OP20_S_min = setupHrs * 60.0;
                     pd.Cost.OP20_R_min = laserResult.RunHours * 60.0;
                     pd.Cost.OP20_WorkCenter = "F115";
                     pd.Cost.F115_Price = laserResult.Cost;
