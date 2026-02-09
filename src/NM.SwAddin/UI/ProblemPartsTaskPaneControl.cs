@@ -12,9 +12,11 @@ using SolidWorks.Interop.sldworks;
 namespace NM.SwAddin.UI
 {
     /// <summary>
-    /// Forwards keyboard messages to the focused WinForms control when
-    /// the task pane has focus. Without this, SolidWorks' accelerator table
-    /// intercepts keystrokes (numbers, letters, etc.) before they reach WinForms.
+    /// Forwards keyboard messages to editable WinForms controls (TextBox, ListBox)
+    /// when they have focus inside the task pane. Without this, SolidWorks'
+    /// accelerator table intercepts keystrokes before they reach WinForms.
+    /// Only intercepts for input controls — never steals keys from SolidWorks'
+    /// own property manager or other native UI.
     /// </summary>
     internal sealed class TaskPaneKeyboardFilter : IMessageFilter
     {
@@ -26,6 +28,9 @@ namespace NM.SwAddin.UI
 
         [DllImport("user32.dll")]
         private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetFocus();
 
         private readonly Control _host;
 
@@ -39,31 +44,26 @@ namespace NM.SwAddin.UI
             if (m.Msg == WM_KEYDOWN || m.Msg == WM_KEYUP || m.Msg == WM_CHAR ||
                 m.Msg == WM_SYSKEYDOWN || m.Msg == WM_SYSKEYUP)
             {
-                // Only intercept when our host (or a child) has focus
-                if (_host.ContainsFocus)
-                {
-                    var focused = FindFocusedControl(_host);
-                    if (focused != null && focused.IsHandleCreated)
-                    {
-                        // Forward the message directly to the focused control
-                        SendMessage(focused.Handle, m.Msg, m.WParam, m.LParam);
-                        return true; // Mark handled so SolidWorks doesn't consume it
-                    }
-                }
+                // Use Win32 GetFocus to get the actual focused HWND — more reliable
+                // than WinForms ContainsFocus in SolidWorks task pane hosting.
+                IntPtr focusedHwnd = GetFocus();
+                if (focusedHwnd == IntPtr.Zero) return false;
+
+                // Check if the focused HWND belongs to an editable child of our host
+                var focused = Control.FromHandle(focusedHwnd);
+                if (focused == null) return false;
+                if (!IsEditableControl(focused)) return false;
+                if (!_host.Contains(focused) && focused != _host) return false;
+
+                SendMessage(focusedHwnd, m.Msg, m.WParam, m.LParam);
+                return true;
             }
             return false;
         }
 
-        private static Control FindFocusedControl(Control parent)
+        private static bool IsEditableControl(Control c)
         {
-            if (parent == null || !parent.ContainsFocus) return null;
-            foreach (Control child in parent.Controls)
-            {
-                if (child.Focused) return child;
-                if (child.ContainsFocus)
-                    return FindFocusedControl(child);
-            }
-            return parent.Focused ? parent : null;
+            return c is TextBox || c is ListBox || c is ComboBox || c is RichTextBox;
         }
     }
 
@@ -160,15 +160,20 @@ namespace NM.SwAddin.UI
         }
 
         /// <summary>
-        /// Tell Windows this control wants ALL keyboard input, preventing
-        /// SolidWorks from consuming keystrokes via its accelerator table.
+        /// Tell Windows this control wants keyboard input, but only when an
+        /// editable child (TextBox, ListBox) actually has focus. Otherwise
+        /// let SolidWorks handle keys normally (property manager, shortcuts, etc.).
         /// </summary>
         protected override void WndProc(ref Message m)
         {
             if (m.Msg == WM_GETDLGCODE)
             {
-                m.Result = (IntPtr)(DLGC_WANTALLKEYS | DLGC_WANTARROWS | DLGC_WANTTAB | DLGC_WANTCHARS);
-                return;
+                var focused = ActiveControl;
+                if (focused is TextBox || focused is ListBox || focused is ComboBox)
+                {
+                    m.Result = (IntPtr)(DLGC_WANTALLKEYS | DLGC_WANTARROWS | DLGC_WANTTAB | DLGC_WANTCHARS);
+                    return;
+                }
             }
             base.WndProc(ref m);
         }
