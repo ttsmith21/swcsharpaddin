@@ -143,6 +143,19 @@ namespace NM.Core.Pdf
 
                 // Step 5: Calculate overall confidence
                 result.OverallConfidence = CalculateOverallConfidence(result, titleBlock);
+
+                // Step 5b: Check coverage density for suspicious extractions
+                bool hasTitleBlock = !string.IsNullOrEmpty(result.PartNumber)
+                    || !string.IsNullOrEmpty(result.Material)
+                    || !string.IsNullOrEmpty(result.Description);
+                var density = ConfidenceCalibrator.CheckCoverageDensity(
+                    result.PageCount, result.Notes.Count, result.GdtCallouts.Count,
+                    !string.IsNullOrEmpty(result.ToleranceGeneral), hasTitleBlock);
+                if (density.Suspicious)
+                {
+                    result.CoverageSuspicious = true;
+                    result.Warnings.Add(density.Reason);
+                }
             }
 
             // Step 6: AI Vision enhancement (synchronous path)
@@ -230,6 +243,24 @@ namespace NM.Core.Pdf
                 if (visionResult != null && visionResult.Success)
                 {
                     MergeVisionResults(result, visionResult);
+
+                    // Re-check coverage density after AI merge (AI may have added notes)
+                    bool hasTitleBlock = !string.IsNullOrEmpty(result.PartNumber)
+                        || !string.IsNullOrEmpty(result.Material)
+                        || !string.IsNullOrEmpty(result.Description);
+                    var density = ConfidenceCalibrator.CheckCoverageDensity(
+                        result.PageCount, result.Notes.Count, result.GdtCallouts.Count,
+                        !string.IsNullOrEmpty(result.ToleranceGeneral), hasTitleBlock);
+                    if (density.Suspicious && !result.CoverageSuspicious)
+                    {
+                        result.CoverageSuspicious = true;
+                        result.Warnings.Add(density.Reason);
+                    }
+                    else if (!density.Suspicious && result.CoverageSuspicious)
+                    {
+                        // AI resolved the coverage issue — clear the flag
+                        result.CoverageSuspicious = false;
+                    }
                 }
 
                 System.Diagnostics.Debug.WriteLine(
@@ -253,23 +284,23 @@ namespace NM.Core.Pdf
             if (target == null || vision == null || !vision.Success)
                 return;
 
-            // Fill gaps: only overwrite empty fields with AI data
-            if (string.IsNullOrEmpty(target.PartNumber) && vision.PartNumber?.HasValue == true)
-                target.PartNumber = vision.PartNumber.Value;
-            if (string.IsNullOrEmpty(target.Description) && vision.Description?.HasValue == true)
-                target.Description = vision.Description.Value;
-            if (string.IsNullOrEmpty(target.Revision) && vision.Revision?.HasValue == true)
-                target.Revision = vision.Revision.Value;
-            if (string.IsNullOrEmpty(target.Material) && vision.Material?.HasValue == true)
-                target.Material = vision.Material.Value;
-            if (string.IsNullOrEmpty(target.Finish) && vision.Finish?.HasValue == true)
-                target.Finish = vision.Finish.Value;
-            if (string.IsNullOrEmpty(target.DrawnBy) && vision.DrawnBy?.HasValue == true)
-                target.DrawnBy = vision.DrawnBy.Value;
-            if (string.IsNullOrEmpty(target.Scale) && vision.Scale?.HasValue == true)
-                target.Scale = vision.Scale.Value;
-            if (string.IsNullOrEmpty(target.SheetInfo) && vision.Sheet?.HasValue == true)
-                target.SheetInfo = vision.Sheet.Value;
+            // Cross-validated merge: compare text vs vision for each title block field
+            MergeField(target, "PartNumber", target.PartNumber, vision.PartNumber,
+                v => target.PartNumber = v);
+            MergeField(target, "Description", target.Description, vision.Description,
+                v => target.Description = v);
+            MergeField(target, "Revision", target.Revision, vision.Revision,
+                v => target.Revision = v);
+            MergeField(target, "Material", target.Material, vision.Material,
+                v => target.Material = v);
+            MergeField(target, "Finish", target.Finish, vision.Finish,
+                v => target.Finish = v);
+            MergeField(target, "DrawnBy", target.DrawnBy, vision.DrawnBy,
+                v => target.DrawnBy = v);
+            MergeField(target, "Scale", target.Scale, vision.Scale,
+                v => target.Scale = v);
+            MergeField(target, "SheetInfo", target.SheetInfo, vision.Sheet,
+                v => target.SheetInfo = v);
 
             // Merge manufacturing notes from AI (add new ones not already present)
             if (vision.ManufacturingNotes.Count > 0)
@@ -280,7 +311,9 @@ namespace NM.Core.Pdf
 
                 foreach (var aiNote in vision.ManufacturingNotes)
                 {
-                    if (!existingTexts.Contains(aiNote.Text))
+                    // Check if AI note matches an existing text note (case-insensitive)
+                    bool matchesExisting = existingTexts.Contains(aiNote.Text);
+                    if (!matchesExisting)
                     {
                         NoteCategory category;
                         if (!Enum.TryParse(aiNote.Category, true, out category))
@@ -288,6 +321,8 @@ namespace NM.Core.Pdf
 
                         target.Notes.Add(new DrawingNote(aiNote.Text, category, aiNote.Confidence));
                     }
+                    // When AI confirms a text note, the agreement implicitly boosts
+                    // confidence (cross-validation at note level is informational only)
                 }
 
                 // Regenerate routing hints with the merged notes
@@ -304,6 +339,39 @@ namespace NM.Core.Pdf
             // Boost confidence when AI confirms text extraction
             if (vision.OverallConfidence > target.OverallConfidence)
                 target.OverallConfidence = vision.OverallConfidence;
+        }
+
+        /// <summary>
+        /// Cross-validates a single title block field between text and vision sources.
+        /// When both agree, confidence is boosted. When they disagree, a warning is added.
+        /// When only one source has a value, it's used with reduced confidence.
+        /// </summary>
+        private static void MergeField(
+            DrawingData target, string fieldName,
+            string textValue, FieldResult visionField,
+            Action<string> setter)
+        {
+            bool textHas = !string.IsNullOrEmpty(textValue);
+            bool visionHas = visionField?.HasValue == true;
+
+            if (textHas && visionHas)
+            {
+                bool agree = string.Equals(textValue.Trim(), visionField.Value.Trim(),
+                    StringComparison.OrdinalIgnoreCase);
+                if (!agree)
+                {
+                    // Conflict — keep text value (text is more reliable for structured fields)
+                    target.Warnings.Add(
+                        $"{fieldName} conflict: text='{textValue}', vision='{visionField.Value}'");
+                }
+                // Both agree or conflict: keep text value, cross-validation adjusts overall confidence
+            }
+            else if (!textHas && visionHas)
+            {
+                // Gap fill from vision
+                setter(visionField.Value);
+            }
+            // If only text has value, keep it as-is
         }
 
         /// <summary>

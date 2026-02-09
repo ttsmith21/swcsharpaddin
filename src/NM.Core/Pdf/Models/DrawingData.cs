@@ -46,6 +46,10 @@ namespace NM.Core.Pdf.Models
         public AnalysisMethod Method { get; set; }
         public double OverallConfidence { get; set; }
 
+        // Extraction warnings (coverage density, cross-validation conflicts)
+        public List<string> Warnings { get; } = new List<string>();
+        public bool CoverageSuspicious { get; set; }
+
         // Raw extracted text (for debugging / AI fallback)
         public string RawText { get; set; }
     }
