@@ -251,6 +251,22 @@ namespace NM.Core
         /// <param name="propertyType">The data type of the property.</param>
         public void SetPropertyValue(string propertyName, object value, CustomPropertyType propertyType = CustomPropertyType.Text)
         {
+            SetPropertyValueInternal(propertyName, value, propertyType, forceWrite: false);
+        }
+
+        /// <summary>
+        /// Sets the value and always marks it as Modified (or Added if new), guaranteeing it
+        /// will be written back to SolidWorks even if the value hasn't changed.
+        /// Use this for calculated properties that must always be synced to the file
+        /// (matches VBA delete-then-add pattern).
+        /// </summary>
+        public void ForceSetPropertyValue(string propertyName, object value, CustomPropertyType propertyType = CustomPropertyType.Text)
+        {
+            SetPropertyValueInternal(propertyName, value, propertyType, forceWrite: true);
+        }
+
+        private void SetPropertyValueInternal(string propertyName, object value, CustomPropertyType propertyType, bool forceWrite)
+        {
             const string procName = "CustomPropertyData.SetPropertyValue";
             if (!ValidateString(propertyName, procName, "property name")) return;
 
@@ -267,7 +283,7 @@ namespace NM.Core
                 bool valueChanged = !Equals(oldValue, value);
                 bool typeChanged = _propertyTypes.TryGetValue(propertyName, out var oldType) && oldType != propertyType;
 
-                if (valueChanged || typeChanged)
+                if (valueChanged || typeChanged || forceWrite)
                 {
                     _properties[propertyName] = value;
                     _propertyTypes[propertyName] = propertyType;

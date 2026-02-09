@@ -983,15 +983,20 @@ namespace NM.SwAddin.Pipeline
             CalculateCosts(pd, info, options ?? new ProcessingOptions());
             PerformanceTracker.Instance.StopTimer("CostCalculation");
 
-            // Map DTO -> properties and batch save
+            // Map DTO -> properties and batch save.
+            // Use ForceSetPropertyValue (not SetPropertyValue) so calculated values are
+            // ALWAYS written to SolidWorks, even if the value hasn't changed from what was
+            // read from the config scope. This matches VBA behavior (delete + add every time)
+            // and prevents the change tracker from silently skipping properties that were
+            // read from config but need to be written to global scope for the Tab Builder.
             PerformanceTracker.Instance.StartTimer("PropertyWrite");
             var mapped = PartDataPropertyMap.ToProperties(pd);
             foreach (var kv in mapped)
             {
                 if (double.TryParse(kv.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
-                    info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Number);
+                    info.CustomProperties.ForceSetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Number);
                 else
-                    info.CustomProperties.SetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
+                    info.CustomProperties.ForceSetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
             }
 
             var opts2 = options ?? new ProcessingOptions();
