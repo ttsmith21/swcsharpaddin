@@ -161,7 +161,7 @@ namespace NM.Core.Pdf
         /// Multi-page drawings with very few notes may indicate false negatives.
         /// </summary>
         public static CoverageDensityResult CheckCoverageDensity(
-            int pageCount, int noteCount, int gdtCount, bool hasTolerances)
+            int pageCount, int noteCount, int gdtCount, bool hasTolerances, bool hasTitleBlock = false)
         {
             var result = new CoverageDensityResult();
 
@@ -175,6 +175,13 @@ namespace NM.Core.Pdf
             {
                 result.Suspicious = true;
                 result.Reason = $"Multi-page drawing ({pageCount} pages) has zero notes and zero GD&T — likely extraction failure";
+            }
+
+            // Title block populated but zero notes — may indicate notes section was missed
+            if (hasTitleBlock && noteCount == 0 && pageCount >= 1)
+            {
+                result.Suspicious = true;
+                result.Reason = "Title block populated but zero manufacturing notes extracted — notes section may have been missed";
             }
 
             return result;
