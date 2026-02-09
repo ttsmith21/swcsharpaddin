@@ -1021,10 +1021,10 @@ namespace NM.SwAddin.Pipeline
 
             foreach (var kv in mapped)
             {
-                if (double.TryParse(kv.Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out _))
-                    info.CustomProperties.ForceSetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Number);
-                else
-                    info.CustomProperties.ForceSetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
+                // VBA writes ALL properties as swCustomInfoText, even numeric ones.
+                // Tab Builder controls all use Mode="Text". Writing as Number type can cause
+                // SolidWorks to display "0" values as blank in Text-mode TextBoxes.
+                info.CustomProperties.ForceSetPropertyValue(kv.Key, kv.Value, CustomPropertyType.Text);
             }
 
             var opts2 = options ?? new ProcessingOptions();
