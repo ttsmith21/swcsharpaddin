@@ -338,6 +338,15 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="src\NM.Core\Export\QuoteExcelGenerator.cs" />
+    <Compile Include="src\NM.Core\AI\EscalationOrchestrator.cs" />
+    <Compile Include="src\NM.Core\AI\GeminiVisionService.cs" />
+    <Compile Include="src\NM.Core\Pdf\AccuracyBenchmark.cs" />
+    <Compile Include="src\NM.Core\Pdf\ConfidenceCalibrator.cs" />
+    <Compile Include="src\NM.Core\Pdf\ExtractionValidator.cs" />
+    <Compile Include="src\NM.Core\Pdf\GeneralToleranceParser.cs" />
+    <Compile Include="src\NM.Core\Pdf\PdfRenderer.cs" />
+    <Compile Include="src\NM.Core\Pdf\Models\ExtractionGroundTruth.cs" />
+    <Compile Include="src\NM.Core\Pdf\Models\ToleranceCallout.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->
@@ -360,7 +369,7 @@
     <EmbeddedResource Include="Icons\ToolbarStrip_128.png" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Configuration JSON files Ã¢â‚¬â€ copied to bin\Debug\config\ at build time -->
+    <!-- Configuration JSON files ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â copied to bin\Debug\config\ at build time -->
     <Content Include="config\nm-config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>config\nm-config.json</Link>

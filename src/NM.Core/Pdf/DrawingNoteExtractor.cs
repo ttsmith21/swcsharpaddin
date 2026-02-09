@@ -24,25 +24,56 @@ namespace NM.Core.Pdf
 
             var notes = new List<DrawingNote>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Collect all candidate matches with their positions, then deduplicate
+            var candidates = new List<NoteCandidate>();
 
             foreach (var pattern in Patterns)
             {
                 var matches = pattern.Regex.Matches(text);
                 foreach (Match match in matches)
                 {
-                    string noteText = match.Value.Trim();
-                    if (seen.Contains(noteText)) continue;
-                    seen.Add(noteText);
-
-                    notes.Add(new DrawingNote
+                    candidates.Add(new NoteCandidate
                     {
-                        Text = noteText,
-                        Category = pattern.Category,
-                        Impact = pattern.Impact,
-                        Confidence = pattern.Confidence,
+                        Start = match.Index,
+                        End = match.Index + match.Length,
+                        Text = match.Value.Trim(),
+                        Pattern = pattern,
                         PageNumber = pageNumber
                     });
                 }
+            }
+
+            // Sort by length descending so longer (more specific) matches take priority
+            candidates.Sort((a, b) => (b.End - b.Start).CompareTo(a.End - a.Start));
+
+            var matchedRanges = new List<int[]>();
+            foreach (var c in candidates)
+            {
+                if (seen.Contains(c.Text)) continue;
+
+                // Skip if this match overlaps with an already-accepted range
+                bool overlaps = false;
+                foreach (var range in matchedRanges)
+                {
+                    if (c.Start < range[1] && c.End > range[0])
+                    {
+                        overlaps = true;
+                        break;
+                    }
+                }
+                if (overlaps) continue;
+
+                seen.Add(c.Text);
+                matchedRanges.Add(new[] { c.Start, c.End });
+
+                notes.Add(new DrawingNote
+                {
+                    Text = c.Text,
+                    Category = c.Pattern.Category,
+                    Impact = c.Pattern.Impact,
+                    Confidence = c.Pattern.Confidence,
+                    PageNumber = c.PageNumber
+                });
             }
 
             // Also extract numbered notes (common format: "1. BREAK ALL EDGES", "NOTE: ...")
@@ -94,7 +125,7 @@ namespace NM.Core.Pdf
                             Confidence = note.Confidence
                         });
                     }
-                    else if (!string.IsNullOrEmpty(pattern.WorkCenter))
+                    else
                     {
                         hints.Add(new RoutingHint
                         {
@@ -246,7 +277,7 @@ namespace NM.Core.Pdf
         public NotePattern(string pattern, NoteCategory category, RoutingImpact impact,
             RoutingOp routingOp, string workCenter, string routingNoteTemplate, double confidence)
         {
-            Regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            Regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.Compiled | RegexOptions.Multiline);
             Category = category;
             Impact = impact;
             RoutingOp = routingOp;
@@ -254,5 +285,17 @@ namespace NM.Core.Pdf
             RoutingNoteTemplate = routingNoteTemplate;
             Confidence = confidence;
         }
+    }
+
+    /// <summary>
+    /// Intermediate match candidate for deduplication of overlapping regex matches.
+    /// </summary>
+    internal sealed class NoteCandidate
+    {
+        public int Start;
+        public int End;
+        public string Text;
+        public NotePattern Pattern;
+        public int PageNumber;
     }
 }

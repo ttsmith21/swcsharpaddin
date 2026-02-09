@@ -139,6 +139,148 @@ If the drawing data DISAGREES with the 3D model data above, add a ""discrepancie
             return basePrompt + contextBlock;
         }
 
+        // ========================================================================
+        // Multi-pass focused prompts (Phase 2B)
+        // Each pass has a focused schema reducing hallucination opportunity.
+        // ========================================================================
+
+        /// <summary>
+        /// Pass 1: Title block extraction from cropped title block region.
+        /// Focused on 10 fields only, high accuracy on small image.
+        /// </summary>
+        public static string GetPass1TitleBlockPrompt()
+        {
+            return @"Extract ONLY the title block information from this engineering drawing image.
+Return ONLY valid JSON, no other text.
+
+{
+  ""part_number"": """",
+  ""description"": """",
+  ""revision"": """",
+  ""material"": """",
+  ""finish"": """",
+  ""drawn_by"": """",
+  ""date"": """",
+  ""scale"": """",
+  ""sheet"": """",
+  ""tolerance_general"": """"
+}
+
+IMPORTANT RULES:
+- ONLY extract data visible in the title block area.
+- Use empty string for fields you cannot clearly read.
+- material: Full spec (e.g., ""ASTM A36"", ""304 STAINLESS STEEL"", ""6061-T6 ALUMINUM"").
+- revision: Letter or number only (e.g., ""C"", ""3""), NOT revision history.
+- part_number: The primary identifier, exclude revision suffixes.
+- tolerance_general: The ""UNLESS OTHERWISE SPECIFIED"" tolerance block text.
+- Do NOT infer or guess any values.";
+        }
+
+        /// <summary>
+        /// Pass 2: Manufacturing notes scan across the full drawing page.
+        /// Focused on finding all notes and categorizing them.
+        /// </summary>
+        public static string GetPass2NotesPrompt()
+        {
+            return @"Scan this engineering drawing for ALL manufacturing notes, callouts, and process instructions.
+Return ONLY valid JSON, no other text.
+
+{
+  ""manufacturing_notes"": [
+    {
+      ""text"": ""exact note text as written on drawing"",
+      ""category"": ""deburr|finish|heat_treat|weld|machine|inspect|hardware|process_constraint|material|general"",
+      ""routing_impact"": ""add_operation|modify_operation|informational|constraint"",
+      ""location"": ""notes_section|view_annotation|general_note|title_block""
+    }
+  ],
+  ""special_requirements"": [],
+  ""holes"": {
+    ""tapped_holes"": [],
+    ""through_holes"": []
+  },
+  ""bend_info"": {
+    ""bend_radius"": """",
+    ""bend_count"": """"
+  }
+}
+
+RULES:
+- Check ALL areas: NOTES section, view annotations, flag notes, general notes.
+- Preserve EXACT wording from the drawing.
+- Do NOT include dimension callouts as notes.
+- Do NOT include title block information as notes.
+- For tapped_holes: ""1/4-20"", ""M6x1.0"" format.
+- For through_holes: ""0.250 DIA THRU"" format.
+- special_requirements: ITAR, DFAR, MIL-SPEC, PPAP, first article, etc.
+- If no notes are found, return empty arrays.";
+        }
+
+        /// <summary>
+        /// Pass 3: Tolerance scan — identifies tolerances tighter than the general tolerance.
+        /// Requires the general tolerance to be provided as context.
+        /// </summary>
+        public static string GetPass3TolerancePrompt(string generalToleranceText = null)
+        {
+            string contextLine = "";
+            if (!string.IsNullOrEmpty(generalToleranceText))
+            {
+                contextLine = $@"
+The drawing's general tolerance block states: ""{generalToleranceText}""
+Only report tolerances that are TIGHTER than these general defaults.
+";
+            }
+            else
+            {
+                contextLine = @"
+If you can read the general tolerance block (UNLESS OTHERWISE SPECIFIED section),
+extract it first, then identify any tolerances tighter than those defaults.
+";
+            }
+
+            return @"Scan this engineering drawing for GD&T feature control frames and tolerances
+that are TIGHTER than the general (default) tolerance.
+Return ONLY valid JSON, no other text.
+" + contextLine + @"
+{
+  ""general_tolerance"": {
+    ""raw_text"": """",
+    ""two_place_decimal"": null,
+    ""three_place_decimal"": null,
+    ""four_place_decimal"": null,
+    ""angles_degrees"": null,
+    ""fractional"": null
+  },
+  ""tight_tolerances"": [
+    {
+      ""dimension_value"": """",
+      ""tolerance"": """",
+      ""tolerance_type"": ""bilateral|unilateral|limit|basic"",
+      ""feature_description"": """",
+      ""is_tighter_than_general"": true
+    }
+  ],
+  ""gdt_callouts"": [
+    {
+      ""type"": ""flatness|parallelism|perpendicularity|position|profile_of_surface|profile_of_line|circular_runout|total_runout|concentricity|symmetry"",
+      ""tolerance"": """",
+      ""datum_references"": [],
+      ""feature_description"": """",
+      ""modifier"": ""none|MMC|LMC|RFS""
+    }
+  ]
+}
+
+RULES:
+- ONLY report specific callouts that deviate from the general tolerance.
+- For bilateral: ""+/-0.005"" or ""+-0.005"".
+- For limit dimensions: ""1.000/1.002"".
+- For GD&T, identify the geometric characteristic symbol accurately.
+- datum_references: list of datum letters (e.g., [""A"", ""B"", ""C""]).
+- If no tight tolerances or GD&T callouts exist, return empty arrays.
+- Do NOT hallucinate tolerances that are not explicitly shown.";
+        }
+
         /// <summary>
         /// System prompt establishing the AI's role.
         /// </summary>

@@ -173,7 +173,8 @@ namespace NM.Core.Pdf
 
         /// <summary>
         /// Enhances existing analysis results with AI vision data.
-        /// Merges AI-extracted data into the DrawingData, preferring higher-confidence values.
+        /// For Gemini: sends PDF bytes directly (native PDF support).
+        /// For Claude: renders PDF to PNG first, falls back if no renderer available.
         /// </summary>
         private async Task EnhanceWithVisionAsync(DrawingData result, string pdfPath, VisionContext context)
         {
@@ -182,29 +183,60 @@ namespace NM.Core.Pdf
 
             try
             {
-                // For now, we need the caller to provide page images (PDF→PNG rendering).
-                // PDFtoImage integration happens in Phase 2.5 when we add the NuGet package.
-                // This method is the integration point — the rendering step plugs in here.
+                byte[] inputBytes;
+                bool isGemini = _visionService is GeminiVisionService;
 
-                // Placeholder: read the PDF file as bytes for services that accept PDF directly
-                byte[] pdfBytes = File.ReadAllBytes(pdfPath);
+                if (isGemini)
+                {
+                    // Gemini accepts PDF natively — no rendering needed
+                    inputBytes = PdfRenderer.GetPdfBytes(pdfPath);
+                    if (inputBytes == null || inputBytes.Length == 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine("[PDF] Failed to read PDF bytes");
+                        return;
+                    }
+                }
+                else
+                {
+                    // Claude/other services need PNG — try rendering
+                    inputBytes = PdfRenderer.RenderPageToPng(pdfPath, pageIndex: 0, dpi: 200);
+                    if (inputBytes == null || inputBytes.Length == 0)
+                    {
+                        System.Diagnostics.Debug.WriteLine(
+                            "[PDF] No PNG renderer available. Install Ghostscript for Claude Vision, " +
+                            "or switch to Gemini provider which accepts PDF natively.");
+                        return;
+                    }
+                }
 
-                // In a full implementation, we would:
-                // 1. Render page 1 to PNG at configured DPI
-                // 2. Optionally crop to title block region for Tier 2
-                // 3. Send to AI service
-                // 4. Merge results
+                VisionAnalysisResult visionResult;
 
-                // For now, we'll send the raw bytes and let the service handle it
-                // (ClaudeVisionService expects PNG, so this is a no-op until rendering is wired up)
+                // Choose analysis tier based on text extraction confidence
+                bool titleBlockOnly = result.OverallConfidence >= 0.6;
+                if (titleBlockOnly && !isGemini)
+                {
+                    // Tier 2: title block region only (cheaper, Claude only)
+                    byte[] titleBlockImage = PdfRenderer.RenderTitleBlockRegion(pdfPath, pageIndex: 0, dpi: 300);
+                    byte[] imageToAnalyze = (titleBlockImage != null && titleBlockImage.Length > 0)
+                        ? titleBlockImage : inputBytes;
+                    visionResult = await _visionService.AnalyzeTitleBlockAsync(imageToAnalyze);
+                }
+                else
+                {
+                    // Tier 3: full page/document analysis
+                    visionResult = await _visionService.AnalyzeDrawingPageAsync(inputBytes, context);
+                }
 
-                // The key insight: the architecture is ready. When PDF→PNG rendering is added,
-                // it slots in right here with zero changes to the rest of the pipeline.
+                if (visionResult != null && visionResult.Success)
+                {
+                    MergeVisionResults(result, visionResult);
+                }
 
                 System.Diagnostics.Debug.WriteLine(
-                    $"[PDF] AI Vision ready. Service: {_visionService.GetType().Name}, " +
-                    $"Available: {_visionService.IsAvailable}, " +
-                    $"Session cost: ${_visionService.SessionCost:F3}");
+                    $"[PDF] AI Vision complete. Service: {_visionService.GetType().Name}, " +
+                    $"Success: {visionResult?.Success}, " +
+                    $"Cost: ${visionResult?.CostUsd:F3}, " +
+                    $"Session total: ${_visionService.SessionCost:F3}");
             }
             catch (Exception ex)
             {
@@ -284,7 +316,7 @@ namespace NM.Core.Pdf
 
             string dir = Path.GetDirectoryName(partFilePath);
             string baseName = Path.GetFileNameWithoutExtension(partFilePath);
-            if (dir == null) return null;
+            if (dir == null || !Directory.Exists(dir)) return null;
 
             // Same directory, same name
             string sameName = Path.Combine(dir, baseName + ".pdf");
