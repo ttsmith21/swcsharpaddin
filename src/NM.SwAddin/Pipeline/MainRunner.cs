@@ -25,6 +25,27 @@ namespace NM.SwAddin.Pipeline
     /// </summary>
     public static class MainRunner
     {
+        /// <summary>
+        /// OP20 values that are auto-assigned by VBA/C# pipeline.
+        /// When an existing OP20 matches one of these, allow the pipeline to recalculate.
+        /// Only preserve OP20 values NOT in this set (operator manual selections).
+        /// VBA reference: SP.bas:1107 only preserves non-auto values.
+        /// </summary>
+        private static readonly HashSet<string> AutoAssignedOP20Values =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "N120 - 5040",
+            "N115 - ANY FLAT LASER",
+            "N125 - 3060",
+            "N135 - FLOW",
+            "F110 - TUBE LASER",
+            "N145 - 5-AXIS LASER",
+            "F300 - SAW",
+            "NPUR - PURCHASED",
+            "CUST - SUPPLIED",
+            "MP - MACHINED",
+        };
+
         public sealed class RunResult
         {
             public bool Success { get; set; }
@@ -992,14 +1013,15 @@ namespace NM.SwAddin.Pipeline
             CalculateCosts(pd, info, options ?? new ProcessingOptions());
             PerformanceTracker.Instance.StopTimer("CostCalculation");
 
-            // VBA parity: preserve existing OP20 value if already set to a valid selection.
-            // VBA only auto-assigns OP20 when empty or set to a generic auto-detected value.
-            // If the user (or a previous VBA run) chose a specific machine, keep it.
-            // NOTE: Store in a local variable, NOT pd.Extra, to avoid leaking a temp key
-            // into the Extras→properties loop which would create a junk SolidWorks property.
+            // VBA parity: preserve existing OP20 only if it's a manual operator selection.
+            // VBA (SP.bas:1107) recalculates when OP20 is empty or one of the auto-assigned
+            // values ("N120 - 5040", "N115 - ANY FLAT LASER", "N125 - 3060"). Only non-auto
+            // values (operator manual picks) are preserved.
+            // For tubes, VBA always overwrites OP20 — auto-assigned tube values ("F110 - TUBE
+            // LASER", "N145 - 5-AXIS LASER", "F300 - SAW") are also in the auto-assigned set.
             string preservedOP20 = null;
             var existingOP20 = info.CustomProperties.GetPropertyValue("OP20")?.ToString();
-            if (!string.IsNullOrEmpty(existingOP20))
+            if (!string.IsNullOrEmpty(existingOP20) && !AutoAssignedOP20Values.Contains(existingOP20))
                 preservedOP20 = existingOP20;
 
             // Map DTO -> properties and batch save.
