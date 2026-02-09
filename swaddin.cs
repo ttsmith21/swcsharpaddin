@@ -152,6 +152,23 @@ namespace swcsharpaddin
         #region ISwAddin Implementation
         public SwAddin()
         {
+            // Register assembly resolver for ClosedXML transitive dependencies.
+            // COM add-ins don't have app.config binding redirects, so version
+            // mismatches (e.g. System.Memory 4.0.1.1 vs 4.0.1.2) cause
+            // FileNotFoundException. This resolver loads from our bin directory.
+            AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+            {
+                var name = new System.Reflection.AssemblyName(args.Name);
+                string binDir = Path.GetDirectoryName(
+                    System.Reflection.Assembly.GetExecutingAssembly().Location);
+                string dllPath = Path.Combine(binDir, name.Name + ".dll");
+                if (File.Exists(dllPath))
+                {
+                    try { return System.Reflection.Assembly.LoadFrom(dllPath); }
+                    catch { /* fall through to default resolution */ }
+                }
+                return null;
+            };
         }
 
         public bool ConnectToSW(object ThisSW, int cookie)

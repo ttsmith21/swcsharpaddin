@@ -79,6 +79,7 @@ namespace NM.Core.AI.Models
     public enum AiProvider
     {
         Claude,
+        Gemini,
         OpenAI,
         Offline
     }

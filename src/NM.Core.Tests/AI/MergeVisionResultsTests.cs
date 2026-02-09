@@ -134,7 +134,10 @@ namespace NM.Core.Tests.AI
             {
                 Success = true,
                 PartNumber = new FieldResult("123", 0.95),
-                Material = new FieldResult("A36", 0.9)
+                Description = new FieldResult("BRACKET", 0.90),
+                Revision = new FieldResult("A", 0.95),
+                Material = new FieldResult("A36", 0.90),
+                Finish = new FieldResult("PAINT", 0.85)
             };
 
             analyzer.MergeVisionResults(target, vision);
