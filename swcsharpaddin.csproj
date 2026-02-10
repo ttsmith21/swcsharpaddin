@@ -218,6 +218,7 @@
     <Compile Include="src\NM.SwAddin\UI\MainSelectionForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="src\NM.SwAddin\UI\ProblemPartColorizer.cs" />
     <Compile Include="src\NM.SwAddin\UI\ProblemPartsForm.cs">
       <SubType>Form</SubType>
     </Compile>
