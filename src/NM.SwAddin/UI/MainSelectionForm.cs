@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using NM.Core;
@@ -230,6 +231,9 @@ namespace NM.SwAddin.UI
             // Check active document type and adjust entry point options (like VBA)
             SetEntryPointFromActiveDoc();
 
+            // Pre-fill form from active part's material and custom properties
+            PrePopulateFromActivePart();
+
             ApplyToolTips();
         }
 
@@ -331,6 +335,85 @@ namespace NM.SwAddin.UI
             tt.SetToolTip(rbBendTable, "Use material-specific bend table");
             tt.SetToolTip(rbKFactor, "Use K-Factor for bend calculations");
             tt.SetToolTip(cboMode, "Production=minimal logging, Normal=standard, Debug=verbose");
+        }
+
+        private void PrePopulateFromActivePart()
+        {
+            if (_swApp == null) return;
+            try
+            {
+                var doc = (IModelDoc2)_swApp.ActiveDoc;
+                if (doc == null) return;
+
+                // --- Material ---
+                // First try the custom property (written by previous pipeline run)
+                string matProp = SwPropertyHelper.GetCustomPropertyValue(doc, "Material");
+                if (string.IsNullOrEmpty(matProp))
+                {
+                    // Fall back to SW material database name
+                    matProp = SolidWorksApiWrapper.GetMaterialName(doc);
+                }
+                if (!string.IsNullOrEmpty(matProp))
+                    SelectMaterialRadio(matProp);
+
+                // --- Custom Properties ---
+                string cust = SwPropertyHelper.GetCustomPropertyValue(doc, "Customer");
+                if (!string.IsNullOrEmpty(cust)) txtCustomer.Text = cust;
+
+                string print = SwPropertyHelper.GetCustomPropertyValue(doc, "Print");
+                if (!string.IsNullOrEmpty(print)) txtPrint.Text = print;
+
+                string rev = SwPropertyHelper.GetCustomPropertyValue(doc, "Revision");
+                if (!string.IsNullOrEmpty(rev)) txtRevision.Text = rev;
+
+                string desc = SwPropertyHelper.GetCustomPropertyValue(doc, "Description");
+                if (!string.IsNullOrEmpty(desc)) txtDescription.Text = desc;
+            }
+            catch
+            {
+                // Don't block form from opening
+            }
+        }
+
+        private void SelectMaterialRadio(string materialName)
+        {
+            if (string.IsNullOrEmpty(materialName)) return;
+            string m = materialName.Trim();
+
+            // Map SW database names and short names to radio buttons
+            var map = new Dictionary<string, RadioButton>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "304L", rb304L }, { "AISI 304", rb304L },
+                { "316L", rb316L }, { "AISI 316", rb316L }, { "AISI 316 Stainless Steel Sheet (SS)", rb316L },
+                { "309", rb309 }, { "310", rb310 }, { "321", rb321 }, { "330", rb330 },
+                { "409", rb409 }, { "430", rb430 },
+                { "2205", rb2205 }, { "2507", rb2507 },
+                { "C22", rbC22 }, { "Hastelloy C-22", rbC22 },
+                { "C276", rbC276 },
+                { "AL6XN", rbAL6XN }, { "ALLOY31", rbALLOY31 },
+                { "A36", rbA36 }, { "ASTM A36 Steel", rbA36 },
+                { "ALNZD", rbALNZD },
+                { "5052", rb5052 }, { "5052-H32", rb5052 },
+                { "6061", rb6061 }, { "6061 Alloy", rb6061 },
+            };
+
+            // Exact match
+            if (map.TryGetValue(m, out var rb))
+            {
+                rb.Checked = true;
+                return;
+            }
+
+            // Contains match (e.g., "AISI 304 Stainless..." contains "304")
+            foreach (var kvp in map)
+            {
+                if (m.IndexOf(kvp.Key, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    kvp.Value.Checked = true;
+                    return;
+                }
+            }
+            // No match — leave default 304L selected
         }
 
         private void BtnOK_Click(object sender, EventArgs e)
