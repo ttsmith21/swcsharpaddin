@@ -80,16 +80,19 @@ namespace NM.SwAddin.Pipeline
             // 2. All 18 material buttons on tube part
             RunAllMaterialsOnTube();
 
-            // 3. Custom property propagation (Customer, Print, Revision)
+            // 3. Part-type-specific routing (flat, bent, rolled, saw)
+            RunPartTypeRoutingTests();
+
+            // 4. Custom property propagation (Customer, Print, Revision)
             RunCustomPropertyTests();
 
-            // 4. Re-run idempotency (process same part twice)
+            // 5. Re-run idempotency (process same part twice)
             RunRerunTest();
 
-            // 5. Assembly workflow
+            // 6. Assembly workflow
             RunAssemblyTest();
 
-            // 6. Batch workflow (all B-series + C-series)
+            // 7. Batch workflow (all B-series + C-series)
             RunBatchTest();
 
             Log("");
@@ -199,11 +202,177 @@ namespace NM.SwAddin.Pipeline
         }
 
         // =====================================================================
-        // TEST 3: Custom Property Propagation (Customer, Print, Revision)
+        // TEST 3: Part-Type-Specific Routing (flat, bent, rolled, saw)
+        // =====================================================================
+        private void RunPartTypeRoutingTests()
+        {
+            Log("--- TEST 3: Part-Type Routing (Flat / Bent / Rolled / Saw) ---");
+
+            var defaultOpts = new ProcessingOptions
+            {
+                Material = "304L",
+                MaterialType = "AISI 304",
+                MaterialCategory = MaterialCategoryKind.StainlessSteel,
+                SaveChanges = false
+            };
+
+            // ---------- FLAT: E1_ThickPlate_1in (no bends, just laser cut) ----------
+            var e1Path = FindPart("E1_ThickPlate_1in.SLDPRT");
+            if (e1Path != null)
+            {
+                var pd = ProcessPart(e1Path, defaultOpts);
+                AssertNotNull(pd, "E1-Flat: PartData returned");
+                if (pd != null && pd.Status == ProcessingStatus.Success)
+                {
+                    AssertEquals(pd.Classification, PartType.SheetMetal, "E1-Flat: Classification=SheetMetal");
+                    // VBA baseline: 1.0" thickness, no N140 routing (no bends)
+                    AssertTrue(pd.Thickness_m > 0.020, $"E1-Flat: Thickness > 0.020m / ~0.8in (got {pd.Thickness_m:F4})");
+                    AssertEquals(pd.Sheet.BendCount, 0, "E1-Flat: BendCount=0 (flat plate)");
+
+                    var mapped = PartDataPropertyMap.ToProperties(pd);
+                    // OP20 = laser cutting (F115 → "N120 - 5040")
+                    AssertNotEmpty(Get(mapped, "OP20"), "E1-Flat: OP20 not empty");
+                    // PressBrake should be "Unchecked" (no bends)
+                    AssertEquals(Get(mapped, "PressBrake"), "Unchecked", "E1-Flat: PressBrake=Unchecked (no bends)");
+                    // F140 times should be zero
+                    AssertEquals(Get(mapped, "F140_S"), "0", "E1-Flat: F140_S=0 (no bends)");
+                    AssertEquals(Get(mapped, "F140_R"), "0", "E1-Flat: F140_R=0 (no bends)");
+                    // F325 roll forming should be inactive (no large-radius bends)
+                    AssertEquals(Get(mapped, "F325"), "0", "E1-Flat: F325=0 (no roll forming)");
+                    // OptiMaterial should include "1IN" for 1" plate
+                    AssertContains(pd.OptiMaterial, "1IN", $"E1-Flat: OptiMaterial contains '1IN' (got {pd.OptiMaterial ?? "NULL"})");
+                }
+            }
+
+            // ---------- BENT: B1_NativeBracket (1 bend, press brake) ----------
+            var b1Path = FindPart("B1_NativeBracket_14ga_CS.SLDPRT");
+            if (b1Path != null)
+            {
+                var pd = ProcessPart(b1Path, defaultOpts);
+                AssertNotNull(pd, "B1-Bent: PartData returned");
+                if (pd != null && pd.Status == ProcessingStatus.Success)
+                {
+                    AssertEquals(pd.Classification, PartType.SheetMetal, "B1-Bent: Classification=SheetMetal");
+                    // VBA baseline: 1 bend, N140 active
+                    AssertTrue(pd.Sheet.BendCount >= 1, $"B1-Bent: BendCount >= 1 (got {pd.Sheet.BendCount})");
+
+                    var mapped = PartDataPropertyMap.ToProperties(pd);
+                    // PressBrake should be "Checked" (has bends)
+                    AssertEquals(Get(mapped, "PressBrake"), "Checked", "B1-Bent: PressBrake=Checked (has bends)");
+                    // F140 setup and run should be non-zero
+                    AssertNotEquals(Get(mapped, "F140_S"), "0", "B1-Bent: F140_S != 0 (brake setup)");
+                    AssertNotEquals(Get(mapped, "F140_R"), "0", "B1-Bent: F140_R != 0 (brake run)");
+                    // BendCount property written
+                    AssertNotEmpty(Get(mapped, "BendCount"), "B1-Bent: BendCount property written");
+                    // OP20 = laser
+                    AssertNotEmpty(Get(mapped, "OP20"), "B1-Bent: OP20 not empty (laser)");
+                }
+            }
+
+            // ---------- ROLLED: B3_RolledCylinder (large-radius bend, roll forming) ----------
+            var b3Path = FindPart("B3_RolledCylinder_16ga_SS.SLDPRT");
+            if (b3Path != null)
+            {
+                var pd = ProcessPart(b3Path, defaultOpts);
+                AssertNotNull(pd, "B3-Roll: PartData returned");
+                if (pd != null && pd.Status == ProcessingStatus.Success)
+                {
+                    AssertEquals(pd.Classification, PartType.SheetMetal, "B3-Roll: Classification=SheetMetal");
+                    AssertTrue(pd.Thickness_m > 0, $"B3-Roll: Thickness_m > 0 (got {pd.Thickness_m:F6})");
+
+                    var mapped = PartDataPropertyMap.ToProperties(pd);
+                    // OP20 = laser cutting
+                    AssertNotEmpty(Get(mapped, "OP20"), "B3-Roll: OP20 not empty (laser)");
+                    // VBA baseline: N325 roll forming active (0.375 setup, 0.2 run)
+                    // F325 should be "1" (active)
+                    AssertEquals(Get(mapped, "F325"), "1", "B3-Roll: F325=1 (roll forming active)");
+                    AssertNotEquals(Get(mapped, "F325_S"), "0", "B3-Roll: F325_S != 0 (roll setup)");
+                    AssertNotEquals(Get(mapped, "F325_R"), "0", "B3-Roll: F325_R != 0 (roll run)");
+                    // OptiMaterial should have sheet prefix
+                    AssertStartsWith(pd.OptiMaterial, "S.", "B3-Roll: OptiMaterial starts with S.");
+                }
+            }
+
+            // ---------- SAW: C7_RoundBar (solid bar, F300 saw) ----------
+            var c7Path = FindPart("C7_RoundBar_1dia.SLDPRT");
+            if (c7Path == null)
+                c7Path = FindPart("C7_RoundBar_1dia.sldprt"); // case sensitivity
+            if (c7Path != null)
+            {
+                var pd = ProcessPart(c7Path, defaultOpts);
+                AssertNotNull(pd, "C7-Saw: PartData returned");
+                if (pd != null && pd.Status == ProcessingStatus.Success)
+                {
+                    AssertEquals(pd.Classification, PartType.Tube, "C7-Saw: Classification=Tube");
+                    AssertTrue(pd.Tube.IsTube, "C7-Saw: IsTube=true");
+                    // Solid bar: wall should be ~0 (no inner diameter)
+                    AssertTrue(pd.Tube.Wall_m < 0.001, $"C7-Saw: Wall_m < 0.001 (solid bar, got {pd.Tube.Wall_m:F6})");
+
+                    // VBA baseline: F300 (saw), not F110 (tube laser)
+                    AssertEquals(pd.Cost.OP20_WorkCenter, "F300", $"C7-Saw: OP20_WorkCenter=F300 (got {pd.Cost.OP20_WorkCenter ?? "NULL"})");
+                    AssertTrue(pd.Cost.OP20_S_min > 0, $"C7-Saw: OP20_S_min > 0 (got {pd.Cost.OP20_S_min:F4})");
+                    AssertTrue(pd.Cost.OP20_R_min > 0, $"C7-Saw: OP20_R_min > 0 (got {pd.Cost.OP20_R_min:F4})");
+
+                    var mapped = PartDataPropertyMap.ToProperties(pd);
+                    // OP20 property should map to "F300 - SAW"
+                    AssertEquals(Get(mapped, "OP20"), "F300 - SAW", "C7-Saw: mapped OP20='F300 - SAW'");
+                    AssertEquals(Get(mapped, "rbMaterialType"), "1", "C7-Saw: rbMaterialType=1 (tube/bar)");
+                    // OptiMaterial: VBA baseline = "R.304L1\"" (round bar prefix)
+                    AssertStartsWith(pd.OptiMaterial, "R.", $"C7-Saw: OptiMaterial starts with R. (got {pd.OptiMaterial ?? "NULL"})");
+                }
+            }
+
+            // ---------- MaterialCategory propagation check ----------
+            Log("  --- MaterialCategory Propagation ---");
+            if (b1Path != null)
+            {
+                // StainlessSteel
+                var pdSS = ProcessPart(b1Path, new ProcessingOptions
+                {
+                    Material = "304L", MaterialType = "AISI 304",
+                    MaterialCategory = MaterialCategoryKind.StainlessSteel, SaveChanges = false
+                });
+                if (pdSS != null)
+                {
+                    AssertEquals(pdSS.MaterialCategory, "StainlessSteel", "MatCat-SS: pd.MaterialCategory=StainlessSteel");
+                    var mappedSS = PartDataPropertyMap.ToProperties(pdSS);
+                    AssertEquals(Get(mappedSS, "MaterialCategory"), "StainlessSteel", "MatCat-SS: mapped MaterialCategory=StainlessSteel");
+                }
+
+                // CarbonSteel
+                var pdCS = ProcessPart(b1Path, new ProcessingOptions
+                {
+                    Material = "A36", MaterialType = "ASTM A36 Steel",
+                    MaterialCategory = MaterialCategoryKind.CarbonSteel, SaveChanges = false
+                });
+                if (pdCS != null)
+                {
+                    AssertEquals(pdCS.MaterialCategory, "CarbonSteel", "MatCat-CS: pd.MaterialCategory=CarbonSteel");
+                    var mappedCS = PartDataPropertyMap.ToProperties(pdCS);
+                    AssertEquals(Get(mappedCS, "MaterialCategory"), "CarbonSteel", "MatCat-CS: mapped MaterialCategory=CarbonSteel");
+                }
+
+                // Aluminum
+                var pdAL = ProcessPart(b1Path, new ProcessingOptions
+                {
+                    Material = "6061", MaterialType = "6061 Alloy",
+                    MaterialCategory = MaterialCategoryKind.Aluminum, SaveChanges = false
+                });
+                if (pdAL != null)
+                {
+                    AssertEquals(pdAL.MaterialCategory, "Aluminum", "MatCat-AL: pd.MaterialCategory=Aluminum");
+                    var mappedAL = PartDataPropertyMap.ToProperties(pdAL);
+                    AssertEquals(Get(mappedAL, "MaterialCategory"), "Aluminum", "MatCat-AL: mapped MaterialCategory=Aluminum");
+                }
+            }
+        }
+
+        // =====================================================================
+        // TEST 4: Custom Property Propagation (Customer, Print, Revision)
         // =====================================================================
         private void RunCustomPropertyTests()
         {
-            Log("--- TEST 3: Custom Property Propagation ---");
+            Log("--- TEST 4: Custom Property Propagation ---");
 
             var b1Path = FindPart("B1_NativeBracket_14ga_CS.SLDPRT");
             if (b1Path == null) return;
@@ -255,11 +424,11 @@ namespace NM.SwAddin.Pipeline
         }
 
         // =====================================================================
-        // TEST 4: Re-Run Idempotency (process same part twice)
+        // TEST 5: Re-Run Idempotency (process same part twice)
         // =====================================================================
         private void RunRerunTest()
         {
-            Log("--- TEST 4: Re-Run Idempotency ---");
+            Log("--- TEST 5: Re-Run Idempotency ---");
 
             var b1Path = FindPart("B1_NativeBracket_14ga_CS.SLDPRT");
             if (b1Path == null) return;
@@ -329,11 +498,11 @@ namespace NM.SwAddin.Pipeline
         }
 
         // =====================================================================
-        // TEST 5: Assembly Workflow
+        // TEST 6: Assembly Workflow
         // =====================================================================
         private void RunAssemblyTest()
         {
-            Log("--- TEST 5: Assembly Workflow ---");
+            Log("--- TEST 6: Assembly Workflow ---");
 
             var assyPath = Path.Combine(_inputDir, "F1_SimpleAssy.SLDASM");
             if (!File.Exists(assyPath))
@@ -445,11 +614,11 @@ namespace NM.SwAddin.Pipeline
         }
 
         // =====================================================================
-        // TEST 6: Batch Workflow (all B-series + C-series)
+        // TEST 7: Batch Workflow (all B-series + C-series)
         // =====================================================================
         private void RunBatchTest()
         {
-            Log("--- TEST 6: Batch Workflow ---");
+            Log("--- TEST 7: Batch Workflow ---");
 
             // ----- B-series (sheet metal) -----
             var bParts = Directory.GetFiles(_inputDir, "B*.SLDPRT", SearchOption.TopDirectoryOnly);

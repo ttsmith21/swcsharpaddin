@@ -168,6 +168,11 @@ namespace NM.SwAddin.Pipeline
                 else
                     pd.Material = SolidWorksApiWrapper.GetMaterialName(doc);
 
+                // MaterialCategory drives pipe schedule resolution, tube descriptions,
+                // and bend table selection. VBA: frmSolidWorksAutomatorMain radio buttons.
+                if (options != null)
+                    pd.MaterialCategory = options.MaterialCategory.ToString();
+
                 // Basic geometry check - get all solid bodies
                 var partDoc = doc as IPartDoc;
                 if (partDoc == null)
