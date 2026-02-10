@@ -237,7 +237,7 @@ swcsharpaddin/
 ### Key Services
 - **MainRunner** (`src/NM.SwAddin/Pipeline/`) - Single-part orchestration
 - **SimpleSheetMetalProcessor** (`src/NM.Core/Processing/`) - Sheet metal conversion (WORKING)
-- **SimpleTubeProcessor** (`src/NM.Core/Processing/`) - Tube processing (geometry extraction blocked)
+- **SimpleTubeProcessor** (`src/NM.Core/Processing/`) - Tube processing (round, square, rect, angle, channel, I-beam)
 - **BendTableResolver** - Network path resolution with fallbacks
 - **CustomPropertiesService** - Read/write SolidWorks custom properties
 
@@ -245,20 +245,22 @@ swcsharpaddin/
 
 ### Production-Ready (✅)
 - Sheet metal processing (InsertBends with bend table)
+- Tube/structural processing (OD/ID/length/wall via TubeGeometryExtractor, 7 shape types)
+- Manufacturing calculations (F115 laser, F140 brake, F210 deburr, F220 tapping, F325 roll forming, material cost)
+- Assembly batch processing (multi-level BOM traversal, quantity rollup)
+- ERP export (Import.prn generation with IM, PS, RT, RN records)
+- DXF/drawing output (flat pattern DXF, eDrawings export)
 - Validation pipeline (single body detection, multi-body rejection)
+- Custom properties read/write (batched writeback)
 - Add-in registration and command management
 - Error handling with call stack tracking
 - Performance tracking with timing
+- Quote Excel report generation (ClosedXML)
+- AI-powered PDF drawing analysis (PdfPig + Claude Vision)
 
-### Blocked (⚠️)
-- **Tube geometry extraction** - Cannot get OD/ID/length from cylinder faces
-- **Custom properties write** - Read works, write not implemented
-
-### Not Started
-- Manufacturing calculations (weight, time, cost)
-- Assembly batch processing
-- ERP export (Import.prn generation)
-- DXF/drawing output
+### Needs Production Validation (⚠️)
+- Assembly processing on large real-world assemblies (works on test parts)
+- AI PDF reconciliation (pipeline built, needs shop-specific pattern library expansion)
 
 ## Critical Constraints
 
