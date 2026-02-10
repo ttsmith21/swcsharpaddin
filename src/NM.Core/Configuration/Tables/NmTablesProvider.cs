@@ -39,6 +39,14 @@ namespace NM.Core.Config.Tables
         {
             var m = (materialCode ?? string.Empty).ToUpperInvariant();
 
+            // 1. Check per-material override first
+            if (table.ByMaterial != null && table.ByMaterial.Count > 0)
+            {
+                if (table.ByMaterial.TryGetValue(m, out var specific) && specific.Count > 0)
+                    return specific;
+            }
+
+            // 2. Fall back to group tables
             if (m.Contains("A36") || m == "CS" || m.Contains("1018") || m.Contains("1020") || m.Contains("1045"))
                 return table.CarbonSteel;
 

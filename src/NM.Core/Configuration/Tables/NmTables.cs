@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace NM.Core.Config.Tables
@@ -20,10 +21,15 @@ namespace NM.Core.Config.Tables
 
     public sealed class LaserSpeedTable
     {
+        // Group fallbacks (existing — keep for backward compat)
         public List<LaserSpeedEntry> StainlessSteel { get; set; } = new List<LaserSpeedEntry>();
         public List<LaserSpeedEntry> CarbonSteel { get; set; } = new List<LaserSpeedEntry>();
         public List<LaserSpeedEntry> Aluminum { get; set; } = new List<LaserSpeedEntry>();
         public double ThicknessToleranceIn { get; set; } = 0.005;
+
+        // Per-material overrides (checked first, e.g. "304L", "316L", "309", "2205", "CS", "AL")
+        public Dictionary<string, List<LaserSpeedEntry>> ByMaterial { get; set; }
+            = new Dictionary<string, List<LaserSpeedEntry>>(StringComparer.OrdinalIgnoreCase);
     }
 
     public sealed class LaserSpeedEntry

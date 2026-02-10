@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using NM.Core.Config;
+using NM.Core.Config.Tables;
 using NM.Core.DataModel;
 using NM.Core.Manufacturing;
 using NM.Core.Manufacturing.Laser;
@@ -1569,6 +1570,114 @@ namespace NM.Core.Tests
                 Assert.Equal(0, result.RunHours);
                 // This test PASSES — it documents the known failure mode.
                 // The fix is to ensure NmConfigProvider.Initialize() is called before costs.
+            }
+        }
+
+        /// <summary>
+        /// ByMaterial lookup should be preferred over group table when both exist
+        /// at the same thickness with different speeds.
+        /// </summary>
+        [Fact]
+        public void ByMaterial_PreferredOverGroupTable()
+        {
+            var tables = new NmTables();
+
+            // Group table entry: 0.075" → 200 IPM
+            tables.LaserSpeeds.StainlessSteel.Add(new LaserSpeedEntry
+                { ThicknessIn = 0.075, FeedRateIpm = 200, PierceSeconds = 0.5 });
+
+            // Per-material override: 304L at 0.075" → 180 IPM (different from group)
+            tables.LaserSpeeds.ByMaterial["304L"] = new List<LaserSpeedEntry>
+            {
+                new LaserSpeedEntry { ThicknessIn = 0.075, FeedRateIpm = 180, PierceSeconds = 0.4 }
+            };
+
+            var (feedIpm, pierceSec) = NmTablesProvider.GetLaserSpeed(tables, 0.075, "304L");
+
+            Assert.Equal(180, feedIpm);
+            Assert.Equal(0.4, pierceSec);
+        }
+
+        /// <summary>
+        /// Material not in ByMaterial should fall back to group table.
+        /// "330" is a stainless alloy not in the VBA per-alloy tabs.
+        /// </summary>
+        [Fact]
+        public void FallbackToGroup_WhenNoByMaterialMatch()
+        {
+            var tables = new NmTables();
+
+            // Group table entry
+            tables.LaserSpeeds.StainlessSteel.Add(new LaserSpeedEntry
+                { ThicknessIn = 0.075, FeedRateIpm = 200, PierceSeconds = 0.5 });
+
+            // ByMaterial has 304L only
+            tables.LaserSpeeds.ByMaterial["304L"] = new List<LaserSpeedEntry>
+            {
+                new LaserSpeedEntry { ThicknessIn = 0.075, FeedRateIpm = 180, PierceSeconds = 0.4 }
+            };
+
+            // "330" not in ByMaterial → falls back to StainlessSteel group
+            var (feedIpm, pierceSec) = NmTablesProvider.GetLaserSpeed(tables, 0.075, "330");
+
+            Assert.Equal(200, feedIpm);
+            Assert.Equal(0.5, pierceSec);
+        }
+
+        /// <summary>
+        /// ByMaterial lookup is case-insensitive ("304l" matches "304L").
+        /// </summary>
+        [Fact]
+        public void ByMaterial_CaseInsensitive()
+        {
+            var tables = new NmTables();
+
+            tables.LaserSpeeds.ByMaterial["304L"] = new List<LaserSpeedEntry>
+            {
+                new LaserSpeedEntry { ThicknessIn = 0.075, FeedRateIpm = 180, PierceSeconds = 0.4 }
+            };
+
+            var (feedIpm, _) = NmTablesProvider.GetLaserSpeed(tables, 0.075, "304l");
+            Assert.Equal(180, feedIpm);
+        }
+
+        /// <summary>
+        /// Empty ByMaterial dictionary should fall back to group (backward compat).
+        /// </summary>
+        [Fact]
+        public void EmptyByMaterial_FallsBackToGroup()
+        {
+            var tables = new NmTables();
+
+            tables.LaserSpeeds.StainlessSteel.Add(new LaserSpeedEntry
+                { ThicknessIn = 0.075, FeedRateIpm = 200, PierceSeconds = 0.5 });
+            // ByMaterial is empty (default)
+
+            var (feedIpm, _) = NmTablesProvider.GetLaserSpeed(tables, 0.075, "304L");
+            Assert.Equal(200, feedIpm);
+        }
+
+        /// <summary>
+        /// After import, nm-tables.json should contain ByMaterial entries for the
+        /// 6 Excel tabs. This test verifies against the real config if available.
+        /// </summary>
+        [Fact]
+        public void AfterImport_ByMaterialHasExpectedKeys()
+        {
+            if (!_hasConfig)
+                return;
+
+            var byMat = NmConfigProvider.Tables.LaserSpeeds.ByMaterial;
+            if (byMat == null || byMat.Count == 0)
+                return; // ByMaterial not yet imported — skip (import script not yet run)
+
+            var expectedKeys = new[] { "304L", "316L", "309", "2205", "CS", "AL" };
+            foreach (var key in expectedKeys)
+            {
+                Assert.True(byMat.ContainsKey(key),
+                    $"ByMaterial should contain key '{key}' after Excel import");
+                Assert.True(byMat[key].Count > 0,
+                    $"ByMaterial['{key}'] should have entries after Excel import");
             }
         }
     }
