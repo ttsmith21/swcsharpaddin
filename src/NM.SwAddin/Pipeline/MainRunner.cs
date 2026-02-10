@@ -1013,16 +1013,17 @@ namespace NM.SwAddin.Pipeline
             CalculateCosts(pd, info, options ?? new ProcessingOptions());
             PerformanceTracker.Instance.StopTimer("CostCalculation");
 
-            // VBA parity: preserve existing OP20 only if it's a manual operator selection.
-            // VBA (SP.bas:1107) recalculates when OP20 is empty or one of the auto-assigned
-            // values ("N120 - 5040", "N115 - ANY FLAT LASER", "N125 - 3060"). Only non-auto
-            // values (operator manual picks) are preserved.
-            // For tubes, VBA always overwrites OP20 — auto-assigned tube values ("F110 - TUBE
-            // LASER", "N145 - 5-AXIS LASER", "F300 - SAW") are also in the auto-assigned set.
-            string preservedOP20 = null;
+            // OP20 Preservation Logic
+            // VBA (SP.bas:1107): if OP20 is empty or auto-assigned → recalculate costs.
+            // If OP20 is manually selected → skip processing (preserve manual choice).
+            // C# always processes, so we handle preservation AFTER calculation:
+            //   1. Manual selection → always wins (override pipeline's value)
+            //   2. Pipeline calculated new OP20 → use it
+            //   3. Pipeline didn't calculate → fall back to old value (even auto-assigned)
             var existingOP20 = info.CustomProperties.GetPropertyValue("OP20")?.ToString();
-            if (!string.IsNullOrEmpty(existingOP20) && !AutoAssignedOP20Values.Contains(existingOP20))
-                preservedOP20 = existingOP20;
+            bool pipelineSetOP20 = !string.IsNullOrEmpty(pd.Cost.OP20_WorkCenter);
+            bool isManualOP20 = !string.IsNullOrEmpty(existingOP20)
+                                && !AutoAssignedOP20Values.Contains(existingOP20);
 
             // Map DTO -> properties and batch save.
             // Use ForceSetPropertyValue (not SetPropertyValue) so calculated values are
@@ -1033,13 +1034,27 @@ namespace NM.SwAddin.Pipeline
             PerformanceTracker.Instance.StartTimer("PropertyWrite");
             var mapped = PartDataPropertyMap.ToProperties(pd);
 
-            // VBA parity: if OP20 was already set, preserve the user's machine selection
-            // unless the part had no OP20 (new/unprocessed part).
-            if (preservedOP20 != null)
-                mapped["OP20"] = preservedOP20;
-
-            // Remove any leftover temp keys that shouldn't be SolidWorks properties
-            mapped.Remove("_ExistingOP20");
+            if (isManualOP20)
+            {
+                // Manual operator selection always wins (VBA: skips entire processing block)
+                mapped["OP20"] = existingOP20;
+                // Also preserve the operator's setup/run times for the manual machine
+                var existingS = info.CustomProperties.GetPropertyValue("OP20_S")?.ToString();
+                var existingR = info.CustomProperties.GetPropertyValue("OP20_R")?.ToString();
+                if (!string.IsNullOrEmpty(existingS)) mapped["OP20_S"] = existingS;
+                if (!string.IsNullOrEmpty(existingR)) mapped["OP20_R"] = existingR;
+            }
+            else if (!pipelineSetOP20 && !string.IsNullOrEmpty(existingOP20))
+            {
+                // Pipeline didn't calculate a new OP20 (e.g., missing cut length or thickness).
+                // Fall back to old value (even if auto-assigned) rather than blanking it out.
+                mapped["OP20"] = existingOP20;
+                var existingS = info.CustomProperties.GetPropertyValue("OP20_S")?.ToString();
+                var existingR = info.CustomProperties.GetPropertyValue("OP20_R")?.ToString();
+                if (!string.IsNullOrEmpty(existingS)) mapped["OP20_S"] = existingS;
+                if (!string.IsNullOrEmpty(existingR)) mapped["OP20_R"] = existingR;
+            }
+            // else: pipeline calculated new OP20 → use it (already in mapped from ToProperties)
 
             // Log key property values for diagnostics
             ErrorHandler.DebugLog($"[PROPWRITE] OP20={Dbg(mapped, "OP20")}, OP20_S={Dbg(mapped, "OP20_S")}, OP20_R={Dbg(mapped, "OP20_R")}");
