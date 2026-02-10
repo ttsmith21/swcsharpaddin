@@ -4,6 +4,7 @@ using System.Diagnostics;
 using NM.Core;
 using NM.Core.Models;
 using NM.Core.ProblemParts;
+using NM.SwAddin;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
@@ -146,6 +147,21 @@ namespace NM.SwAddin.Validation
                     ErrorHandler.DebugLog($"[BATCHVAL]   PROBLEM: Failed to open file");
                     MarkAsProblem(model, "Failed to open file", ProblemPartManager.ProblemCategory.FileAccess);
                     result.ProblemModels.Add(model);
+                    return;
+                }
+
+                // ====== ALREADY-CLASSIFIED EARLY-OUT ======
+                // If the part was previously classified (PUR/MACH/CUST) via rbPartType=1,
+                // skip geometry validation entirely. MainRunner handles the processing early-out.
+                // This prevents surface bodies, multi-body, etc. from re-flagging as problems
+                // after the user already classified them on a prior run.
+                string rbPartType = SwPropertyHelper.GetCustomPropertyValue(doc, "rbPartType");
+                if (rbPartType == "1")
+                {
+                    string rbSub = SwPropertyHelper.GetCustomPropertyValue(doc, "rbPartTypeSub");
+                    ErrorHandler.DebugLog($"[BATCHVAL]   rbPartType=1 detected (sub={rbSub}) - skipping validation (already classified)");
+                    model.MarkValidated(true);
+                    result.GoodModels.Add(model);
                     return;
                 }
 
