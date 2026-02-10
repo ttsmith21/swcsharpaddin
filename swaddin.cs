@@ -47,6 +47,9 @@ namespace swcsharpaddin
         public const int mainItemID6 = 5;   // Review Problems
         public const int mainItemID7 = 6;   // Analyze Drawing (AI)
         public const int mainItemID8 = 7;   // Settings
+        public const int mainItemID9 = 8;   // Side Indicator
+
+        NM.SwAddin.SheetMetal.SideIndicatorService _sideIndicator = new NM.SwAddin.SheetMetal.SideIndicatorService();
 
         #region Event Handler Variables
         Hashtable openDocs = new Hashtable();
@@ -339,6 +342,11 @@ namespace swcsharpaddin
                 "Settings",
                 5, "OpenSettings", "", mainItemID8, menuToolbarOption);
 
+            int cmdIndexSideIndicator = cmdGroup.AddCommandItem2("Side Indicator", -1,
+                "Toggle green (top/good) and red (bottom/bad) face coloring on sheet metal parts",
+                "Side Indicator",
+                6, "ToggleSideIndicator", "SideIndicatorEnable", mainItemID9, menuToolbarOption);
+
 #if DEBUG
             int cmdIndexQA = cmdGroup.AddCommandItem2("Run QA", -1,
                 "Run Gold Standard QA tests", "Run QA",
@@ -370,8 +378,8 @@ namespace swcsharpaddin
                     CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
 
 #if DEBUG
-                    int[] cmdIDs = new int[6];
-                    int[] TextType = new int[6];
+                    int[] cmdIDs = new int[7];
+                    int[] TextType = new int[7];
 
                     cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
                     TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
@@ -385,14 +393,17 @@ namespace swcsharpaddin
                     cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexSettings);
                     TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                    cmdIDs[4] = cmdGroup.get_CommandID(cmdIndexQA);
+                    cmdIDs[4] = cmdGroup.get_CommandID(cmdIndexSideIndicator);
                     TextType[4] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                    cmdIDs[5] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    cmdIDs[5] = cmdGroup.get_CommandID(cmdIndexQA);
                     TextType[5] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[6] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    TextType[6] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #else
-                    int[] cmdIDs = new int[4];
-                    int[] TextType = new int[4];
+                    int[] cmdIDs = new int[5];
+                    int[] TextType = new int[5];
 
                     cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
                     TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
@@ -405,6 +416,9 @@ namespace swcsharpaddin
 
                     cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexSettings);
                     TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[4] = cmdGroup.get_CommandID(cmdIndexSideIndicator);
+                    TextType[4] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #endif
 
                     cmdBox.AddCommands(cmdIDs, TextType);
@@ -770,6 +784,32 @@ namespace swcsharpaddin
             {
                 NM.Core.ErrorHandler.PopCallStack();
             }
+        }
+
+        /// <summary>
+        /// Toggles green/red face coloring on sheet metal parts to show top (good) vs bottom (bad) side.
+        /// Called by SolidWorks when user clicks "Side Indicator" button.
+        /// </summary>
+        public void ToggleSideIndicator()
+        {
+            _sideIndicator.Toggle(iSwApp);
+        }
+
+        /// <summary>
+        /// Enable callback for Side Indicator button.
+        /// Enabled when a part or assembly document is active.
+        /// </summary>
+        public int SideIndicatorEnable()
+        {
+            try
+            {
+                var model = iSwApp.ActiveDoc as IModelDoc2;
+                if (model == null) return 0;
+                int docType = model.GetType();
+                return (docType == (int)swDocumentTypes_e.swDocPART ||
+                        docType == (int)swDocumentTypes_e.swDocASSEMBLY) ? 1 : 0;
+            }
+            catch { return 0; }
         }
 
         /// <summary>
