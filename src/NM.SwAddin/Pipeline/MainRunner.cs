@@ -683,12 +683,15 @@ namespace NM.SwAddin.Pipeline
                 ErrorHandler.HandleError("MainRunner", "BBox extraction failed", bboxEx, ErrorHandler.LogLevel.Warning);
             }
 
-            // Thickness (inches) to meters if present in cache
+            // Thickness: SimpleSheetMetalProcessor stores in info.ThicknessInMeters (which writes
+            // to info.CustomProperties.Thickness via the setter chain). Read from cache here.
             var thicknessIn = info.CustomProperties.Thickness; // inches
+            ErrorHandler.DebugLog($"[PIPELINE] ExtractMetrics: info.CustomProperties.Thickness={thicknessIn:F6}in, info.ThicknessInMeters={info.ThicknessInMeters:F6}m");
             if (thicknessIn > 0)
             {
                 pd.Thickness_m = thicknessIn * NM.Core.Configuration.Materials.InchesToMeters;
             }
+            ErrorHandler.DebugLog($"[PIPELINE] ExtractMetrics: pd.Thickness_m={pd.Thickness_m:F6}m");
 
             // Sheet percent if written by processors
             pd.SheetPercent = info.CustomProperties.SheetPercent;
@@ -723,9 +726,11 @@ namespace NM.SwAddin.Pipeline
                 {
                     var faceAnalyzer = new FaceAnalyzer();
                     var flatFace = faceAnalyzer.GetProcessingFace(doc);
+                    ErrorHandler.DebugLog($"[PIPELINE] ExtractMetrics: flatFace={(flatFace != null ? "found" : "NULL")}");
                     if (flatFace != null)
                     {
                         var cutMetrics = FlatPatternAnalyzer.Extract(doc, flatFace);
+                        ErrorHandler.DebugLog($"[PIPELINE] ExtractMetrics: cutMetrics={(cutMetrics != null ? $"TotalCutLengthIn={cutMetrics.TotalCutLengthIn:F4}" : "NULL")}");
                         if (cutMetrics != null && cutMetrics.TotalCutLengthIn > 0)
                         {
                             pd.Sheet.TotalCutLength_m = cutMetrics.TotalCutLengthIn * InchesToMeters;
@@ -878,9 +883,11 @@ namespace NM.SwAddin.Pipeline
                                   "RevisitBeforeExport", "RevisitNote" };
             foreach (var prop in erpProps)
             {
-                var val = info.CustomProperties.GetPropertyValue(prop);
-                if (val != null && !string.IsNullOrEmpty(val.ToString()))
-                    pd.Extra[prop] = val.ToString();
+                // Read directly from SolidWorks API (global scope).
+                // info.CustomProperties cache is NOT populated (LoadPropertiesFromSolidWorks never called).
+                var val = SwPropertyHelper.GetCustomPropertyValue(doc, prop);
+                if (!string.IsNullOrEmpty(val))
+                    pd.Extra[prop] = val;
             }
 
             // Flow user-form fields from ProcessingOptions into properties.
@@ -890,7 +897,7 @@ namespace NM.SwAddin.Pipeline
                 pd.Extra["Customer"] = opts.Customer;
             else if (!pd.Extra.ContainsKey("Customer"))
             {
-                var existingCust = info.CustomProperties.GetPropertyValue("Customer")?.ToString();
+                var existingCust = SwPropertyHelper.GetCustomPropertyValue(doc, "Customer");
                 if (!string.IsNullOrEmpty(existingCust))
                     pd.Extra["Customer"] = existingCust;
             }
@@ -908,7 +915,7 @@ namespace NM.SwAddin.Pipeline
             // Only auto-resolve for new parts where it hasn't been set yet.
             if (string.IsNullOrEmpty(pd.OptiMaterial))
             {
-                var existing = info.CustomProperties.GetPropertyValue("OptiMaterial")?.ToString();
+                var existing = SwPropertyHelper.GetCustomPropertyValue(doc, "OptiMaterial");
                 if (!string.IsNullOrEmpty(existing))
                 {
                     pd.OptiMaterial = existing;
@@ -935,9 +942,9 @@ namespace NM.SwAddin.Pipeline
                     string materialCode = pd.Material ?? SolidWorksApiWrapper.GetMaterialName(doc) ?? "";
                     double densityLbPerIn3 = Rates.GetDensityLbPerIn3(materialCode);
 
-                    string currentCalcMode = info.CustomProperties.GetPropertyValue("rbWeightCalc")?.ToString() ?? "0";
+                    string currentCalcMode = SwPropertyHelper.GetCustomPropertyValue(doc, "rbWeightCalc") ?? "0";
                     double currentNestEff = 80.0;
-                    var nestEffStr = info.CustomProperties.GetPropertyValue("NestEfficiency")?.ToString();
+                    var nestEffStr = SwPropertyHelper.GetCustomPropertyValue(doc, "NestEfficiency");
                     if (!string.IsNullOrEmpty(nestEffStr) && double.TryParse(nestEffStr,
                         System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var parsedEff))
                     {
@@ -1012,16 +1019,13 @@ namespace NM.SwAddin.Pipeline
             PerformanceTracker.Instance.StartTimer("CostCalculation");
             CalculateCosts(pd, info, options ?? new ProcessingOptions());
             PerformanceTracker.Instance.StopTimer("CostCalculation");
+            ErrorHandler.DebugLog($"[PIPELINE] After CalculateCosts: OP20_WorkCenter={pd.Cost.OP20_WorkCenter ?? "NULL"}, OP20_S_min={pd.Cost.OP20_S_min:F4}, OP20_R_min={pd.Cost.OP20_R_min:F4}");
+            ErrorHandler.DebugLog($"[PIPELINE] After CalculateCosts: OptiMaterial={pd.OptiMaterial ?? "NULL"}, Thickness_m={pd.Thickness_m:F6}, CutLength_m={pd.Sheet.TotalCutLength_m:F6}");
 
-            // OP20 Preservation Logic
-            // VBA (SP.bas:1107): if OP20 is empty or auto-assigned → recalculate costs.
-            // If OP20 is manually selected → skip processing (preserve manual choice).
-            // C# always processes, so we handle preservation AFTER calculation:
-            //   1. Manual selection → always wins (override pipeline's value)
-            //   2. Pipeline calculated new OP20 → use it
-            //   3. Pipeline didn't calculate → fall back to old value (even auto-assigned)
-            var existingOP20 = info.CustomProperties.GetPropertyValue("OP20")?.ToString();
-            bool pipelineSetOP20 = !string.IsNullOrEmpty(pd.Cost.OP20_WorkCenter);
+            // OP20: No fallback/preservation. The pipeline MUST calculate OP20 via CalculateCosts.
+            // If OP20 is blank after this, the root cause is in CalculateCosts (missing thickness or cut length).
+            // Manual operator overrides (non-auto values) are the only exception — preserve those.
+            var existingOP20 = SwPropertyHelper.GetCustomPropertyValue(doc, "OP20");
             bool isManualOP20 = !string.IsNullOrEmpty(existingOP20)
                                 && !AutoAssignedOP20Values.Contains(existingOP20);
 
@@ -1038,23 +1042,12 @@ namespace NM.SwAddin.Pipeline
             {
                 // Manual operator selection always wins (VBA: skips entire processing block)
                 mapped["OP20"] = existingOP20;
-                // Also preserve the operator's setup/run times for the manual machine
-                var existingS = info.CustomProperties.GetPropertyValue("OP20_S")?.ToString();
-                var existingR = info.CustomProperties.GetPropertyValue("OP20_R")?.ToString();
+                var existingS = SwPropertyHelper.GetCustomPropertyValue(doc, "OP20_S");
+                var existingR = SwPropertyHelper.GetCustomPropertyValue(doc, "OP20_R");
                 if (!string.IsNullOrEmpty(existingS)) mapped["OP20_S"] = existingS;
                 if (!string.IsNullOrEmpty(existingR)) mapped["OP20_R"] = existingR;
             }
-            else if (!pipelineSetOP20 && !string.IsNullOrEmpty(existingOP20))
-            {
-                // Pipeline didn't calculate a new OP20 (e.g., missing cut length or thickness).
-                // Fall back to old value (even if auto-assigned) rather than blanking it out.
-                mapped["OP20"] = existingOP20;
-                var existingS = info.CustomProperties.GetPropertyValue("OP20_S")?.ToString();
-                var existingR = info.CustomProperties.GetPropertyValue("OP20_R")?.ToString();
-                if (!string.IsNullOrEmpty(existingS)) mapped["OP20_S"] = existingS;
-                if (!string.IsNullOrEmpty(existingR)) mapped["OP20_R"] = existingR;
-            }
-            // else: pipeline calculated new OP20 → use it (already in mapped from ToProperties)
+            // else: pipeline calculated OP20 → use it. If pipeline didn't calculate, it stays missing (diagnostic).
 
             // Log key property values for diagnostics
             ErrorHandler.DebugLog($"[PROPWRITE] OP20={Dbg(mapped, "OP20")}, OP20_S={Dbg(mapped, "OP20_S")}, OP20_R={Dbg(mapped, "OP20_R")}");
@@ -1259,6 +1252,7 @@ namespace NM.SwAddin.Pipeline
         {
 
             // F115 Laser Cutting - based on cut length and pierce count
+            ErrorHandler.DebugLog($"[PIPELINE] CalculateSheetMetalCosts: F115 gate check: TotalCutLength_m={pd.Sheet.TotalCutLength_m:F6}, Thickness_m={pd.Thickness_m:F6}");
             if (pd.Sheet.TotalCutLength_m > 0 && pd.Thickness_m > 0)
             {
                 PerformanceTracker.Instance.StartTimer("Cost_F115_Laser");
