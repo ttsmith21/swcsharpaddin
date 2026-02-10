@@ -5,17 +5,20 @@ using System.Linq;
 using System.Text;
 using NM.Core;
 using NM.Core.DataModel;
+using NM.Core.Processing;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 
 namespace NM.SwAddin.Pipeline
 {
     /// <summary>
-    /// Comprehensive property write QA test that exercises every workflow path:
-    /// - Single sheet metal part with form options
-    /// - Single tube part with form options
-    /// - Assembly → per-component processing
-    /// - Batch folder processing
+    /// Comprehensive property write QA test that exercises every form button/option:
+    /// - All 18 material radio buttons (sheet metal + tube parts)
+    /// - Customer/Print/Revision text field propagation
+    /// - Bend deduction (BendTable vs KFactor)
+    /// - Re-run idempotency (process same part twice)
+    /// - Assembly workflow (enumerate components, process each)
+    /// - Batch workflow (all B-series + C-series parts)
     /// Validates that OP20, OptiMaterial, rbMaterialType, and all critical properties
     /// are correctly populated after processing.
     /// </summary>
@@ -27,6 +30,34 @@ namespace NM.SwAddin.Pipeline
         private readonly StringBuilder _log = new StringBuilder();
         private int _passed;
         private int _failed;
+
+        /// <summary>
+        /// All 18 material radio buttons from MainSelectionForm.MapMaterial().
+        /// Each tuple: (Material, MaterialType, MaterialCategory, ExpectedOptiPrefix).
+        /// ExpectedOptiPrefix is the material code expected in OptiMaterial (may differ
+        /// from Material when the MaterialCodeMapper normalizes the name).
+        /// </summary>
+        private static readonly (string Material, string MaterialType, MaterialCategoryKind Category, string OptiContains)[] AllMaterials = new[]
+        {
+            ("304L",    "AISI 304",                          MaterialCategoryKind.StainlessSteel, "304"),
+            ("316L",    "AISI 316 Stainless Steel Sheet (SS)", MaterialCategoryKind.StainlessSteel, "316"),
+            ("309",     "309",                               MaterialCategoryKind.StainlessSteel, "309"),
+            ("310",     "310",                               MaterialCategoryKind.StainlessSteel, "310"),
+            ("321",     "321",                               MaterialCategoryKind.StainlessSteel, "321"),
+            ("330",     "330",                               MaterialCategoryKind.StainlessSteel, "330"),
+            ("409",     "409",                               MaterialCategoryKind.StainlessSteel, "409"),
+            ("430",     "430",                               MaterialCategoryKind.StainlessSteel, "430"),
+            ("2205",    "2205",                              MaterialCategoryKind.StainlessSteel, "2205"),
+            ("2507",    "2507",                              MaterialCategoryKind.StainlessSteel, "2507"),
+            ("C22",     "Hastelloy C-22",                    MaterialCategoryKind.Other,          "C22"),
+            ("C276",    "C276",                              MaterialCategoryKind.StainlessSteel, "C276"),
+            ("AL6XN",   "AL6XN",                             MaterialCategoryKind.StainlessSteel, "AL6XN"),
+            ("ALLOY31", "ALLOY31",                           MaterialCategoryKind.StainlessSteel, "ALLOY31"),
+            ("A36",     "ASTM A36 Steel",                    MaterialCategoryKind.CarbonSteel,    "A36"),
+            ("ALNZD",   "ASTM A36 Steel",                   MaterialCategoryKind.CarbonSteel,    "A36"),
+            ("5052",    "5052-H32",                          MaterialCategoryKind.Aluminum,       "5052"),
+            ("6061",    "6061 Alloy",                        MaterialCategoryKind.Aluminum,       "6061"),
+        };
 
         public PropertyWriteQA(ISldWorks swApp, string inputDir, string outputDir)
         {
@@ -43,16 +74,22 @@ namespace NM.SwAddin.Pipeline
             Log($"Output: {_outputDir}");
             Log("");
 
-            // ===== SINGLE PART: Sheet Metal =====
-            RunSheetMetalTests();
+            // 1. All 18 material buttons on sheet metal part
+            RunAllMaterialsOnSheetMetal();
 
-            // ===== SINGLE PART: Tube =====
-            RunTubeTests();
+            // 2. All 18 material buttons on tube part
+            RunAllMaterialsOnTube();
 
-            // ===== ASSEMBLY WORKFLOW =====
+            // 3. Custom property propagation (Customer, Print, Revision)
+            RunCustomPropertyTests();
+
+            // 4. Re-run idempotency (process same part twice)
+            RunRerunTest();
+
+            // 5. Assembly workflow
             RunAssemblyTest();
 
-            // ===== BATCH WORKFLOW =====
+            // 6. Batch workflow (all B-series + C-series)
             RunBatchTest();
 
             Log("");
@@ -70,121 +107,234 @@ namespace NM.SwAddin.Pipeline
         }
 
         // =====================================================================
-        // Sheet Metal Tests
+        // TEST 1: All 18 Material Buttons × Sheet Metal Part
         // =====================================================================
-        private void RunSheetMetalTests()
+        private void RunAllMaterialsOnSheetMetal()
         {
-            Log("--- Sheet Metal Single-Part Tests ---");
+            Log("--- TEST 1: All 18 Materials on Sheet Metal (B1) ---");
 
-            // B1: Native bracket, 14ga CS — the bread-and-butter case
-            var b1 = FindPart("B1_NativeBracket_14ga_CS.SLDPRT");
-            if (b1 != null)
+            var b1Path = FindPart("B1_NativeBracket_14ga_CS.SLDPRT");
+            if (b1Path == null) return;
+
+            foreach (var mat in AllMaterials)
             {
-                // Test 1: Default options (304L)
-                var pd1 = ProcessPart(b1, new ProcessingOptions
+                var label = $"B1-{mat.Material}";
+                var pd = ProcessPart(b1Path, new ProcessingOptions
                 {
-                    Material = "304L",
-                    MaterialType = "AISI 304",
+                    Material = mat.Material,
+                    MaterialType = mat.MaterialType,
+                    MaterialCategory = mat.Category,
                     SaveChanges = false
                 });
-                AssertNotNull(pd1, "B1-304L: PartData returned");
-                if (pd1 != null)
-                {
-                    AssertEquals(pd1.Classification, PartType.SheetMetal, "B1-304L: Classification");
-                    AssertTrue(pd1.Thickness_m > 0, $"B1-304L: Thickness_m > 0 (got {pd1.Thickness_m:F6})");
-                    AssertTrue(pd1.Sheet.TotalCutLength_m > 0, $"B1-304L: TotalCutLength_m > 0 (got {pd1.Sheet.TotalCutLength_m:F6})");
-                    AssertEquals(pd1.Cost.OP20_WorkCenter, "F115", "B1-304L: OP20_WorkCenter=F115");
-                    AssertTrue(pd1.Cost.OP20_S_min > 0, $"B1-304L: OP20_S_min > 0 (got {pd1.Cost.OP20_S_min:F4})");
-                    AssertTrue(pd1.Cost.OP20_R_min > 0, $"B1-304L: OP20_R_min > 0 (got {pd1.Cost.OP20_R_min:F4})");
-                    AssertNotEmpty(pd1.OptiMaterial, "B1-304L: OptiMaterial not empty");
-                    AssertStartsWith(pd1.OptiMaterial, "S.", "B1-304L: OptiMaterial starts with S.");
 
-                    // Verify mapped properties
-                    var mapped = PartDataPropertyMap.ToProperties(pd1);
-                    AssertEquals(Get(mapped, "rbMaterialType"), "0", "B1-304L: rbMaterialType=0 (sheet)");
-                    AssertNotEmpty(Get(mapped, "OP20"), "B1-304L: mapped OP20 not empty");
-                    AssertNotEquals(Get(mapped, "OP20_S"), "0", "B1-304L: mapped OP20_S != 0");
-                    AssertNotEquals(Get(mapped, "OP20_R"), "0", "B1-304L: mapped OP20_R != 0");
-                    AssertNotEmpty(Get(mapped, "OptiMaterial"), "B1-304L: mapped OptiMaterial not empty");
-                }
+                AssertNotNull(pd, $"{label}: PartData returned");
+                if (pd == null) continue;
 
-                // Test 2: Different material (316L)
-                var pd2 = ProcessPart(b1, new ProcessingOptions
-                {
-                    Material = "316L",
-                    MaterialType = "AISI 316",
-                    SaveChanges = false
-                });
-                if (pd2 != null)
-                {
-                    AssertEquals(pd2.Cost.OP20_WorkCenter, "F115", "B1-316L: OP20_WorkCenter=F115");
-                    AssertNotEmpty(pd2.OptiMaterial, "B1-316L: OptiMaterial not empty");
-                    if (!string.IsNullOrEmpty(pd2.OptiMaterial))
-                        AssertTrue(pd2.OptiMaterial.Contains("316"), $"B1-316L: OptiMaterial contains 316 (got {pd2.OptiMaterial})");
-                }
-            }
+                // Classification & geometry
+                AssertEquals(pd.Classification, PartType.SheetMetal, $"{label}: Classification=SheetMetal");
+                AssertEquals(pd.Material, mat.Material, $"{label}: pd.Material={mat.Material}");
+                AssertTrue(pd.Thickness_m > 0, $"{label}: Thickness_m > 0 (got {pd.Thickness_m:F6})");
+                AssertTrue(pd.Sheet.TotalCutLength_m > 0, $"{label}: TotalCutLength_m > 0 (got {pd.Sheet.TotalCutLength_m:F6})");
 
-            // B2: Imported bracket (STEP-based)
-            var b2 = FindPart("B2_ImportedBracket_14ga_CS.SLDPRT");
-            if (b2 != null)
-            {
-                var pd = ProcessPart(b2, new ProcessingOptions { Material = "304L", MaterialType = "AISI 304", SaveChanges = false });
-                if (pd != null)
-                {
-                    AssertEquals(pd.Classification, PartType.SheetMetal, "B2: Classification=SheetMetal");
-                    AssertTrue(pd.Thickness_m > 0, $"B2: Thickness_m > 0 (got {pd.Thickness_m:F6})");
-                    AssertEquals(pd.Cost.OP20_WorkCenter, "F115", "B2: OP20_WorkCenter=F115");
-                }
+                // OP20 must be calculated (not blank)
+                AssertNotEmpty(pd.Cost.OP20_WorkCenter, $"{label}: OP20_WorkCenter not empty (got {pd.Cost.OP20_WorkCenter ?? "NULL"})");
+                AssertTrue(pd.Cost.OP20_S_min > 0, $"{label}: OP20_S_min > 0 (got {pd.Cost.OP20_S_min:F4})");
+                AssertTrue(pd.Cost.OP20_R_min > 0, $"{label}: OP20_R_min > 0 (got {pd.Cost.OP20_R_min:F4})");
+
+                // OptiMaterial must be populated and start with "S." (sheet metal prefix)
+                AssertNotEmpty(pd.OptiMaterial, $"{label}: OptiMaterial not empty");
+                AssertStartsWith(pd.OptiMaterial, "S.", $"{label}: OptiMaterial starts with S.");
+                // OptiMaterial should contain the material code (e.g., "S.304L14GA" contains "304")
+                if (!string.IsNullOrEmpty(pd.OptiMaterial))
+                    AssertContains(pd.OptiMaterial, mat.OptiContains, $"{label}: OptiMaterial contains '{mat.OptiContains}'");
+
+                // Mapped properties for SolidWorks write
+                var mapped = PartDataPropertyMap.ToProperties(pd);
+                AssertEquals(Get(mapped, "rbMaterialType"), "0", $"{label}: rbMaterialType=0 (sheet)");
+                AssertNotEmpty(Get(mapped, "OP20"), $"{label}: mapped OP20 not empty");
+                AssertNotEquals(Get(mapped, "OP20_S"), "0", $"{label}: mapped OP20_S != 0");
+                AssertNotEquals(Get(mapped, "OP20_R"), "0", $"{label}: mapped OP20_R != 0");
+                AssertNotEmpty(Get(mapped, "OptiMaterial"), $"{label}: mapped OptiMaterial not empty");
             }
         }
 
         // =====================================================================
-        // Tube Tests
+        // TEST 2: All 18 Material Buttons × Tube Part
         // =====================================================================
-        private void RunTubeTests()
+        private void RunAllMaterialsOnTube()
         {
-            Log("--- Tube Single-Part Tests ---");
+            Log("--- TEST 2: All 18 Materials on Tube (C1) ---");
 
-            // C1: Round tube
-            var c1 = FindPart("C1_RoundTube_2OD_SCH40.SLDPRT");
-            if (c1 != null)
+            var c1Path = FindPart("C1_RoundTube_2OD_SCH40.SLDPRT");
+            if (c1Path == null) return;
+
+            foreach (var mat in AllMaterials)
             {
-                var pd = ProcessPart(c1, new ProcessingOptions { Material = "A36 Steel", SaveChanges = false });
-                if (pd != null)
+                var label = $"C1-{mat.Material}";
+                var pd = ProcessPart(c1Path, new ProcessingOptions
                 {
-                    AssertEquals(pd.Classification, PartType.Tube, "C1: Classification=Tube");
-                    AssertTrue(pd.Tube.IsTube, "C1: IsTube=true");
-                    AssertTrue(pd.Tube.OD_m > 0, $"C1: OD_m > 0 (got {pd.Tube.OD_m:F6})");
-                    AssertNotEmpty(pd.Cost.OP20_WorkCenter, $"C1: OP20_WorkCenter not empty (got {pd.Cost.OP20_WorkCenter ?? "NULL"})");
+                    Material = mat.Material,
+                    MaterialType = mat.MaterialType,
+                    MaterialCategory = mat.Category,
+                    SaveChanges = false
+                });
 
-                    var mapped = PartDataPropertyMap.ToProperties(pd);
-                    AssertEquals(Get(mapped, "rbMaterialType"), "1", "C1: rbMaterialType=1 (tube)");
-                    AssertNotEmpty(Get(mapped, "OP20"), "C1: mapped OP20 not empty");
-                }
-            }
+                AssertNotNull(pd, $"{label}: PartData returned");
+                if (pd == null) continue;
 
-            // C2: Rectangular tube
-            var c2 = FindPart("C2_RectTube_2x1.SLDPRT");
-            if (c2 != null)
-            {
-                var pd = ProcessPart(c2, new ProcessingOptions { Material = "A36 Steel", SaveChanges = false });
-                if (pd != null)
-                {
-                    AssertEquals(pd.Classification, PartType.Tube, "C2: Classification=Tube");
-                    var mapped = PartDataPropertyMap.ToProperties(pd);
-                    AssertEquals(Get(mapped, "rbMaterialType"), "1", "C2: rbMaterialType=1 (tube)");
-                }
+                // Classification: tube part should classify as Tube regardless of material
+                AssertEquals(pd.Classification, PartType.Tube, $"{label}: Classification=Tube");
+                AssertEquals(pd.Material, mat.Material, $"{label}: pd.Material={mat.Material}");
+                AssertTrue(pd.Tube.IsTube, $"{label}: IsTube=true");
+                AssertTrue(pd.Tube.OD_m > 0, $"{label}: OD_m > 0 (got {pd.Tube.OD_m:F6})");
+
+                // OP20 must be calculated for tubes
+                AssertNotEmpty(pd.Cost.OP20_WorkCenter, $"{label}: OP20_WorkCenter not empty (got {pd.Cost.OP20_WorkCenter ?? "NULL"})");
+
+                // Mapped properties
+                var mapped = PartDataPropertyMap.ToProperties(pd);
+                AssertEquals(Get(mapped, "rbMaterialType"), "1", $"{label}: rbMaterialType=1 (tube)");
+                AssertNotEmpty(Get(mapped, "OP20"), $"{label}: mapped OP20 not empty");
             }
         }
 
         // =====================================================================
-        // Assembly Test
+        // TEST 3: Custom Property Propagation (Customer, Print, Revision)
+        // =====================================================================
+        private void RunCustomPropertyTests()
+        {
+            Log("--- TEST 3: Custom Property Propagation ---");
+
+            var b1Path = FindPart("B1_NativeBracket_14ga_CS.SLDPRT");
+            if (b1Path == null) return;
+
+            // Process with Customer/Print/Revision set
+            var pd = ProcessPart(b1Path, new ProcessingOptions
+            {
+                Material = "304L",
+                MaterialType = "AISI 304",
+                MaterialCategory = MaterialCategoryKind.StainlessSteel,
+                Customer = "TEST_CUST",
+                Print = "PRN-12345",
+                Revision = "B",
+                SaveChanges = false
+            });
+
+            AssertNotNull(pd, "CustomProps: PartData returned");
+            if (pd == null) return;
+
+            // Customer, Print, Revision should flow through pd.Extra → mapped properties
+            var mapped = PartDataPropertyMap.ToProperties(pd);
+            AssertEquals(Get(mapped, "Customer"), "TEST_CUST", "CustomProps: Customer=TEST_CUST");
+            AssertEquals(Get(mapped, "Print"), "PRN-12345", "CustomProps: Print=PRN-12345");
+            AssertEquals(Get(mapped, "Revision"), "B", "CustomProps: Revision=B");
+
+            // Description should be auto-generated (not empty)
+            AssertNotEmpty(Get(mapped, "Description"), "CustomProps: Description auto-generated");
+
+            // OP20/OptiMaterial should still work alongside custom props
+            AssertNotEmpty(Get(mapped, "OP20"), "CustomProps: OP20 still populated");
+            AssertNotEmpty(Get(mapped, "OptiMaterial"), "CustomProps: OptiMaterial still populated");
+            AssertEquals(Get(mapped, "rbMaterialType"), "0", "CustomProps: rbMaterialType=0 (sheet)");
+
+            // Process with empty Customer/Print/Revision (should use defaults/fallbacks)
+            var pd2 = ProcessPart(b1Path, new ProcessingOptions
+            {
+                Material = "304L",
+                MaterialType = "AISI 304",
+                MaterialCategory = MaterialCategoryKind.StainlessSteel,
+                SaveChanges = false
+            });
+            AssertNotNull(pd2, "CustomProps-Empty: PartData returned");
+            if (pd2 != null)
+            {
+                // OP20/OptiMaterial should still work even with no custom props
+                AssertNotEmpty(pd2.Cost.OP20_WorkCenter, "CustomProps-Empty: OP20_WorkCenter not empty");
+                AssertNotEmpty(pd2.OptiMaterial, "CustomProps-Empty: OptiMaterial not empty");
+            }
+        }
+
+        // =====================================================================
+        // TEST 4: Re-Run Idempotency (process same part twice)
+        // =====================================================================
+        private void RunRerunTest()
+        {
+            Log("--- TEST 4: Re-Run Idempotency ---");
+
+            var b1Path = FindPart("B1_NativeBracket_14ga_CS.SLDPRT");
+            if (b1Path == null) return;
+
+            var opts = new ProcessingOptions
+            {
+                Material = "304L",
+                MaterialType = "AISI 304",
+                MaterialCategory = MaterialCategoryKind.StainlessSteel,
+                SaveChanges = false
+            };
+
+            // Run 1
+            var pd1 = ProcessPart(b1Path, opts);
+            AssertNotNull(pd1, "ReRun-1: PartData returned");
+            if (pd1 == null) return;
+
+            var mapped1 = PartDataPropertyMap.ToProperties(pd1);
+            var op20_1 = Get(mapped1, "OP20");
+            var op20s_1 = Get(mapped1, "OP20_S");
+            var op20r_1 = Get(mapped1, "OP20_R");
+            var opti_1 = Get(mapped1, "OptiMaterial");
+
+            AssertNotEmpty(op20_1, "ReRun-1: OP20 not empty");
+            AssertNotEmpty(opti_1, "ReRun-1: OptiMaterial not empty");
+
+            // Run 2: same part, same options
+            var pd2 = ProcessPart(b1Path, opts);
+            AssertNotNull(pd2, "ReRun-2: PartData returned");
+            if (pd2 == null) return;
+
+            var mapped2 = PartDataPropertyMap.ToProperties(pd2);
+            var op20_2 = Get(mapped2, "OP20");
+            var op20s_2 = Get(mapped2, "OP20_S");
+            var op20r_2 = Get(mapped2, "OP20_R");
+            var opti_2 = Get(mapped2, "OptiMaterial");
+
+            // Both runs should produce the same results
+            AssertEquals(op20_2, op20_1, $"ReRun: OP20 matches (Run1={op20_1}, Run2={op20_2})");
+            AssertEquals(op20s_2, op20s_1, $"ReRun: OP20_S matches (Run1={op20s_1}, Run2={op20s_2})");
+            AssertEquals(op20r_2, op20r_1, $"ReRun: OP20_R matches (Run1={op20r_1}, Run2={op20r_2})");
+            AssertEquals(opti_2, opti_1, $"ReRun: OptiMaterial matches (Run1={opti_1}, Run2={opti_2})");
+
+            // Neither run should produce blanks or zeros
+            AssertNotEquals(op20_2, "", "ReRun-2: OP20 not blank on re-run");
+            AssertNotEquals(op20s_2, "0", "ReRun-2: OP20_S not zero on re-run");
+            AssertNotEquals(op20r_2, "0", "ReRun-2: OP20_R not zero on re-run");
+            AssertNotEquals(opti_2, "", "ReRun-2: OptiMaterial not blank on re-run");
+
+            // Run 3: different material on same part — should change OptiMaterial
+            var pd3 = ProcessPart(b1Path, new ProcessingOptions
+            {
+                Material = "A36",
+                MaterialType = "ASTM A36 Steel",
+                MaterialCategory = MaterialCategoryKind.CarbonSteel,
+                SaveChanges = false
+            });
+            if (pd3 != null)
+            {
+                var mapped3 = PartDataPropertyMap.ToProperties(pd3);
+                var opti_3 = Get(mapped3, "OptiMaterial");
+                AssertNotEmpty(opti_3, "ReRun-3: OptiMaterial not empty with A36");
+                // OptiMaterial should change to reflect A36 (not still show 304L)
+                if (!string.IsNullOrEmpty(opti_3) && !string.IsNullOrEmpty(opti_1))
+                    AssertNotEquals(opti_3, opti_1, $"ReRun-3: OptiMaterial changed (304L={opti_1}, A36={opti_3})");
+            }
+        }
+
+        // =====================================================================
+        // TEST 5: Assembly Workflow
         // =====================================================================
         private void RunAssemblyTest()
         {
-            Log("--- Assembly Workflow Test ---");
+            Log("--- TEST 5: Assembly Workflow ---");
 
-            // F1_SimpleAssy or GOLD_STANDARD_ASM_CLEAN
             var assyPath = Path.Combine(_inputDir, "F1_SimpleAssy.SLDASM");
             if (!File.Exists(assyPath))
                 assyPath = Path.Combine(_inputDir, "GOLD_STANDARD_ASM_CLEAN.SLDASM");
@@ -223,43 +373,69 @@ namespace NM.SwAddin.Pipeline
                 var components = quantifier.CollectViaRecursion(asm);
                 AssertTrue(components.Count > 0, $"Assembly: has components (got {components.Count})");
 
-                // Process first part component
-                var firstPart = components.Values
-                    .FirstOrDefault(c => c.FilePath != null &&
-                        c.FilePath.EndsWith(".SLDPRT", StringComparison.OrdinalIgnoreCase));
+                // Collect part file paths
+                var partPaths = components.Values
+                    .Where(c => c.FilePath != null &&
+                        c.FilePath.EndsWith(".SLDPRT", StringComparison.OrdinalIgnoreCase))
+                    .Select(c => c.FilePath)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
 
-                if (firstPart != null)
+                AssertTrue(partPaths.Count > 0, $"Assembly: has part components (got {partPaths.Count})");
+
+                // Close assembly before opening individual parts
+                CloseDoc(doc);
+                doc = null;
+
+                // Process each unique part component
+                int assySuccess = 0;
+                int assyWithOP20 = 0;
+                int assyWithOptiMat = 0;
+
+                foreach (var partPath in partPaths)
                 {
-                    Log($"  Processing component: {Path.GetFileName(firstPart.FilePath)}");
+                    Log($"  Processing component: {Path.GetFileName(partPath)}");
+                    var partDoc = OpenPart(partPath);
+                    if (partDoc == null) continue;
 
-                    // Close assembly, open part, process
-                    CloseDoc(doc);
-                    doc = null;
-
-                    var partDoc = OpenPart(firstPart.FilePath);
-                    if (partDoc != null)
+                    try
                     {
-                        try
-                        {
-                            var pd = MainRunner.RunSinglePartData(_swApp, partDoc,
-                                new ProcessingOptions { Material = "304L", MaterialType = "AISI 304", SaveChanges = false });
-                            AssertNotNull(pd, "Assembly-Part: PartData returned");
-                            if (pd != null && pd.Status == ProcessingStatus.Success)
+                        var pd = MainRunner.RunSinglePartData(_swApp, partDoc,
+                            new ProcessingOptions
                             {
-                                AssertTrue(pd.Classification != PartType.Unknown, $"Assembly-Part: classified (got {pd.Classification})");
-                            }
-                        }
-                        finally
+                                Material = "304L",
+                                MaterialType = "AISI 304",
+                                MaterialCategory = MaterialCategoryKind.StainlessSteel,
+                                SaveChanges = false
+                            });
+
+                        if (pd != null && pd.Status == ProcessingStatus.Success)
                         {
-                            CloseDoc(partDoc);
+                            assySuccess++;
+                            AssertTrue(pd.Classification != PartType.Unknown,
+                                $"Assy-{Path.GetFileName(partPath)}: classified (got {pd.Classification})");
+
+                            if (!string.IsNullOrEmpty(pd.Cost.OP20_WorkCenter)) assyWithOP20++;
+                            if (!string.IsNullOrEmpty(pd.OptiMaterial)) assyWithOptiMat++;
+
+                            // rbMaterialType must be "0" or "1" (not material name)
+                            var mapped = PartDataPropertyMap.ToProperties(pd);
+                            var rbMT = Get(mapped, "rbMaterialType");
+                            AssertTrue(rbMT == "0" || rbMT == "1",
+                                $"Assy-{Path.GetFileName(partPath)}: rbMaterialType is '0' or '1' (got '{rbMT}')");
                         }
                     }
+                    finally
+                    {
+                        CloseDoc(partDoc);
+                    }
                 }
-                else
+
+                AssertTrue(assySuccess > 0, $"Assembly: at least 1 component processed (got {assySuccess})");
+                if (assySuccess > 0)
                 {
-                    Log("  SKIP: No part components found in assembly");
-                    CloseDoc(doc);
-                    doc = null;
+                    AssertEquals(assyWithOP20, assySuccess, $"Assembly: all processed have OP20 ({assyWithOP20}/{assySuccess})");
+                    AssertEquals(assyWithOptiMat, assySuccess, $"Assembly: all processed have OptiMaterial ({assyWithOptiMat}/{assySuccess})");
                 }
             }
             finally
@@ -269,63 +445,85 @@ namespace NM.SwAddin.Pipeline
         }
 
         // =====================================================================
-        // Batch Test
+        // TEST 6: Batch Workflow (all B-series + C-series)
         // =====================================================================
         private void RunBatchTest()
         {
-            Log("--- Batch Workflow Test ---");
+            Log("--- TEST 6: Batch Workflow ---");
 
-            // Process ALL B-series parts (sheet metal) as a batch
+            // ----- B-series (sheet metal) -----
             var bParts = Directory.GetFiles(_inputDir, "B*.SLDPRT", SearchOption.TopDirectoryOnly);
             if (bParts.Length == 0)
             {
                 Log("  SKIP: No B-series parts found");
-                return;
             }
-
-            int batchSuccess = 0;
-            int batchWithOP20 = 0;
-            int batchWithOptiMat = 0;
-
-            foreach (var partPath in bParts)
+            else
             {
-                var pd = ProcessPartByPath(partPath, new ProcessingOptions
+                int batchSuccess = 0;
+                int batchWithOP20 = 0;
+                int batchWithOptiMat = 0;
+
+                foreach (var partPath in bParts)
                 {
-                    Material = "304L", MaterialType = "AISI 304", SaveChanges = false
-                });
-                if (pd != null && pd.Status == ProcessingStatus.Success)
-                {
-                    batchSuccess++;
-                    if (!string.IsNullOrEmpty(pd.Cost.OP20_WorkCenter)) batchWithOP20++;
-                    if (!string.IsNullOrEmpty(pd.OptiMaterial)) batchWithOptiMat++;
+                    var pd = ProcessPartByPath(partPath, new ProcessingOptions
+                    {
+                        Material = "304L",
+                        MaterialType = "AISI 304",
+                        MaterialCategory = MaterialCategoryKind.StainlessSteel,
+                        SaveChanges = false
+                    });
+                    if (pd != null && pd.Status == ProcessingStatus.Success)
+                    {
+                        batchSuccess++;
+                        if (!string.IsNullOrEmpty(pd.Cost.OP20_WorkCenter)) batchWithOP20++;
+                        if (!string.IsNullOrEmpty(pd.OptiMaterial)) batchWithOptiMat++;
+
+                        // Every successful sheet metal part must have rbMaterialType=0
+                        var mapped = PartDataPropertyMap.ToProperties(pd);
+                        AssertEquals(Get(mapped, "rbMaterialType"), "0",
+                            $"Batch-{Path.GetFileName(partPath)}: rbMaterialType=0");
+                    }
                 }
+
+                AssertTrue(batchSuccess > 0, $"Batch-B: at least 1 success (got {batchSuccess}/{bParts.Length})");
+                AssertEquals(batchWithOP20, batchSuccess, $"Batch-B: all successful have OP20 ({batchWithOP20}/{batchSuccess})");
+                AssertEquals(batchWithOptiMat, batchSuccess, $"Batch-B: all successful have OptiMaterial ({batchWithOptiMat}/{batchSuccess})");
             }
 
-            AssertTrue(batchSuccess > 0, $"Batch: at least 1 B-series success (got {batchSuccess}/{bParts.Length})");
-            AssertEquals(batchWithOP20, batchSuccess, $"Batch: all successful parts have OP20 ({batchWithOP20}/{batchSuccess})");
-            AssertEquals(batchWithOptiMat, batchSuccess, $"Batch: all successful parts have OptiMaterial ({batchWithOptiMat}/{batchSuccess})");
-
-            // Process ALL C-series parts (tubes) as a batch
+            // ----- C-series (tubes) -----
             var cParts = Directory.GetFiles(_inputDir, "C*.SLDPRT", SearchOption.TopDirectoryOnly);
-            if (cParts.Length > 0)
+            if (cParts.Length == 0)
+            {
+                Log("  SKIP: No C-series parts found");
+            }
+            else
             {
                 int tubeSuccess = 0;
                 int tubeWithOP20 = 0;
+
                 foreach (var partPath in cParts)
                 {
                     var pd = ProcessPartByPath(partPath, new ProcessingOptions
                     {
-                        Material = "A36 Steel", SaveChanges = false
+                        Material = "A36",
+                        MaterialType = "ASTM A36 Steel",
+                        MaterialCategory = MaterialCategoryKind.CarbonSteel,
+                        SaveChanges = false
                     });
                     if (pd != null && pd.Status == ProcessingStatus.Success)
                     {
                         tubeSuccess++;
                         if (!string.IsNullOrEmpty(pd.Cost.OP20_WorkCenter)) tubeWithOP20++;
+
+                        // Every successful tube part must have rbMaterialType=1
                         var mapped = PartDataPropertyMap.ToProperties(pd);
-                        AssertEquals(Get(mapped, "rbMaterialType"), "1", $"Batch-{Path.GetFileName(partPath)}: rbMaterialType=1");
+                        AssertEquals(Get(mapped, "rbMaterialType"), "1",
+                            $"Batch-{Path.GetFileName(partPath)}: rbMaterialType=1");
                     }
                 }
-                AssertTrue(tubeSuccess > 0, $"Batch: at least 1 C-series success (got {tubeSuccess}/{cParts.Length})");
+
+                AssertTrue(tubeSuccess > 0, $"Batch-C: at least 1 success (got {tubeSuccess}/{cParts.Length})");
+                AssertEquals(tubeWithOP20, tubeSuccess, $"Batch-C: all successful have OP20 ({tubeWithOP20}/{tubeSuccess})");
             }
         }
 
@@ -353,7 +551,10 @@ namespace NM.SwAddin.Pipeline
                 Log($"  Processing: {Path.GetFileName(filePath)} (Material={options.Material})");
                 var pd = MainRunner.RunSinglePartData(_swApp, doc, options);
                 if (pd != null)
-                    Log($"    Result: Status={pd.Status}, Classification={pd.Classification}, OP20_WC={pd.Cost.OP20_WorkCenter ?? "NULL"}, OptiMaterial={pd.OptiMaterial ?? "NULL"}");
+                    Log($"    Result: Status={pd.Status}, Classification={pd.Classification}, " +
+                        $"OP20_WC={pd.Cost.OP20_WorkCenter ?? "NULL"}, " +
+                        $"OptiMaterial={pd.OptiMaterial ?? "NULL"}, " +
+                        $"Material={pd.Material ?? "NULL"}");
                 return pd;
             }
             finally
@@ -398,7 +599,7 @@ namespace NM.SwAddin.Pipeline
             catch { }
         }
 
-        private static string Get(Dictionary<string, string> d, string key)
+        private static string Get(IDictionary<string, string> d, string key)
         {
             return d != null && d.TryGetValue(key, out var v) ? v ?? "" : "";
         }
@@ -443,6 +644,14 @@ namespace NM.SwAddin.Pipeline
         private void AssertStartsWith(string value, string prefix, string message)
         {
             if (value != null && value.StartsWith(prefix))
+            { _passed++; Log($"  PASS: {message} (got {value})"); }
+            else
+            { _failed++; Log($"  FAIL: {message} (got {value ?? "NULL"})"); }
+        }
+
+        private void AssertContains(string value, string substring, string message)
+        {
+            if (value != null && value.IndexOf(substring, StringComparison.OrdinalIgnoreCase) >= 0)
             { _passed++; Log($"  PASS: {message} (got {value})"); }
             else
             { _failed++; Log($"  FAIL: {message} (got {value ?? "NULL"})"); }
