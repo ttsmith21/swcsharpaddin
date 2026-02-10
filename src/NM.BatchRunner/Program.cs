@@ -40,6 +40,10 @@ namespace NM.BatchRunner
                     {
                         return RunQA(swApp);
                     }
+                    else if (args[0] == "--property-qa")
+                    {
+                        return RunPropertyQA(swApp);
+                    }
                     else if (args[0] == "--step-qa")
                     {
                         return RunStepQA(swApp, args);
@@ -94,6 +98,10 @@ namespace NM.BatchRunner
         static void PrintUsage()
         {
             Console.WriteLine("Usage:");
+            Console.WriteLine("  NM.BatchRunner.exe --property-qa");
+            Console.WriteLine("      Run property write QA: exercises single-part, assembly, batch workflows");
+            Console.WriteLine("      and validates OP20, OptiMaterial, rbMaterialType are correctly populated.");
+            Console.WriteLine();
             Console.WriteLine("  NM.BatchRunner.exe --qa [--config <path>]");
             Console.WriteLine("      Run QA tests on parts specified in config file");
             Console.WriteLine("      Default config: C:\\Temp\\nm_qa_config.json");
@@ -107,6 +115,26 @@ namespace NM.BatchRunner
             Console.WriteLine();
             Console.WriteLine("  NM.BatchRunner.exe --help");
             Console.WriteLine("      Show this help message");
+        }
+
+        static int RunPropertyQA(ISldWorks swApp)
+        {
+            Console.WriteLine("Running Property Write QA...");
+
+            // Find the gold standard inputs directory (relative to exe location)
+            var repoRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\"));
+            var inputDir = Path.Combine(repoRoot, @"tests\GoldStandard_Inputs");
+            var outputDir = Path.Combine(repoRoot, "tests",
+                $"Run_PropertyQA_{DateTime.Now:yyyyMMdd_HHmmss}");
+
+            if (!Directory.Exists(inputDir))
+            {
+                Console.Error.WriteLine($"Error: Gold standard inputs not found: {inputDir}");
+                return 1;
+            }
+
+            var qa = new NM.SwAddin.Pipeline.PropertyWriteQA(swApp, inputDir, outputDir);
+            return qa.Run();
         }
 
         static int RunQA(ISldWorks swApp)
