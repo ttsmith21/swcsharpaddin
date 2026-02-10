@@ -214,9 +214,11 @@
     <Compile Include="src\NM.SwAddin\Properties\CustomPropertiesService.cs" />
     <Compile Include="src\NM.SwAddin\Services\DocumentService.cs" />
     <Compile Include="src\NM.SwAddin\SheetMetal\BendStateManager.cs" />
+    <Compile Include="src\NM.SwAddin\SheetMetal\SideIndicatorService.cs" />
     <Compile Include="src\NM.SwAddin\UI\MainSelectionForm.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="src\NM.SwAddin\UI\ProblemPartColorizer.cs" />
     <Compile Include="src\NM.SwAddin\UI\ProblemPartsForm.cs">
       <SubType>Form</SubType>
     </Compile>

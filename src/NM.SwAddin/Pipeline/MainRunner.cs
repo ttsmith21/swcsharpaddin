@@ -916,18 +916,25 @@ namespace NM.SwAddin.Pipeline
             if (!string.IsNullOrEmpty(description))
                 pd.Extra["Description"] = description;
 
-            // OptiMaterial: preserve user-selected value from Tab Builder (e.g., "S.316L14GA")
-            // Only auto-resolve for new parts where it hasn't been set yet.
+            // OptiMaterial: When the user explicitly selects a material from the form,
+            // always re-resolve OptiMaterial to match their selection. Only preserve the
+            // existing value when no material was specified (i.e., batch/auto mode where
+            // a user may have manually edited OptiMaterial in Tab Builder).
             if (string.IsNullOrEmpty(pd.OptiMaterial))
             {
+                bool userSelectedMaterial = opts != null && !string.IsNullOrEmpty(opts.Material);
                 var existing = SwPropertyHelper.GetCustomPropertyValue(doc, "OptiMaterial");
-                if (!string.IsNullOrEmpty(existing))
+
+                if (!userSelectedMaterial && !string.IsNullOrEmpty(existing))
                 {
                     pd.OptiMaterial = existing;
+                    ErrorHandler.DebugLog($"[PROPWRITE] OptiMaterial: preserved existing='{existing}'");
                 }
                 else
                 {
+                    ErrorHandler.DebugLog($"[PROPWRITE] OptiMaterial: resolving (material='{pd.Material}', classification={pd.Classification}, thickness_m={pd.Thickness_m:F6}, isSheetMetal={pd.Sheet?.IsSheetMetal})");
                     var optiCode = StaticOptiMaterialService.Resolve(pd);
+                    ErrorHandler.DebugLog($"[PROPWRITE] OptiMaterial: resolved='{optiCode ?? "(null)"}'");
                     if (!string.IsNullOrEmpty(optiCode))
                         pd.OptiMaterial = optiCode;
                 }
@@ -1027,9 +1034,13 @@ namespace NM.SwAddin.Pipeline
             ErrorHandler.DebugLog($"[PIPELINE] After CalculateCosts: OP20_WorkCenter={pd.Cost.OP20_WorkCenter ?? "NULL"}, OP20_S_min={pd.Cost.OP20_S_min:F4}, OP20_R_min={pd.Cost.OP20_R_min:F4}");
             ErrorHandler.DebugLog($"[PIPELINE] After CalculateCosts: OptiMaterial={pd.OptiMaterial ?? "NULL"}, Thickness_m={pd.Thickness_m:F6}, CutLength_m={pd.Sheet.TotalCutLength_m:F6}");
 
-            // OP20: No fallback/preservation. The pipeline MUST calculate OP20 via CalculateCosts.
-            // If OP20 is blank after this, the root cause is in CalculateCosts (missing thickness or cut length).
-            // Manual operator overrides (non-auto values) are the only exception — preserve those.
+            // VBA parity: preserve existing OP20 only if it's a manual operator selection.
+            // VBA (SP.bas:1107) recalculates when OP20 is empty or one of the auto-assigned
+            // values ("N120 - 5040", "N115 - ANY FLAT LASER", "N125 - 3060"). Only non-auto
+            // values (operator manual picks) are preserved.
+            // For tubes, VBA always overwrites OP20 — auto-assigned tube values ("F110 - TUBE
+            // LASER", "N145 - 5-AXIS LASER", "F300 - SAW") are also in the auto-assigned set.
+            // NOTE: Read from SwPropertyHelper (direct API), not info.CustomProperties (may be empty cache).
             var existingOP20 = SwPropertyHelper.GetCustomPropertyValue(doc, "OP20");
             bool isManualOP20 = !string.IsNullOrEmpty(existingOP20)
                                 && !AutoAssignedOP20Values.Contains(existingOP20);

@@ -37,6 +37,7 @@ namespace swcsharpaddin
         BitmapHandler iBmp;
         IconResourceHelper _iconHelper;
         NM.SwAddin.UI.TaskPaneManager _taskPaneManager;
+        NM.SwAddin.UI.ProblemPartColorizer _colorizer = new NM.SwAddin.UI.ProblemPartColorizer();
 
         public const int mainCmdGroupID = 5;
         public const int mainItemID1 = 0;
@@ -47,6 +48,10 @@ namespace swcsharpaddin
         public const int mainItemID6 = 5;   // Review Problems
         public const int mainItemID7 = 6;   // Analyze Drawing (AI)
         public const int mainItemID8 = 7;   // Settings
+        public const int mainItemID9 = 8;   // Side Indicator
+        public const int mainItemID10 = 9;  // Toggle Problem Colors
+
+        NM.SwAddin.SheetMetal.SideIndicatorService _sideIndicator = new NM.SwAddin.SheetMetal.SideIndicatorService();
 
         #region Event Handler Variables
         Hashtable openDocs = new Hashtable();
@@ -282,9 +287,9 @@ namespace swcsharpaddin
 
             // All command IDs that will be registered - must match exactly
 #if DEBUG
-            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID8, mainItemID5, mainItemID3 };
+            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID8, mainItemID9, mainItemID10, mainItemID5, mainItemID3 };
 #else
-            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID8 };
+            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID8, mainItemID9, mainItemID10 };
 #endif
 
             if (getDataResult)
@@ -339,6 +344,16 @@ namespace swcsharpaddin
                 "Settings",
                 5, "OpenSettings", "", mainItemID8, menuToolbarOption);
 
+            int cmdIndexSideIndicator = cmdGroup.AddCommandItem2("Side Indicator", -1,
+                "Toggle green (top/good) and red (bottom/bad) face coloring on sheet metal parts",
+                "Side Indicator",
+                6, "ToggleSideIndicator", "SideIndicatorEnable", mainItemID9, menuToolbarOption);
+
+            int cmdIndexToggleColors = cmdGroup.AddCommandItem2("Problem Colors", -1,
+                "Toggle red highlighting on problem parts in the assembly",
+                "Toggle Problem Colors",
+                1, "ToggleProblemColors", "ToggleProblemColorsEnable", mainItemID10, menuToolbarOption);
+
 #if DEBUG
             int cmdIndexQA = cmdGroup.AddCommandItem2("Run QA", -1,
                 "Run Gold Standard QA tests", "Run QA",
@@ -370,6 +385,33 @@ namespace swcsharpaddin
                     CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
 
 #if DEBUG
+                    int[] cmdIDs = new int[8];
+                    int[] TextType = new int[8];
+
+                    cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
+                    TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[1] = cmdGroup.get_CommandID(cmdIndexReview);
+                    TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[2] = cmdGroup.get_CommandID(cmdIndexAnalyze);
+                    TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexSettings);
+                    TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[4] = cmdGroup.get_CommandID(cmdIndexSideIndicator);
+                    TextType[4] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[5] = cmdGroup.get_CommandID(cmdIndexToggleColors);
+                    TextType[5] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[6] = cmdGroup.get_CommandID(cmdIndexQA);
+                    TextType[6] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[7] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    TextType[7] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+#else
                     int[] cmdIDs = new int[6];
                     int[] TextType = new int[6];
 
@@ -385,26 +427,11 @@ namespace swcsharpaddin
                     cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexSettings);
                     TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                    cmdIDs[4] = cmdGroup.get_CommandID(cmdIndexQA);
+                    cmdIDs[4] = cmdGroup.get_CommandID(cmdIndexSideIndicator);
                     TextType[4] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                    cmdIDs[5] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    cmdIDs[5] = cmdGroup.get_CommandID(cmdIndexToggleColors);
                     TextType[5] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
-#else
-                    int[] cmdIDs = new int[4];
-                    int[] TextType = new int[4];
-
-                    cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
-                    TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
-
-                    cmdIDs[1] = cmdGroup.get_CommandID(cmdIndexReview);
-                    TextType[1] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
-
-                    cmdIDs[2] = cmdGroup.get_CommandID(cmdIndexAnalyze);
-                    TextType[2] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
-
-                    cmdIDs[3] = cmdGroup.get_CommandID(cmdIndexSettings);
-                    TextType[3] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #endif
 
                     cmdBox.AddCommands(cmdIDs, TextType);
@@ -769,6 +796,86 @@ namespace swcsharpaddin
             finally
             {
                 NM.Core.ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Toggles green/red face coloring on sheet metal parts to show top (good) vs bottom (bad) side.
+        /// Called by SolidWorks when user clicks "Side Indicator" button.
+        /// </summary>
+        public void ToggleSideIndicator()
+        {
+            _sideIndicator.Toggle(iSwApp);
+        }
+
+        /// <summary>
+        /// Enable callback for Side Indicator button.
+        /// Enabled when a part or assembly document is active.
+        /// </summary>
+        public int SideIndicatorEnable()
+        {
+            try
+            {
+                var model = iSwApp.ActiveDoc as IModelDoc2;
+                if (model == null) return 0;
+                int docType = model.GetType();
+                return (docType == (int)swDocumentTypes_e.swDocPART ||
+                        docType == (int)swDocumentTypes_e.swDocASSEMBLY) ? 1 : 0;
+            }
+            catch { return 0; }
+        }
+
+        /// <summary>
+        /// Toggles red highlighting on problem parts in the active assembly.
+        /// Called by SolidWorks when user clicks "Problem Colors" button.
+        /// </summary>
+        public void ToggleProblemColors()
+        {
+            NM.Core.ErrorHandler.PushCallStack("ToggleProblemColors");
+            try
+            {
+                int affected = _colorizer.Toggle(iSwApp);
+                string state = _colorizer.IsActive ? "ON" : "OFF";
+                NM.Core.ErrorHandler.DebugLog($"[ToggleProblemColors] {state}, {affected} components affected");
+
+                if (affected == 0 && _colorizer.IsActive)
+                {
+                    // Toggled on but no matching components found
+                    _colorizer.Reset();
+                    System.Windows.Forms.MessageBox.Show(
+                        "No problem part components found in the active assembly.\n\n" +
+                        "Run the pipeline first, then use this button to highlight problem parts.",
+                        "Problem Colors",
+                        System.Windows.Forms.MessageBoxButtons.OK,
+                        System.Windows.Forms.MessageBoxIcon.Information);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                NM.Core.ErrorHandler.HandleError("ToggleProblemColors", ex.Message, ex, NM.Core.ErrorHandler.LogLevel.Error);
+                System.Windows.Forms.MessageBox.Show($"Problem Colors error: {ex.Message}", "Error");
+            }
+            finally
+            {
+                NM.Core.ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Enable callback for Problem Colors button.
+        /// Only enabled when an assembly is active.
+        /// </summary>
+        public int ToggleProblemColorsEnable()
+        {
+            try
+            {
+                var doc = iSwApp?.ActiveDoc as IModelDoc2;
+                if (doc == null) return 0;
+                return doc.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY ? 1 : 0;
+            }
+            catch
+            {
+                return 0;
             }
         }
 
