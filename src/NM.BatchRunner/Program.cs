@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using NM.Core.Config;
 using SolidWorks.Interop.sldworks;
 
 namespace NM.BatchRunner
@@ -27,6 +28,12 @@ namespace NM.BatchRunner
                 PrintUsage();
                 return 1;
             }
+
+            // Initialize NM configuration (laser speeds, tube cutting params, etc.)
+            // BatchRunner bypasses the add-in lifecycle, so we must init explicitly.
+            var repoRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\"));
+            var configDir = Path.Combine(repoRoot, "config");
+            NmConfigProvider.Initialize(configDir);
 
             try
             {
