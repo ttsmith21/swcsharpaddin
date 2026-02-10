@@ -13,12 +13,10 @@ namespace NM.SwAddin.Manufacturing
 
         public static PartMetrics FromModel(IModelDoc2 doc, ModelInfo info)
         {
-            // Material: prefer our property code (rbMaterialType), fallback to SW material name
-            string materialCode = info?.CustomProperties?.GetPropertyValue("rbMaterialType")?.ToString();
-            if (string.IsNullOrWhiteSpace(materialCode))
-            {
-                try { materialCode = SolidWorksApiWrapper.GetMaterialName(doc); } catch { materialCode = string.Empty; }
-            }
+            // Material: read from SolidWorks material assignment.
+            // rbMaterialType is "0"/"1"/"2" (Tab Builder radio button), NOT a material code.
+            string materialCode;
+            try { materialCode = SolidWorksApiWrapper.GetMaterialName(doc); } catch { materialCode = string.Empty; }
 
             // Legacy custom properties
             string rbWeightCalc = info?.CustomProperties?.GetPropertyValue("rbWeightCalc")?.ToString() ?? "0";

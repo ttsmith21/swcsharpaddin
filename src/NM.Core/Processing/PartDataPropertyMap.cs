@@ -124,7 +124,14 @@ namespace NM.Core.Processing
             p["TotalPrice"] = d.TotalPrice.ToString("0.####", Inv);
 
             p["OptiMaterial"] = d.OptiMaterial ?? string.Empty;
-            p["rbMaterialType"] = d.Material ?? string.Empty;
+
+            // rbMaterialType is a Tab Builder RadioButton: "0"=Sheet, "1"=Tube, "2"=SqFt
+            // VBA writes "1" for tubes (SP.bas:2517,2543); sheet metal defaults to "0".
+            if (d.Tube.IsTube)
+                p["rbMaterialType"] = "1";
+            else
+                p["rbMaterialType"] = "0";
+
             p["MaterialCategory"] = d.MaterialCategory ?? string.Empty;
 
             p["Thickness"] = thickness_in.ToString("0.####", Inv);
@@ -211,7 +218,8 @@ namespace NM.Core.Processing
             d.TotalPrice = D("TotalPrice");
 
             d.OptiMaterial = Get(props, "OptiMaterial");
-            d.Material = Get(props, "rbMaterialType");
+            // rbMaterialType is "0"/"1"/"2" (radio button), NOT a material name.
+            // d.Material should come from the SolidWorks material assignment, not from this property.
             d.MaterialCategory = Get(props, "MaterialCategory");
 
             var thickness_in = D("Thickness");
