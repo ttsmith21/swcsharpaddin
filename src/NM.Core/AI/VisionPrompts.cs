@@ -281,6 +281,84 @@ RULES:
 - Do NOT hallucinate tolerances that are not explicitly shown.";
         }
 
+        // ========================================================================
+        // Rename Wizard prompts
+        // ========================================================================
+
+        /// <summary>
+        /// Extracts a BOM table from an assembly drawing PDF page.
+        /// Returns a JSON array of line items with part number, description, material, quantity.
+        /// </summary>
+        public static string GetBomTablePrompt()
+        {
+            return @"Extract the Bill of Materials (BOM) table from this engineering drawing.
+Return ONLY valid JSON, no other text, no markdown fencing.
+
+{
+  ""bom_items"": [
+    {
+      ""item_number"": 1,
+      ""part_number"": """",
+      ""description"": """",
+      ""material"": """",
+      ""quantity"": 1
+    }
+  ]
+}
+
+RULES:
+- Extract ALL rows from the BOM table exactly as shown.
+- item_number: The item/find number column (integer).
+- part_number: The part number or drawing number column. Preserve exact text.
+- description: The description or name column. Preserve exact text.
+- material: Material specification if present in the BOM, otherwise empty string.
+- quantity: Numeric quantity (integer). Default to 1 if unclear.
+- Do NOT skip any rows.
+- Do NOT infer or guess values not visible in the BOM table.
+- If no BOM table is present on this page, return an empty array.
+- Ignore revision columns, weight columns, and other non-essential fields.";
+        }
+
+        /// <summary>
+        /// Asks AI to match BOM rows to STEP-imported component names.
+        /// Provides both lists as context and expects a mapping back.
+        /// </summary>
+        public static string GetBomMatchingPrompt(string bomJson, string componentsJson)
+        {
+            return @"You are matching BOM (Bill of Materials) line items to STEP-imported component filenames.
+
+BOM items extracted from the drawing:
+" + bomJson + @"
+
+Component filenames from the assembly:
+" + componentsJson + @"
+
+Return ONLY valid JSON, no other text, no markdown fencing.
+
+{
+  ""matches"": [
+    {
+      ""component_index"": 0,
+      ""bom_item_number"": 1,
+      ""predicted_name"": ""the part_number or description from the BOM"",
+      ""confidence"": 0.95,
+      ""reason"": ""brief explanation of why this match was chosen""
+    }
+  ]
+}
+
+RULES:
+- Match each component to the most likely BOM item based on:
+  1. Name similarity (STEP filenames often contain partial part numbers).
+  2. Quantity correlation (component instance count vs BOM quantity).
+  3. Description keywords appearing in the filename.
+- confidence: 0.0 to 1.0. Use 0.95+ only for very clear matches.
+- If a component has NO reasonable BOM match, omit it from the matches array.
+- predicted_name: Use the BOM part_number. If part_number is empty, use description.
+- Do NOT force matches. It is better to omit a component than match it incorrectly.
+- Multiple components CAN map to the same BOM item (e.g., multiple instances).";
+        }
+
         /// <summary>
         /// System prompt establishing the AI's role.
         /// </summary>

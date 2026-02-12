@@ -50,6 +50,7 @@ namespace swcsharpaddin
         public const int mainItemID8 = 7;   // Settings
         public const int mainItemID9 = 8;   // Side Indicator
         public const int mainItemID10 = 9;  // Toggle Problem Colors
+        public const int mainItemID11 = 10; // Rename Wizard
 
         NM.SwAddin.SheetMetal.SideIndicatorService _sideIndicator = new NM.SwAddin.SheetMetal.SideIndicatorService();
 
@@ -287,9 +288,9 @@ namespace swcsharpaddin
 
             // All command IDs that will be registered - must match exactly
 #if DEBUG
-            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID8, mainItemID9, mainItemID10, mainItemID5, mainItemID3 };
+            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID8, mainItemID9, mainItemID10, mainItemID11, mainItemID5, mainItemID3 };
 #else
-            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID8, mainItemID9, mainItemID10 };
+            int[] knownIDs = new int[] { mainItemID4, mainItemID6, mainItemID7, mainItemID8, mainItemID9, mainItemID10, mainItemID11 };
 #endif
 
             if (getDataResult)
@@ -354,6 +355,11 @@ namespace swcsharpaddin
                 "Toggle Problem Colors",
                 1, "ToggleProblemColors", "ToggleProblemColorsEnable", mainItemID10, menuToolbarOption);
 
+            int cmdIndexRenameWizard = cmdGroup.AddCommandItem2("Rename Wizard", -1,
+                "AI-powered batch rename of assembly components using PDF drawing BOM",
+                "Rename Wizard",
+                4, "RenameWizard", "RenameWizardEnable", mainItemID11, menuToolbarOption);
+
 #if DEBUG
             int cmdIndexQA = cmdGroup.AddCommandItem2("Run QA", -1,
                 "Run Gold Standard QA tests", "Run QA",
@@ -385,8 +391,8 @@ namespace swcsharpaddin
                     CommandTabBox cmdBox = cmdTab.AddCommandTabBox();
 
 #if DEBUG
-                    int[] cmdIDs = new int[8];
-                    int[] TextType = new int[8];
+                    int[] cmdIDs = new int[9];
+                    int[] TextType = new int[9];
 
                     cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
                     TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
@@ -406,14 +412,17 @@ namespace swcsharpaddin
                     cmdIDs[5] = cmdGroup.get_CommandID(cmdIndexToggleColors);
                     TextType[5] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                    cmdIDs[6] = cmdGroup.get_CommandID(cmdIndexQA);
+                    cmdIDs[6] = cmdGroup.get_CommandID(cmdIndexRenameWizard);
                     TextType[6] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 
-                    cmdIDs[7] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    cmdIDs[7] = cmdGroup.get_CommandID(cmdIndexQA);
                     TextType[7] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[8] = cmdGroup.get_CommandID(cmdIndexSmoke);
+                    TextType[8] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #else
-                    int[] cmdIDs = new int[6];
-                    int[] TextType = new int[6];
+                    int[] cmdIDs = new int[7];
+                    int[] TextType = new int[7];
 
                     cmdIDs[0] = cmdGroup.get_CommandID(cmdIndexPipeline);
                     TextType[0] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
@@ -432,6 +441,9 @@ namespace swcsharpaddin
 
                     cmdIDs[5] = cmdGroup.get_CommandID(cmdIndexToggleColors);
                     TextType[5] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
+
+                    cmdIDs[6] = cmdGroup.get_CommandID(cmdIndexRenameWizard);
+                    TextType[6] = (int)swCommandTabButtonTextDisplay_e.swCommandTabButton_TextHorizontal;
 #endif
 
                     cmdBox.AddCommands(cmdIDs, TextType);
@@ -747,6 +759,44 @@ namespace swcsharpaddin
             {
                 return 1; // On error, keep enabled so user can click and see a message
             }
+        }
+
+        /// <summary>
+        /// AI-powered batch rename of assembly components using a PDF drawing BOM.
+        /// Called by SolidWorks when user clicks "Rename Wizard" button.
+        /// </summary>
+        public void RenameWizard()
+        {
+            NM.Core.ErrorHandler.PushCallStack("RenameWizard");
+            try
+            {
+                var runner = new NM.SwAddin.Pipeline.RenameWizardRunner(iSwApp);
+                runner.RunOnActiveAssembly();
+            }
+            catch (System.Exception ex)
+            {
+                NM.Core.ErrorHandler.HandleError("RenameWizard", ex.Message, ex, NM.Core.ErrorHandler.LogLevel.Error);
+                System.Windows.Forms.MessageBox.Show($"Rename wizard error: {ex.Message}", "Error");
+            }
+            finally
+            {
+                NM.Core.ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Enable callback for Rename Wizard button.
+        /// Enabled only when an assembly document is active.
+        /// </summary>
+        public int RenameWizardEnable()
+        {
+            try
+            {
+                var model = iSwApp.ActiveDoc as IModelDoc2;
+                if (model == null) return 0;
+                return model.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY ? 1 : 0;
+            }
+            catch { return 0; }
         }
 
         /// <summary>
