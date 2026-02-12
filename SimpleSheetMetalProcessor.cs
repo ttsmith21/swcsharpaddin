@@ -75,6 +75,13 @@ namespace NM.SwAddin
                 if (SwGeometryHelper.HasSheetMetalFeature(model))
                 {
                     ErrorHandler.DebugLog("[SMDBG] [2] Already sheet metal");
+
+                    // Extract thickness from existing SM features (critical for re-runs)
+                    double existingThickness = GetSheetMetalThicknessViaLinkedProperty(model);
+                    if (existingThickness <= 0)
+                        existingThickness = GetSheetMetalThicknessFromFeatureDefinition(model);
+                    ErrorHandler.DebugLog($"[SMDBG] Existing SM thickness: {existingThickness:E6} m ({existingThickness * 39.37:F4} inches)");
+
                     if (flatten && !TryFlatten(model, info))
                     {
                         ErrorHandler.DebugLog("[SMDBG] FAIL: TryFlatten returned false");
@@ -83,6 +90,8 @@ namespace NM.SwAddin
                     info.IsSheetMetal = true;
                     info.IsFlattened = flatten;
                     info.InsertSuccessful = true;
+                    if (existingThickness > 0)
+                        info.ThicknessInMeters = existingThickness;
                     ErrorHandler.DebugLog("[SMDBG] SUCCESS: Part already had sheet metal features");
                     return true;
                 }

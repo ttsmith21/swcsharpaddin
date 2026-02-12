@@ -736,6 +736,7 @@ namespace NM.Core.Tests
         public void ToProperties_TimesConvertedToHours()
         {
             var pd = new PartData();
+            pd.Cost.OP20_WorkCenter = "F115"; // Required for OP20_S/OP20_R to be written
             pd.Cost.OP20_S_min = 6.0;  // 6 minutes
             pd.Cost.OP20_R_min = 30.0; // 30 minutes
 
