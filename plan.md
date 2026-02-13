@@ -1,100 +1,139 @@
-# Plan: Problem Parts Skip, Suppression Audit, and Toggle-Red Button
+# Plan: Fix Side Indicator Color Toggle + Automated Validation
 
-## Item 1: Fix — Already-classified parts should be skipped on re-run
+## Problem Analysis
 
-**Problem:** When a surface body is marked PUR on the first run, the second run still flags it as a problem because `PartPreflight` rejects it on geometry (no solid body) before `MainRunner` ever checks `rbPartType`.
+The `SideIndicatorService` (in `src/NM.SwAddin/SheetMetal/SideIndicatorService.cs`) has two bugs:
 
-**Approach:** Add an early-out check in `BatchValidator.ValidateSingleModel()` that reads `rbPartType` from the file's custom properties. If `rbPartType == "1"`, skip validation entirely and route to GoodModels. MainRunner already handles the processing early-out.
+### Bug 1: Toggle off doesn't restore original colors
+**Root cause:** `ClearBodyColors()` (line 307-329) calls `body.RemoveMaterialProperty(swAllConfiguration, null)` which **removes the body-level color** in addition to face-level overrides. If the part had a body-level or part-level color applied, this strips it entirely, leaving faces in the default system color instead of the original.
 
-**Files to modify:**
-- `src/NM.SwAddin/Validation/BatchValidator.cs` — Add rbPartType check in ValidateSingleModel, before calling `_validator.Validate()`
+### Bug 2: No save/restore of original face colors
+**Root cause:** The code never reads the original `face.MaterialPropertyValues` before overwriting with green/red/gray. If any faces had explicit face-level color overrides applied by the user, those are permanently lost. The "remove" path sets `face.MaterialPropertyValues = null` which removes the face override entirely rather than restoring the original value.
 
-**Details:**
-1. After opening the document (line ~144 in BatchValidator.cs), read `rbPartType` custom property
-2. If `rbPartType == "1"`, mark the model as validated (good), add to GoodModels, and return early
-3. Log a debug message: `[BATCHVAL] rbPartType=1 detected - skipping validation (already classified)`
-4. This lets MainRunner handle the PUR/MACH/CUST early-out during processing
+### SolidWorks Color Hierarchy (Key Insight)
+```
+Part color < Body color < Feature color < Face color
+```
+- Setting `face.MaterialPropertyValues = green` overrides all levels below
+- Setting `face.MaterialPropertyValues = null` removes the face override, so body/part color shows through
+- Calling `body.RemoveMaterialProperty()` removes body color AND all face overrides — destructive!
 
-**Risk:** Low. This is a read-only check on a custom property. Parts without the property are unaffected.
-
-**Execution: Sequential**
+**The correct approach:** Save each face's `MaterialPropertyValues` before applying overrides. On restore, write back the saved value (`null` means "no face override was present" — set null to remove our override and let the body/part color show through).
 
 ---
 
-## Item 2: Audit — Suppressed parts behavior (no code changes needed)
+## Implementation Plan
 
-**Finding:** Suppressed parts are already correctly ignored at three layers:
-1. `GetComponents(false)` excludes suppressed from the API array
-2. `ComponentValidator` explicitly rejects suppressed components
-3. `AssemblyComponentQuantifier` skips suppressed in recursive traversal
+### Step 1: Add face color save/restore to SideIndicatorService
 
-**No code changes needed.** The current implementation matches the expected behavior.
+**File:** `src/NM.SwAddin/SheetMetal/SideIndicatorService.cs`
 
----
+**Changes:**
+1. Add a dictionary field to store original face colors per model:
+   ```csharp
+   // Maps model path -> list of (IFace2 reference, original double[] or null)
+   private readonly Dictionary<string, List<SavedFaceColor>> _savedColors
+       = new Dictionary<string, List<SavedFaceColor>>(StringComparer.OrdinalIgnoreCase);
 
-## Item 3: Feature — Toggle problem parts red on toolbar
+   private class SavedFaceColor
+   {
+       public IFace2 Face;
+       public double[] OriginalColor; // null = no face-level override was present
+   }
+   ```
 
-**Approach:** Add a new toolbar button "Toggle Problem Colors" that:
-- Reads problem parts from `ProblemPartManager.Instance`
-- For each component in the active assembly, if its file path matches a problem part, sets its appearance to red
-- On second click (toggle off), restores original appearance
-- Uses enable callback to only be active when an assembly is open
+2. In `ApplyToBody()` — accept a `List<SavedFaceColor>` parameter. Before setting each face color, read and save the original:
+   ```csharp
+   double[] original = face.MaterialPropertyValues as double[];
+   savedList.Add(new SavedFaceColor {
+       Face = face,
+       OriginalColor = original != null ? (double[])original.Clone() : null
+   });
+   ```
 
-**Files to create/modify:**
-1. `src/NM.SwAddin/UI/ProblemPartColorizer.cs` (NEW) — Logic for applying/removing red color to components
-2. `SwAddin.cs` — Register new command, add callback method
-3. Icon resources — Add icon to toolbar strip PNGs (or reuse existing index)
+3. Thread the saved list through `ApplyToPart()` → `ApplyToBody()` and `ApplyToAssembly()` → `ApplyToComponentTree()` → `ApplyToBody()`. Store in `_savedColors[path]` after applying.
 
-**Details for ProblemPartColorizer:**
-```
-public sealed class ProblemPartColorizer
-{
-    private bool _isActive;
-    private Dictionary<string, double[]> _savedAppearances; // path → original values
+4. Replace `ClearBodyColors()` with a new `RestoreSavedColors(string path)` method that:
+   - Looks up saved colors for the model path
+   - For each saved face: restores original value (null → set null, non-null → set original array)
+   - Does **NOT** call `body.RemoveMaterialProperty()` (that was destructive)
+   - Falls back to the current null-clearing approach if no saved colors exist (defensive)
+   - Cleans up the saved colors entry from the dictionary
 
-    public void Toggle(ISldWorks swApp)
-    {
-        if (_isActive) RemoveColors(swApp);
-        else ApplyColors(swApp);
-        _isActive = !_isActive;
-    }
+5. Update `RemoveFromPart()` and `RemoveFromAssembly()` to call `RestoreSavedColors()` instead.
 
-    private void ApplyColors(ISldWorks swApp)
-    {
-        // Get active assembly
-        // Get all components via GetComponents(false)
-        // For each component, check if file path is in ProblemPartManager
-        // If yes: save current MaterialPropertyValues, then set to red
-        // Red RGB = [1.0, 0.0, 0.0] with ambient/diffuse/specular/emissive coefficients
-    }
+### Step 2: Handle assembly components properly
 
-    private void RemoveColors(ISldWorks swApp)
-    {
-        // Restore saved appearances from _savedAppearances dictionary
-    }
-}
-```
+For assemblies, component faces are accessed through the component's model doc. The save/restore keys on model path, and since all instances of a part share the same IPartDoc, one save/restore per unique part file is sufficient.
 
-**SwAddin.cs changes:**
-1. Add `mainItemID9 = 8` constant
-2. Add to `knownIDs` array
-3. Register via `AddCommandItem2("Toggle Problem Colors", ...)`
-4. Add `ToggleProblemColors()` callback method
-5. Add `ToggleProblemColorsEnable()` — return 1 only if assembly is active and problem parts exist
+### Step 3: Create SideIndicatorQA test class
 
-**SolidWorks API for component color:**
+**New file:** `src/NM.SwAddin/Pipeline/SideIndicatorQA.cs`
+
+**Test sequence (3-state validation):**
+1. **Open** a sheet metal test part (B1_NativeBracket_14ga_CS.SLDPRT)
+2. **STATE 1 — Baseline:** Read `face.MaterialPropertyValues` for every face on every body. Record as `baselineColors[]` (array of face-index → color-or-null).
+3. **ACTION 1 — Apply:** Call `SideIndicatorService.Toggle()` (turns ON)
+4. **STATE 2 — Applied:** Read all face colors again. Verify:
+   - At least one face has green color (R≈0, G≈0.8, B≈0)
+   - At least one face has red color (R≈0.8, G≈0, B≈0)
+   - At least one face has gray color (R≈0.7, G≈0.7, B≈0.7)
+   - No face matches baseline (all should be overridden)
+5. **ACTION 2 — Remove:** Call `SideIndicatorService.Toggle()` (turns OFF)
+6. **STATE 3 — Restored:** Read all face colors again. Verify:
+   - Each face color matches its baseline value (null == null, or arrays match element-by-element within tolerance)
+   - The service reports `IsActive == false`
+7. **Report** pass/fail with detailed color comparison output
+
+**Additional test cases:**
+- **Test on B2_ImportedBracket** (imported sheet metal — uses fallback normal detection)
+- **Idempotency test:** apply → remove → apply → remove (verify restore works across multiple cycles)
+- **Color comparison utility:** `ColorsMatch(double[] a, double[] b, double tolerance = 0.001)` — handles both-null, one-null, and element-wise comparison
+
+### Step 4: Integrate into BatchRunner
+
+**File:** `src/NM.BatchRunner/Program.cs`
+
+Add a new command-line flag: `--side-indicator-qa`
+
 ```csharp
-// Get current appearance
-double[] props = (double[])component.GetMaterialPropertyValues2(
-    (int)swInConfigurationOpts_e.swThisConfiguration, null);
-
-// Set red appearance
-// Array: [R, G, B, Ambient, Diffuse, Specular, Shininess, Transparency, Emission]
-double[] red = new double[] { 1.0, 0.0, 0.0, 0.5, 1.0, 0.5, 0.5, 0.0, 0.0 };
-component.SetMaterialPropertyValues2(red,
-    (int)swInConfigurationOpts_e.swThisConfiguration, null);
+case "--side-indicator-qa":
+    var siQA = new SideIndicatorQA();
+    int siResult = siQA.Run(swApp, inputDir);
+    Environment.Exit(siResult); // 0=pass, 1=fail
+    break;
 ```
 
-**Risk:** Medium. Color manipulation is cosmetic and reversible. The saved-appearances dictionary handles restoration. Edge case: if user closes/reopens assembly, colors persist in session but _savedAppearances is lost — acceptable since the colors are visual-only and don't affect the model file.
+### Step 5: Build and verify
 
-**Execution: Sequential** (Item 1 first, then Item 3 — they share ProblemPartManager context)
+1. Run `sync-csproj.ps1` (new file SideIndicatorQA.cs)
+2. Run `build-and-test.ps1` to verify compilation
+3. Document how to run: `NM.BatchRunner.exe --side-indicator-qa`
+
+---
+
+## File Changes Summary
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/NM.SwAddin/SheetMetal/SideIndicatorService.cs` | Modify | Add save/restore, remove destructive body.RemoveMaterialProperty |
+| `src/NM.SwAddin/Pipeline/SideIndicatorQA.cs` | New | 3-state color validation test |
+| `src/NM.BatchRunner/Program.cs` | Modify | Add `--side-indicator-qa` command |
+| `swcsharpaddin.csproj` | Modify (via sync-csproj.ps1) | Include new .cs file |
+
+## Execution
+
+**Execution: Sequential** — all changes are interdependent (fix first, then test harness that exercises the fix).
+
+## Success Criteria
+
+1. Build succeeds (`build-and-test.ps1` → `BUILD: SUCCESS`)
+2. No new warnings introduced
+3. SideIndicatorQA validates the 3-state cycle:
+   - Baseline colors captured
+   - Green/red/gray applied correctly
+   - Original colors restored exactly after toggle off
+4. Toggle works correctly for:
+   - Parts with no explicit face colors (most common case)
+   - Parts with body-level colors
+   - Multiple toggle cycles (idempotent)

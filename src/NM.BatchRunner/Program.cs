@@ -55,6 +55,10 @@ namespace NM.BatchRunner
                     {
                         return RunStepQA(swApp, args);
                     }
+                    else if (args[0] == "--side-indicator-qa")
+                    {
+                        return RunSideIndicatorQA(swApp);
+                    }
                     else if (args[0] == "--pipeline")
                     {
                         return RunPipeline(swApp, args);
@@ -116,6 +120,9 @@ namespace NM.BatchRunner
             Console.WriteLine("  NM.BatchRunner.exe --step-qa [--file <path>]");
             Console.WriteLine("      Import a STEP assembly, externalize components, run pipeline on each part");
             Console.WriteLine("      Default file: tests\\GoldStandard_Inputs - Copy\\Large\\6 hours.step");
+            Console.WriteLine();
+            Console.WriteLine("  NM.BatchRunner.exe --side-indicator-qa");
+            Console.WriteLine("      Run Side Indicator color toggle QA tests (3-state validation)");
             Console.WriteLine();
             Console.WriteLine("  NM.BatchRunner.exe --pipeline --file <path>");
             Console.WriteLine("      Run processing pipeline on a single file");
@@ -223,6 +230,23 @@ namespace NM.BatchRunner
                 $"STEP QA Complete: Total={summary.TotalFiles}, Passed={summary.Passed}, Failed={summary.Failed}, Errors={summary.Errors}, Time={summary.TotalElapsedMs:F0}ms");
 
             return (summary.Failed > 0 || summary.Errors > 0) ? 1 : 0;
+        }
+
+        static int RunSideIndicatorQA(ISldWorks swApp)
+        {
+            Console.WriteLine("Running Side Indicator QA...");
+
+            var repoRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\"));
+            var inputDir = Path.Combine(repoRoot, @"tests\GoldStandard_Inputs");
+
+            if (!Directory.Exists(inputDir))
+            {
+                Console.Error.WriteLine($"Error: Gold standard inputs not found: {inputDir}");
+                return 1;
+            }
+
+            var qa = new NM.SwAddin.Pipeline.SideIndicatorQA();
+            return qa.Run(swApp, inputDir);
         }
 
         static int RunPipeline(ISldWorks swApp, string[] args)
