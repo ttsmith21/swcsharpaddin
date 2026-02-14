@@ -112,9 +112,21 @@ namespace NM.SwAddin.Rename
                             continue;
                         }
 
-                        // RenameDocument takes the old path and new name without extension
+                        // Select the component in the assembly so RenameDocument knows what to rename
+                        assemblyModel.ClearSelection2(true);
+                        bool selected = assemblyModel.Extension.SelectByID2(
+                            entry.CurrentFileName, "COMPONENT", 0, 0, 0, false, 0, null, 0);
+                        if (!selected)
+                        {
+                            result.Failed++;
+                            result.Errors.Add($"Could not select component: {entry.CurrentFileName}");
+                            ErrorHandler.DebugLog($"[Rename] SelectByID2 failed for {entry.CurrentFileName}");
+                            continue;
+                        }
+
+                        // RenameDocument takes new name (no extension) - component must be selected first
                         // Returns 0 (swRenameDocumentError_None) on success
-                        int renameErr = ext.RenameDocument(entry.CurrentFilePath, newNameNoExt);
+                        int renameErr = ext.RenameDocument(newNameNoExt);
 
                         if (renameErr == 0) // swRenameDocumentError_e.swRenameDocumentError_None
                         {
@@ -137,19 +149,18 @@ namespace NM.SwAddin.Rename
                     }
                 }
 
-                // Process renamed document references so SW updates all where-used
+                // Check if SW has pending renamed document references
                 try
                 {
-                    object renamedRefsObj = ext.GetRenamedDocumentReferences();
-                    var renamedRefs = renamedRefsObj as object[];
-                    if (renamedRefs != null && renamedRefs.Length > 0)
+                    bool hasRenamed = ext.HasRenamedDocuments();
+                    if (hasRenamed)
                     {
-                        ErrorHandler.DebugLog($"[Rename] {renamedRefs.Length} renamed reference(s) queued for update");
+                        ErrorHandler.DebugLog("[Rename] Renamed document references pending update on save");
                     }
                 }
                 catch (Exception ex)
                 {
-                    ErrorHandler.DebugLog($"[Rename] GetRenamedDocumentReferences warning: {ex.Message}");
+                    ErrorHandler.DebugLog($"[Rename] HasRenamedDocuments warning: {ex.Message}");
                 }
 
                 // Save the assembly to persist renames

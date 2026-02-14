@@ -6,6 +6,7 @@ using System.Windows.Forms;
 using NM.Core;
 using NM.Core.Pdf;
 using NM.Core.Rename;
+using ComponentInfo = NM.Core.Rename.ComponentInfo;
 using NM.SwAddin.Rename;
 using NM.SwAddin.UI;
 using SolidWorks.Interop.sldworks;
