@@ -12,7 +12,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("My Company")]
 [assembly: AssemblyProduct("swcsharpaddin")]
-[assembly: AssemblyCopyright("Copyright © My Company 2023")]
+[assembly: AssemblyCopyright("Copyright ï¿½ My Company 2023")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 [assembly: ComVisible(true)]		
@@ -55,6 +55,7 @@ using System.Runtime.InteropServices;
 //   (*) Delay Signing is an advanced option - see the Microsoft .NET Framework
 //       documentation for more information on this.
 //
+[assembly: InternalsVisibleTo("NM.Core.Tests")]
 [assembly: AssemblyDelaySign(false)]
 [assembly: AssemblyKeyFile("")]
 [assembly: AssemblyKeyName("")]

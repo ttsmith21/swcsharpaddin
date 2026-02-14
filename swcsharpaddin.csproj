@@ -257,6 +257,7 @@
     <Compile Include="src\NM.Core\Testing\GoldStandardComparator.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\PropertyWriteQA.cs" />
     <Compile Include="src\NM.SwAddin\Pipeline\QARunner.cs" />
+    <Compile Include="src\NM.SwAddin\Pipeline\SideIndicatorQA.cs" />
     <Compile Include="src\NM.BatchRunner\Program.cs" />
     <Compile Include="src\NM.BatchRunner\SolidWorksLauncher.cs" />
     <Compile Include="src\NM.SwAddin\SheetMetal\BendAllowanceValidator.cs" />
@@ -293,6 +294,17 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="src\NM.SwAddin\Pipeline\DrawingAnalysisRunner.cs" />
+    <!-- Rename Wizard (AI BOM-to-Component Matching) -->
+    <Compile Include="src\NM.Core\Rename\BomRow.cs" />
+    <Compile Include="src\NM.Core\Rename\ComponentInfo.cs" />
+    <Compile Include="src\NM.Core\Rename\RenameEntry.cs" />
+    <Compile Include="src\NM.Core\Rename\RenameWizardResult.cs" />
+    <Compile Include="src\NM.Core\Rename\BomComponentMatcher.cs" />
+    <Compile Include="src\NM.SwAddin\Rename\AssemblyRenameService.cs" />
+    <Compile Include="src\NM.SwAddin\UI\RenameWizardForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="src\NM.SwAddin\Pipeline\RenameWizardRunner.cs" />
     <!-- PDF Drawing Analysis (Phase 1) -->
     <Compile Include="src\NM.Core\Pdf\Models\DrawingData.cs" />
     <Compile Include="src\NM.Core\Pdf\Models\DrawingNote.cs" />

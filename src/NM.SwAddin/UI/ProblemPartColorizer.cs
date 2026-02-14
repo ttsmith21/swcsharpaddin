@@ -11,10 +11,14 @@ namespace NM.SwAddin.UI
     /// <summary>
     /// Toggles assembly component colors to highlight problem parts in red.
     /// Saves original appearances so they can be restored on toggle-off.
+    /// Uses RemoveMaterialProperty2 for components that had no explicit color
+    /// (inherited from part) to avoid the "black on restore" SolidWorks API bug.
     /// </summary>
     public sealed class ProblemPartColorizer
     {
         private bool _isActive;
+        // Stores original color arrays. Key = component Name2.
+        // Value = saved color array, or null if the component had no explicit override.
         private readonly Dictionary<string, double[]> _savedAppearances = new Dictionary<string, double[]>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>Whether problem coloring is currently applied.</summary>
@@ -126,12 +130,24 @@ namespace NM.SwAddin.UI
                     string compName = comp.Name2;
                     if (string.IsNullOrEmpty(compName)) continue;
 
-                    if (_savedAppearances.TryGetValue(compName, out double[] saved) && saved != null)
+                    if (!_savedAppearances.TryGetValue(compName, out double[] saved))
+                        continue; // We didn't modify this component
+
+                    if (saved != null && HasValidLighting(saved))
                     {
+                        // Component had an explicit color override — restore it
                         comp.SetMaterialPropertyValues2(saved,
                             (int)swInConfigurationOpts_e.swThisConfiguration, null);
-                        count++;
                     }
+                    else
+                    {
+                        // Component had no explicit color (was inheriting from part),
+                        // or saved values have zero lighting (would render black).
+                        // Remove the override we added so it inherits naturally again.
+                        comp.RemoveMaterialProperty2(
+                            (int)swInConfigurationOpts_e.swThisConfiguration, null);
+                    }
+                    count++;
                 }
                 catch (Exception ex)
                 {
@@ -142,6 +158,17 @@ namespace NM.SwAddin.UI
             _savedAppearances.Clear();
             ErrorHandler.DebugLog($"[Colorizer] Restored {count} components");
             return count;
+        }
+
+        /// <summary>
+        /// Checks that a saved MaterialPropertyValues array has non-zero lighting values.
+        /// All-zero ambient+diffuse+specular would render black in SolidWorks.
+        /// </summary>
+        internal static bool HasValidLighting(double[] props)
+        {
+            if (props == null || props.Length < 9) return false;
+            // Indices: 3=Ambient, 4=Diffuse, 5=Specular
+            return props[3] > 0.001 || props[4] > 0.001 || props[5] > 0.001;
         }
 
         private static List<IComponent2> GetAllComponents(IModelDoc2 doc)

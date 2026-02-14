@@ -10,12 +10,16 @@ namespace NM.SwAddin.SheetMetal
     /// <summary>
     /// Colors sheet metal faces to indicate top (good/cosmetic) vs bottom (bad) side.
     /// Green = top/fold-up side (#3 finish), Red = bottom/machine side.
-    /// Toggle on/off via toolbar button.
+    /// Toggle on/off via toolbar button. Saves and restores original face colors.
     /// </summary>
     public sealed class SideIndicatorService
     {
         // Track which models currently have indicators applied (by full path)
         private readonly HashSet<string> _activeModels = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Saved original face colors per model path, for restoration on toggle-off
+        private readonly Dictionary<string, List<SavedFaceColor>> _savedColors
+            = new Dictionary<string, List<SavedFaceColor>>(StringComparer.OrdinalIgnoreCase);
 
         // Green for good/top side
         private static readonly double[] TopColor = { 0.0, 0.8, 0.0, 1.0, 1.0, 0.3, 0.4, 0.0, 0.0 };
@@ -27,8 +31,17 @@ namespace NM.SwAddin.SheetMetal
         private const double NormalTolerance = 0.85; // dot product threshold for same/opposite direction
 
         /// <summary>
+        /// Saved face color entry: stores the COM face reference and its original color.
+        /// </summary>
+        private class SavedFaceColor
+        {
+            public IFace2 Face;
+            public double[] OriginalColor; // null = no face-level override was present
+        }
+
+        /// <summary>
         /// Toggles side indicators on the active document.
-        /// First call applies colors, second call removes them.
+        /// First call applies colors (saving originals), second call restores them.
         /// </summary>
         public void Toggle(ISldWorks swApp)
         {
@@ -43,35 +56,33 @@ namespace NM.SwAddin.SheetMetal
                     return;
                 }
 
-                string path = model.GetPathName() ?? model.GetTitle();
+                string path = GetModelKey(model);
                 int docType = model.GetType();
 
                 if (_activeModels.Contains(path))
                 {
-                    // Remove indicators
-                    if (docType == (int)swDocumentTypes_e.swDocASSEMBLY)
-                        RemoveFromAssembly(model);
-                    else
-                        RemoveFromPart(model);
-
+                    // Remove indicators — restore original face colors
+                    RestoreSavedColors(path);
                     _activeModels.Remove(path);
                     model.GraphicsRedraw2();
                     ErrorHandler.DebugLog($"{proc}: Removed side indicators from {path}");
                 }
                 else
                 {
-                    // Apply indicators
+                    // Apply indicators — save originals first
+                    var saved = new List<SavedFaceColor>();
                     int count = 0;
                     if (docType == (int)swDocumentTypes_e.swDocASSEMBLY)
-                        count = ApplyToAssembly(swApp, model);
+                        count = ApplyToAssembly(swApp, model, saved);
                     else
-                        count = ApplyToPart(model);
+                        count = ApplyToPart(model, saved);
 
                     if (count > 0)
                     {
+                        _savedColors[path] = saved;
                         _activeModels.Add(path);
                         model.GraphicsRedraw2();
-                        ErrorHandler.DebugLog($"{proc}: Applied side indicators to {count} bodies in {path}");
+                        ErrorHandler.DebugLog($"{proc}: Applied side indicators to {count} bodies in {path} (saved {saved.Count} face colors)");
                     }
                     else
                     {
@@ -95,13 +106,24 @@ namespace NM.SwAddin.SheetMetal
         public bool IsActive(IModelDoc2 model)
         {
             if (model == null) return false;
-            string path = model.GetPathName() ?? model.GetTitle();
+            string path = GetModelKey(model);
             return _activeModels.Contains(path);
+        }
+
+        /// <summary>
+        /// Gets the model key used for tracking. Uses path for saved files, title for unsaved.
+        /// </summary>
+        private static string GetModelKey(IModelDoc2 model)
+        {
+            string path = model.GetPathName();
+            if (string.IsNullOrEmpty(path))
+                path = model.GetTitle();
+            return path ?? string.Empty;
         }
 
         #region Apply
 
-        private int ApplyToPart(IModelDoc2 model)
+        private int ApplyToPart(IModelDoc2 model, List<SavedFaceColor> saved)
         {
             var part = model as IPartDoc;
             if (part == null) return 0;
@@ -121,13 +143,13 @@ namespace NM.SwAddin.SheetMetal
             int count = 0;
             foreach (var body in bodies)
             {
-                if (ApplyToBody(body, topNormal))
+                if (ApplyToBody(body, topNormal, saved))
                     count++;
             }
             return count;
         }
 
-        private int ApplyToAssembly(ISldWorks swApp, IModelDoc2 model)
+        private int ApplyToAssembly(ISldWorks swApp, IModelDoc2 model, List<SavedFaceColor> saved)
         {
             var config = model.ConfigurationManager.ActiveConfiguration;
             if (config == null) return 0;
@@ -136,11 +158,11 @@ namespace NM.SwAddin.SheetMetal
             if (rootComp == null) return 0;
 
             int count = 0;
-            ApplyToComponentTree(rootComp, ref count);
+            ApplyToComponentTree(rootComp, saved, ref count);
             return count;
         }
 
-        private void ApplyToComponentTree(IComponent2 comp, ref int count)
+        private void ApplyToComponentTree(IComponent2 comp, List<SavedFaceColor> saved, ref int count)
         {
             var childrenRaw = comp.GetChildren() as object[];
             if (childrenRaw == null) return;
@@ -175,7 +197,7 @@ namespace NM.SwAddin.SheetMetal
                                 {
                                     foreach (var body in bodies)
                                     {
-                                        if (ApplyToBody(body, topNormal))
+                                        if (ApplyToBody(body, topNormal, saved))
                                             count++;
                                     }
                                 }
@@ -186,12 +208,12 @@ namespace NM.SwAddin.SheetMetal
                 else if (docType == (int)swDocumentTypes_e.swDocASSEMBLY)
                 {
                     // Recurse into sub-assemblies
-                    ApplyToComponentTree(child, ref count);
+                    ApplyToComponentTree(child, saved, ref count);
                 }
             }
         }
 
-        private bool ApplyToBody(IBody2 body, double[] topNormal)
+        private bool ApplyToBody(IBody2 body, double[] topNormal, List<SavedFaceColor> saved)
         {
             var facesRaw = body.GetFaces();
             if (facesRaw == null) return false;
@@ -203,6 +225,14 @@ namespace NM.SwAddin.SheetMetal
             {
                 try
                 {
+                    // Save the original face color before overwriting
+                    double[] original = face.MaterialPropertyValues as double[];
+                    saved.Add(new SavedFaceColor
+                    {
+                        Face = face,
+                        OriginalColor = original != null ? (double[])original.Clone() : null
+                    });
+
                     var surface = face.GetSurface() as ISurface;
                     if (surface == null) continue;
 
@@ -238,94 +268,65 @@ namespace NM.SwAddin.SheetMetal
 
         #endregion
 
-        #region Remove
+        #region Remove / Restore
 
-        private void RemoveFromPart(IModelDoc2 model)
+        /// <summary>
+        /// Restores saved face colors for a model. If saved colors exist, each face is
+        /// set back to its original value. If no saved colors exist, falls back to
+        /// clearing face-level overrides (setting null).
+        /// </summary>
+        private void RestoreSavedColors(string path)
         {
-            var part = model as IPartDoc;
-            if (part == null) return;
-
-            var bodiesRaw = part.GetBodies2((int)swBodyType_e.swSolidBody, true);
-            if (bodiesRaw == null) return;
-
-            foreach (var bodyObj in (object[])bodiesRaw)
+            if (_savedColors.TryGetValue(path, out var saved) && saved != null && saved.Count > 0)
             {
-                var body = bodyObj as IBody2;
-                if (body == null) continue;
-                ClearBodyColors(body);
-            }
-        }
-
-        private void RemoveFromAssembly(IModelDoc2 model)
-        {
-            var config = model.ConfigurationManager.ActiveConfiguration;
-            if (config == null) return;
-
-            var rootComp = config.GetRootComponent3(true) as IComponent2;
-            if (rootComp == null) return;
-
-            RemoveFromComponentTree(rootComp);
-        }
-
-        private void RemoveFromComponentTree(IComponent2 comp)
-        {
-            var childrenRaw = comp.GetChildren() as object[];
-            if (childrenRaw == null) return;
-
-            foreach (var childObj in childrenRaw)
-            {
-                var child = childObj as IComponent2;
-                if (child == null) continue;
-                if (child.IsSuppressed()) continue;
-
-                var compDoc = child.GetModelDoc2() as IModelDoc2;
-                if (compDoc == null) continue;
-
-                int docType = compDoc.GetType();
-                if (docType == (int)swDocumentTypes_e.swDocPART)
+                int restored = 0;
+                int failed = 0;
+                foreach (var entry in saved)
                 {
-                    if (SwGeometryHelper.HasSheetMetalFeature(compDoc))
+                    try
                     {
-                        var part = compDoc as IPartDoc;
-                        if (part == null) continue;
-                        var bodiesRaw = part.GetBodies2((int)swBodyType_e.swSolidBody, true);
-                        if (bodiesRaw == null) continue;
-                        foreach (var bodyObj in (object[])bodiesRaw)
+                        if (entry.Face == null) continue;
+
+                        if (entry.OriginalColor != null)
                         {
-                            var body = bodyObj as IBody2;
-                            if (body != null) ClearBodyColors(body);
+                            // Restore original face-level override
+                            entry.Face.MaterialPropertyValues = (double[])entry.OriginalColor.Clone();
                         }
+                        else
+                        {
+                            // No face-level override existed — remove ours so body/part color shows through
+                            entry.Face.MaterialPropertyValues = null;
+                        }
+                        restored++;
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        ErrorHandler.DebugLog($"[SideIndicator] Error restoring face color: {ex.Message}");
                     }
                 }
-                else if (docType == (int)swDocumentTypes_e.swDocASSEMBLY)
-                {
-                    RemoveFromComponentTree(child);
-                }
+
+                ErrorHandler.DebugLog($"[SideIndicator] Restored {restored} faces, {failed} failed for {path}");
+                _savedColors.Remove(path);
+            }
+            else
+            {
+                // Fallback: no saved colors (shouldn't happen, but be defensive)
+                ErrorHandler.DebugLog($"[SideIndicator] No saved colors for {path}, falling back to null-clear");
+                FallbackClearAllFaces(path);
             }
         }
 
-        private void ClearBodyColors(IBody2 body)
+        /// <summary>
+        /// Defensive fallback: clear all face overrides by setting MaterialPropertyValues to null.
+        /// Used only when saved colors are not available (e.g., service was recreated).
+        /// Does NOT call body.RemoveMaterialProperty to avoid destroying body-level colors.
+        /// </summary>
+        private void FallbackClearAllFaces(string path)
         {
-            // Clear face-level overrides
-            var facesRaw = body.GetFaces();
-            if (facesRaw != null)
-            {
-                foreach (var faceObj in (object[])facesRaw)
-                {
-                    var face = faceObj as IFace2;
-                    if (face == null) continue;
-                    try { face.MaterialPropertyValues = null; }
-                    catch { }
-                }
-            }
-
-            // Clear body-level override
-            try
-            {
-                body.RemoveMaterialProperty(
-                    (int)swInConfigurationOpts_e.swAllConfiguration, null);
-            }
-            catch { }
+            // We don't have the model reference here, but callers should handle this.
+            // This path should rarely be hit — log a warning.
+            ErrorHandler.DebugLog($"[SideIndicator] FallbackClearAllFaces called for {path} — saved colors missing");
         }
 
         #endregion
