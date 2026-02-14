@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using NM.Core.Config;
 using SolidWorks.Interop.sldworks;
 
@@ -54,6 +56,10 @@ namespace NM.BatchRunner
                     else if (args[0] == "--step-qa")
                     {
                         return RunStepQA(swApp, args);
+                    }
+                    else if (args[0] == "--dump")
+                    {
+                        return RunDump(swApp, args);
                     }
                     else if (args[0] == "--side-indicator-qa")
                     {
@@ -120,6 +126,9 @@ namespace NM.BatchRunner
             Console.WriteLine("  NM.BatchRunner.exe --step-qa [--file <path>]");
             Console.WriteLine("      Import a STEP assembly, externalize components, run pipeline on each part");
             Console.WriteLine("      Default file: tests\\GoldStandard_Inputs - Copy\\Large\\6 hours.step");
+            Console.WriteLine();
+            Console.WriteLine("  NM.BatchRunner.exe --dump --file <path> [--tag <tag>]");
+            Console.WriteLine("      Dump all custom properties from a SolidWorks part to JSON");
             Console.WriteLine();
             Console.WriteLine("  NM.BatchRunner.exe --side-indicator-qa");
             Console.WriteLine("      Run Side Indicator color toggle QA tests (3-state validation)");
@@ -232,6 +241,146 @@ namespace NM.BatchRunner
             return (summary.Failed > 0 || summary.Errors > 0) ? 1 : 0;
         }
 
+        static int RunDump(ISldWorks swApp, string[] args)
+        {
+            string filePath = null;
+            string tag = null;
+            for (int i = 1; i < args.Length - 1; i++)
+            {
+                if (args[i] == "--file") filePath = args[i + 1];
+                if (args[i] == "--tag") tag = args[i + 1];
+            }
+
+            if (string.IsNullOrEmpty(filePath))
+            {
+                Console.Error.WriteLine("Error: --dump requires --file <path>");
+                return 1;
+            }
+
+            if (!File.Exists(filePath))
+            {
+                Console.Error.WriteLine($"Error: File not found: {filePath}");
+                return 1;
+            }
+
+            Console.WriteLine($"Dumping properties from: {filePath}");
+
+            // Open the file (silent, read-only)
+            int errors = 0, warnings = 0;
+            var doc = swApp.OpenDoc6(filePath,
+                (int)SolidWorks.Interop.swconst.swDocumentTypes_e.swDocPART,
+                (int)SolidWorks.Interop.swconst.swOpenDocOptions_e.swOpenDocOptions_Silent
+                    | (int)SolidWorks.Interop.swconst.swOpenDocOptions_e.swOpenDocOptions_ReadOnly,
+                "", ref errors, ref warnings);
+
+            if (doc == null)
+            {
+                Console.Error.WriteLine($"Error: Could not open file (errors={errors}, warnings={warnings})");
+                return 1;
+            }
+
+            try
+            {
+                var result = new System.Collections.Generic.Dictionary<string, object>();
+                result["Timestamp"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                result["PartFile"] = filePath;
+                result["PartName"] = Path.GetFileNameWithoutExtension(filePath);
+                result["Tag"] = tag ?? "";
+
+                // File-level custom properties
+                var fileProps = new System.Collections.Generic.Dictionary<string, object>();
+                var fileMgr = doc.Extension.get_CustomPropertyManager("");
+                var fileNames = (string[])fileMgr.GetNames();
+                if (fileNames != null)
+                {
+                    foreach (var name in fileNames)
+                    {
+                        string valOut = "", resolvedOut = "";
+                        bool wasResolved = false;
+                        fileMgr.Get5(name, false, out valOut, out resolvedOut, out wasResolved);
+                        fileProps[name] = new Dictionary<string, string> { { "Value", valOut }, { "Resolved", resolvedOut } };
+                        Console.WriteLine($"  [File] {name} = {resolvedOut}");
+                    }
+                }
+                result["FileProperties"] = fileProps;
+
+                // Per-configuration custom properties
+                var cfgProps = new System.Collections.Generic.Dictionary<string, object>();
+                var configNames = (string[])doc.GetConfigurationNames();
+                if (configNames != null)
+                {
+                    foreach (var cfgName in configNames)
+                    {
+                        var cfg = new System.Collections.Generic.Dictionary<string, object>();
+                        var cfgMgr = doc.Extension.get_CustomPropertyManager(cfgName);
+                        var cfgPropNames = (string[])cfgMgr.GetNames();
+                        if (cfgPropNames != null)
+                        {
+                            foreach (var name in cfgPropNames)
+                            {
+                                string valOut = "", resolvedOut = "";
+                                bool wasResolved = false;
+                                cfgMgr.Get5(name, false, out valOut, out resolvedOut, out wasResolved);
+                                cfg[name] = new Dictionary<string, string> { { "Value", valOut }, { "Resolved", resolvedOut } };
+                                Console.WriteLine($"  [{cfgName}] {name} = {resolvedOut}");
+                            }
+                        }
+                        cfgProps[cfgName] = cfg;
+                    }
+                }
+                result["ConfigProperties"] = cfgProps;
+
+                // Model info
+                var modelInfo = new System.Collections.Generic.Dictionary<string, object>();
+                try
+                {
+                    var massProp = doc.Extension.CreateMassProperty();
+                    if (massProp != null)
+                    {
+                        modelInfo["Mass_kg"] = Math.Round(massProp.Mass, 6);
+                        modelInfo["Mass_lb"] = Math.Round(massProp.Mass * 2.20462, 4);
+                        modelInfo["Volume_m3"] = Math.Round(massProp.Volume, 9);
+                        modelInfo["SurfaceArea_m2"] = Math.Round(massProp.SurfaceArea, 6);
+                    }
+                }
+                catch { }
+
+                try
+                {
+                    var partDoc = (SolidWorks.Interop.sldworks.PartDoc)doc;
+                    var bodies = partDoc.GetBodies2(0, true);
+                    modelInfo["SolidBodyCount"] = bodies != null ? ((object[])bodies).Length : 0;
+                }
+                catch { }
+
+                try
+                {
+                    var activeCfg = doc.ConfigurationManager.ActiveConfiguration;
+                    if (activeCfg != null) modelInfo["ActiveConfig"] = activeCfg.Name;
+                }
+                catch { }
+
+                result["ModelInfo"] = modelInfo;
+
+                // Serialize to JSON
+                var suffix = string.IsNullOrEmpty(tag) ? "" : $"_{tag}";
+                var outPath = Path.Combine(Path.GetDirectoryName(filePath),
+                    $"{Path.GetFileNameWithoutExtension(filePath)}{suffix}_properties.json");
+
+                var json = SerializePropertyDump(result);
+                File.WriteAllText(outPath, json);
+
+                Console.WriteLine();
+                Console.WriteLine($"Properties saved to: {outPath}");
+                Console.WriteLine($"Total: {fileProps.Count} file props, {cfgProps.Count} config(s)");
+                return 0;
+            }
+            finally
+            {
+                swApp.CloseDoc(doc.GetTitle());
+            }
+        }
+
         static int RunSideIndicatorQA(ISldWorks swApp)
         {
             Console.WriteLine("Running Side Indicator QA...");
@@ -303,6 +452,73 @@ namespace NM.BatchRunner
                 File.WriteAllText(@"C:\Temp\nm_pipeline_error.txt", ex.ToString());
                 return 1;
             }
+        }
+
+        static string SerializePropertyDump(Dictionary<string, object> data)
+        {
+            var sb = new StringBuilder();
+            WriteJsonValue(sb, data, 0);
+            return sb.ToString();
+        }
+
+        static void WriteJsonValue(StringBuilder sb, object value, int indent)
+        {
+            if (value == null)
+            {
+                sb.Append("null");
+            }
+            else if (value is string s)
+            {
+                sb.Append('"');
+                sb.Append(s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n"));
+                sb.Append('"');
+            }
+            else if (value is bool b)
+            {
+                sb.Append(b ? "true" : "false");
+            }
+            else if (value is int || value is long || value is double || value is float || value is decimal)
+            {
+                sb.Append(value.ToString());
+            }
+            else if (value is Dictionary<string, object> dict)
+            {
+                WriteJsonDict(sb, dict, indent);
+            }
+            else if (value is Dictionary<string, string> sdict)
+            {
+                sb.Append("{ ");
+                bool first = true;
+                foreach (var kv in sdict)
+                {
+                    if (!first) sb.Append(", ");
+                    sb.Append('"').Append(kv.Key).Append("\": ");
+                    WriteJsonValue(sb, kv.Value, indent + 1);
+                    first = false;
+                }
+                sb.Append(" }");
+            }
+            else
+            {
+                sb.Append('"').Append(value.ToString().Replace("\\", "\\\\").Replace("\"", "\\\"")).Append('"');
+            }
+        }
+
+        static void WriteJsonDict(StringBuilder sb, Dictionary<string, object> dict, int indent)
+        {
+            var pad = new string(' ', (indent + 1) * 2);
+            var closePad = new string(' ', indent * 2);
+            sb.AppendLine("{");
+            bool first = true;
+            foreach (var kv in dict)
+            {
+                if (!first) sb.AppendLine(",");
+                sb.Append(pad).Append('"').Append(kv.Key).Append("\": ");
+                WriteJsonValue(sb, kv.Value, indent + 1);
+                first = false;
+            }
+            sb.AppendLine();
+            sb.Append(closePad).Append('}');
         }
     }
 }

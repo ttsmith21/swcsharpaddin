@@ -67,48 +67,62 @@ namespace NM.Core.Processing
                 else
                     p["OP20"] = d.Cost.OP20_WorkCenter; // fallback to raw code if unknown
                 p["OP20_WorkCenter"] = d.Cost.OP20_WorkCenter;
+
+                // Only write OP20 times when we actually computed them (have a work center).
+                // Prevents overwriting good values from a previous run with zeros.
+                p["OP20_S"] = MinToHours(d.Cost.OP20_S_min);
+                p["OP20_R"] = MinToHours(d.Cost.OP20_R_min);
+                p["F115_Price"] = d.Cost.F115_Price.ToString("0.####", Inv);
             }
-            // VBA writes times in HOURS; internal storage is minutes → convert
-            p["OP20_S"] = MinToHours(d.Cost.OP20_S_min);
-            p["OP20_R"] = MinToHours(d.Cost.OP20_R_min);
-            p["F115_Price"] = d.Cost.F115_Price.ToString("0.####", Inv);
 
-            // F210 Deburr — checkbox "1"/"0" + setup/run (times in HOURS)
+            // F210 Deburr — only write when calculated (prevents zeroing good values on re-run)
             bool f210Active = d.Cost.F210_S_min > 0 || d.Cost.F210_R_min > 0;
-            p["F210"] = f210Active ? "1" : "0";
-            p["F210_S"] = MinToHours(d.Cost.F210_S_min);
-            p["F210_R"] = MinToHours(d.Cost.F210_R_min);
-            p["F210_Price"] = d.Cost.F210_Price.ToString("0.####", Inv);
+            if (f210Active)
+            {
+                p["F210"] = "1";
+                p["F210_S"] = MinToHours(d.Cost.F210_S_min);
+                p["F210_R"] = MinToHours(d.Cost.F210_R_min);
+                p["F210_Price"] = d.Cost.F210_Price.ToString("0.####", Inv);
+            }
 
-            // F220 Tapping — checkbox "1"/"0" + setup/run (times in HOURS)
-            bool f220Active = d.Cost.F220_S_min > 0 || d.Cost.F220_R_min > 0;
-            p["F220"] = f220Active ? "1" : "0";
-            p["F220_S"] = MinToHours(d.Cost.F220_S_min);
-            p["F220_R"] = MinToHours(d.Cost.F220_R_min);
-            p["F220_RN"] = d.Cost.F220_RN.ToString(Inv);
-            p["F220_Note"] = d.Cost.F220_Note ?? string.Empty;
-            p["F220_Price"] = d.Cost.F220_Price.ToString("0.####", Inv);
-            if (d.Cost.F220_RN > 0)
-                p["TappedHoleCount"] = d.Cost.F220_RN.ToString(Inv);
+            // F220 Tapping — only write when calculated (prevents zeroing on re-run)
+            bool f220Active = d.Cost.F220_S_min > 0 || d.Cost.F220_R_min > 0 || d.Cost.F220_RN > 0;
+            if (f220Active)
+            {
+                p["F220"] = "1";
+                p["F220_S"] = MinToHours(d.Cost.F220_S_min);
+                p["F220_R"] = MinToHours(d.Cost.F220_R_min);
+                p["F220_RN"] = d.Cost.F220_RN.ToString(Inv);
+                p["F220_Note"] = d.Cost.F220_Note ?? string.Empty;
+                p["F220_Price"] = d.Cost.F220_Price.ToString("0.####", Inv);
+                if (d.Cost.F220_RN > 0)
+                    p["TappedHoleCount"] = d.Cost.F220_RN.ToString(Inv);
+            }
 
-            // F140 Press Brake — checkbox "Checked"/"Unchecked" + setup/run (times in HOURS)
+            // F140 Press Brake — only write when calculated (prevents zeroing on re-run)
             // VBA: PressBrake="Checked" when sheet metal has bends, or heavy tube needs brake
             bool pressBrakeActive = d.Cost.F140_S_min > 0 || d.Cost.F140_R_min > 0
                                   || d.Sheet.BendCount > 0;
-            p["PressBrake"] = pressBrakeActive ? "Checked" : "Unchecked";
-            p["F140_S"] = MinToHours(d.Cost.F140_S_min);
-            p["F140_R"] = MinToHours(d.Cost.F140_R_min);
-            p["F140_S_Cost"] = d.Cost.F140_S_Cost.ToString("0.####", Inv);
-            p["F140_Price"] = d.Cost.F140_Price.ToString("0.####", Inv);
-            if (d.Sheet.BendCount > 0)
-                p["BendCount"] = d.Sheet.BendCount.ToString(Inv);
+            if (pressBrakeActive)
+            {
+                p["PressBrake"] = "Checked";
+                p["F140_S"] = MinToHours(d.Cost.F140_S_min);
+                p["F140_R"] = MinToHours(d.Cost.F140_R_min);
+                p["F140_S_Cost"] = d.Cost.F140_S_Cost.ToString("0.####", Inv);
+                p["F140_Price"] = d.Cost.F140_Price.ToString("0.####", Inv);
+                if (d.Sheet.BendCount > 0)
+                    p["BendCount"] = d.Sheet.BendCount.ToString(Inv);
+            }
 
-            // F325 Roll Forming — checkbox "1"/"0" + setup/run (times in HOURS)
+            // F325 Roll Forming — only write when calculated (prevents zeroing on re-run)
             bool f325Active = d.Cost.F325_S_min > 0 || d.Cost.F325_R_min > 0;
-            p["F325"] = f325Active ? "1" : "0";
-            p["F325_S"] = MinToHours(d.Cost.F325_S_min);
-            p["F325_R"] = MinToHours(d.Cost.F325_R_min);
-            p["F325_Price"] = d.Cost.F325_Price.ToString("0.####", Inv);
+            if (f325Active)
+            {
+                p["F325"] = "1";
+                p["F325_S"] = MinToHours(d.Cost.F325_S_min);
+                p["F325_R"] = MinToHours(d.Cost.F325_R_min);
+                p["F325_Price"] = d.Cost.F325_Price.ToString("0.####", Inv);
+            }
 
             // Material costs and totals
             p["MaterialCost"] = d.Cost.MaterialCost.ToString("0.##", Inv);
