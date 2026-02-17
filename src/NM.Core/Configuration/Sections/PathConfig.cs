@@ -20,6 +20,16 @@ namespace NM.Core.Config.Sections
             @"C:\Program Files\SolidWorks Corp\SolidWorks\Toolbox\data collector\ExtractData.dll";
 
         public string ErrorLogPath { get; set; } = @"C:\SolidWorksMacroLogs\ErrorLog.txt";
+
+        /// <summary>
+        /// Path to WPS lookup CSV. First existing path wins.
+        /// CSV columns: WpsNumber,Process,BaseMetal1,BaseMetal2,ThicknessMinIn,ThicknessMaxIn,JointType,Code,FillerMetal,ShieldingGas,Notes
+        /// </summary>
+        public string[] WpsLookupPaths { get; set; } =
+        {
+            @"O:\Engineering Department\Solidworks\Macros\(Semi)Autopilot\WPS_Lookup.csv",
+            @"C:\SolidWorksMacroLogs\WPS_Lookup.csv"
+        };
     }
 
     public sealed class BendTablePaths

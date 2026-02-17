@@ -341,6 +341,7 @@ namespace NM.SwAddin.Pipeline
                         ExtractMetrics(doc, info, pd, isSheetMetal2);
                         AnalyzeTappedHoles(doc, info, pd, isSheetMetal2, options);
                         ValidateDimensions(pd, isSheetMetal2, isTube2);
+                        ResolveWps(pd, options);
 
                         // Unflatten sheet metal parts before saving
                         if (isSheetMetal2)
@@ -627,6 +628,7 @@ namespace NM.SwAddin.Pipeline
                 ExtractMetrics(doc, info, pd, isSheetMetal);
                 AnalyzeTappedHoles(doc, info, pd, isSheetMetal, options);
                 ValidateDimensions(pd, isSheetMetal, isTube);
+                ResolveWps(pd, options);
 
                 // Unflatten sheet metal parts before saving so they aren't left flat
                 if (isSheetMetal)
@@ -863,6 +865,111 @@ namespace NM.SwAddin.Pipeline
                     return;
                 }
             }
+        }
+
+        /// <summary>
+        /// Resolves WPS (Welding Procedure Specification) for the part based on its material
+        /// and thickness. Uses the WPS lookup table from nm-config.json paths.
+        /// Flags joints for human review when thickness > 1/2" or dissimilar metals.
+        /// </summary>
+        private static void ResolveWps(PartData pd, ProcessingOptions options)
+        {
+            try
+            {
+                // Skip WPS resolution for purchased parts or parts with no material
+                if (pd.IsPurchased || string.IsNullOrWhiteSpace(pd.MaterialCategory))
+                    return;
+
+                PerformanceTracker.Instance.StartTimer("WpsResolution");
+
+                // Load WPS lookup table from configured path
+                var wpsTable = LoadWpsTable();
+
+                // Read joint type from custom properties or options (from drawing weld symbols)
+                string jointType = string.Empty;
+                if (options != null && !string.IsNullOrEmpty(options.WeldJointType))
+                    jointType = options.WeldJointType;
+
+                double thicknessIn = pd.Thickness_m * MetersToInches;
+
+                var result = WpsResolver.ResolveForPart(
+                    pd.MaterialCategory, thicknessIn, jointType, wpsTable);
+
+                // Store results in PartData
+                pd.Welding.WasResolved = true;
+                pd.Welding.JointType = jointType;
+                pd.Welding.NeedsReview = result.NeedsReview;
+                pd.Welding.Summary = result.Summary;
+
+                if (result.HasMatch)
+                {
+                    pd.Welding.WpsNumber = result.WpsNumber;
+                    pd.Welding.WeldProcess = result.MatchedEntries[0].Process;
+                    pd.Welding.FillerMetal = result.MatchedEntries[0].FillerMetal;
+                }
+
+                if (result.NeedsReview)
+                {
+                    pd.Welding.ReviewReasons = string.Join(";",
+                        result.ReviewFlags.ConvertAll(f => f.Reason.ToString()));
+
+                    // Log review flags for diagnostics
+                    foreach (var flag in result.ReviewFlags)
+                    {
+                        ErrorHandler.DebugLog($"[WPS] Review flag: {flag.Reason} — {flag.Description}");
+                    }
+
+                    // Add to problem parts for human review (non-fatal)
+                    ProblemPartManager.Instance.AddProblemPart(
+                        pd.FilePath ?? string.Empty,
+                        pd.Configuration ?? string.Empty,
+                        pd.PartName ?? string.Empty,
+                        $"WPS review needed: {string.Join("; ", result.ReviewFlags.ConvertAll(f => f.Description))}",
+                        ProblemPartManager.ProblemCategory.ManufacturingWarning);
+                }
+
+                ErrorHandler.DebugLog($"[WPS] {pd.PartName}: {result.Summary}");
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.HandleError("MainRunner.ResolveWps",
+                    "WPS resolution failed", ex, ErrorHandler.LogLevel.Warning);
+            }
+            finally
+            {
+                PerformanceTracker.Instance.StopTimer("WpsResolution");
+            }
+        }
+
+        /// <summary>Cached WPS lookup table (loaded once per session).</summary>
+        private static WpsLookupTable _cachedWpsTable;
+
+        /// <summary>
+        /// Loads the WPS lookup table from the first existing path in configuration.
+        /// Caches the result for the session lifetime.
+        /// </summary>
+        private static WpsLookupTable LoadWpsTable()
+        {
+            if (_cachedWpsTable != null) return _cachedWpsTable;
+
+            var paths = NM.Core.Config.NmConfigProvider.Current.Paths.WpsLookupPaths;
+            if (paths != null)
+            {
+                foreach (var path in paths)
+                {
+                    if (!string.IsNullOrEmpty(path) && System.IO.File.Exists(path))
+                    {
+                        _cachedWpsTable = WpsLookupTable.LoadFromCsv(path);
+                        ErrorHandler.DebugLog($"[WPS] Loaded WPS table from {path} ({_cachedWpsTable.Entries.Count} entries)");
+                        return _cachedWpsTable;
+                    }
+                }
+            }
+
+            // No table found — return empty (will trigger NoMatchingWps flag)
+            ErrorHandler.DebugLog("[WPS] No WPS lookup table found at configured paths");
+            _cachedWpsTable = new WpsLookupTable();
+            return _cachedWpsTable;
         }
 
         /// <summary>
