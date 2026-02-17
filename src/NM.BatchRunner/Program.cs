@@ -65,6 +65,10 @@ namespace NM.BatchRunner
                     {
                         return RunSideIndicatorQA(swApp);
                     }
+                    else if (args[0] == "--drawing-qa")
+                    {
+                        return RunDrawingQA(swApp);
+                    }
                     else if (args[0] == "--pipeline")
                     {
                         return RunPipeline(swApp, args);
@@ -132,6 +136,9 @@ namespace NM.BatchRunner
             Console.WriteLine();
             Console.WriteLine("  NM.BatchRunner.exe --side-indicator-qa");
             Console.WriteLine("      Run Side Indicator color toggle QA tests (3-state validation)");
+            Console.WriteLine();
+            Console.WriteLine("  NM.BatchRunner.exe --drawing-qa");
+            Console.WriteLine("      Run Drawing creation QA tests (B-series sheet metal, C-series tubes)");
             Console.WriteLine();
             Console.WriteLine("  NM.BatchRunner.exe --pipeline --file <path>");
             Console.WriteLine("      Run processing pipeline on a single file");
@@ -395,6 +402,23 @@ namespace NM.BatchRunner
             }
 
             var qa = new NM.SwAddin.Pipeline.SideIndicatorQA();
+            return qa.Run(swApp, inputDir);
+        }
+
+        static int RunDrawingQA(ISldWorks swApp)
+        {
+            Console.WriteLine("Running Drawing QA...");
+
+            var repoRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\"));
+            var inputDir = Path.Combine(repoRoot, @"tests\GoldStandard_Inputs");
+
+            if (!Directory.Exists(inputDir))
+            {
+                Console.Error.WriteLine($"Error: Gold standard inputs not found: {inputDir}");
+                return 1;
+            }
+
+            var qa = new NM.SwAddin.Pipeline.DrawingQA();
             return qa.Run(swApp, inputDir);
         }
 

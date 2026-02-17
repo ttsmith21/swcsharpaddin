@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using NM.Core;
+using NM.Core.Config;
 using SolidWorks.Interop.sldworks;
 using SolidWorks.Interop.swconst;
 using static NM.Core.Constants.UnitConversions;
@@ -182,7 +183,10 @@ namespace NM.SwAddin.Drawing
                 string templatePath = options.TemplatePath;
                 if (string.IsNullOrEmpty(templatePath))
                 {
-                    templatePath = _swApp.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplateDrawing);
+                    // Use configured template path, fall back to SW default
+                    templatePath = NmConfigProvider.Current?.Paths?.DrawingTemplatePath;
+                    if (string.IsNullOrEmpty(templatePath) || !File.Exists(templatePath))
+                        templatePath = _swApp.GetUserPreferenceStringValue((int)swUserPreferenceStringValue_e.swDefaultTemplateDrawing);
                 }
 
                 var drawDoc = _swApp.NewDocument(templatePath, (int)swDwgPaperSizes_e.swDwgPaperAsize, 0.2159, 0.2794) as IDrawingDoc;
@@ -194,7 +198,7 @@ namespace NM.SwAddin.Drawing
 
                 var drawModel = drawDoc as IModelDoc2;
 
-                // Generate view palette
+                // Generate view palette (populates the palette sidebar)
                 bool viewsGenerated = drawDoc.GenerateViewPaletteViews(modelPath);
                 if (!viewsGenerated)
                 {
@@ -202,26 +206,20 @@ namespace NM.SwAddin.Drawing
                     return result;
                 }
 
-                // Drop the primary view
+                // Drop the primary view at origin (0,0) — VBA drops at (0,0,0)
                 IView droppedView = null;
                 if (isSheetMetal && options.IncludeFlatPattern)
                 {
-                    // Try to drop flat pattern view first
-                    droppedView = drawDoc.DropDrawingViewFromPalette2("Flat Pattern", 0.1, 0.1, 0) as IView;
+                    droppedView = drawDoc.DropDrawingViewFromPalette2("Flat Pattern", 0, 0, 0) as IView;
                     if (droppedView == null)
-                    {
-                        droppedView = drawDoc.DropDrawingViewFromPalette2("*Flat pattern", 0.1, 0.1, 0) as IView;
-                    }
+                        droppedView = drawDoc.DropDrawingViewFromPalette2("*Flat pattern", 0, 0, 0) as IView;
                 }
 
                 if (droppedView == null)
                 {
-                    // Fall back to Right view or first available
-                    droppedView = drawDoc.DropDrawingViewFromPalette2("*Right", 0.1, 0.1, 0) as IView;
+                    droppedView = drawDoc.DropDrawingViewFromPalette2("*Right", 0, 0, 0) as IView;
                     if (droppedView == null)
-                    {
-                        droppedView = drawDoc.DropDrawingViewFromPalette2("*Front", 0.1, 0.1, 0) as IView;
-                    }
+                        droppedView = drawDoc.DropDrawingViewFromPalette2("*Front", 0, 0, 0) as IView;
                 }
 
                 if (droppedView == null)
@@ -230,11 +228,18 @@ namespace NM.SwAddin.Drawing
                     return result;
                 }
 
-                // Rebuild
+                string droppedViewName = droppedView.GetName2();
+
+                // Delete all auto-inserted views EXCEPT the one we just dropped.
+                // GenerateViewPaletteViews auto-populates the sheet with standard views.
+                DeleteAllViewsExcept(drawDoc, drawModel, droppedViewName);
+
+                // Rebuild to get accurate outline before positioning (VBA does this)
                 drawModel.ForceRebuild3(false);
 
-                // Position and scale the view
+                // Position view on sheet (match VBA: left margin + clamp to sheet bounds)
                 PositionView(drawDoc, droppedView);
+                drawModel.EditRebuild3();
 
                 // Check grain direction (for sheet metal)
                 if (isSheetMetal)
@@ -363,24 +368,48 @@ namespace NM.SwAddin.Drawing
         {
             try
             {
+                // VBA constants (meters)
+                const double LeftMargin = 0.0445;   // ~1.75"
+                const double BottomMargin = 0.0603;  // ~2.37"
+                const double MaxRight = 0.268;       // ~10.55" — right edge limit
+                const double MaxTop = 0.21;          // ~8.27" — top edge limit
+
+                // Step 1: Position view so left edge is at LeftMargin, bottom at BottomMargin
+                // VBA: Position(0) = 0.0445 - myView.GetOutline(0)
                 var outline = view.GetOutline() as double[];
                 if (outline == null || outline.Length < 4) return;
 
-                // Get sheet size
-                var sheet = drawDoc.GetCurrentSheet() as ISheet;
-                if (sheet == null) return;
-
-                var props = sheet.GetProperties2() as double[];
-                if (props == null) return;
-
-                // Position view near bottom-left with margin
-                double margin = 0.0445; // ~1.75"
                 var position = view.Position as double[];
-                if (position != null && position.Length >= 2)
+                if (position == null || position.Length < 2) return;
+
+                position[0] = LeftMargin - outline[0];
+                position[1] = BottomMargin - outline[1];
+                view.Position = position;
+
+                // Step 2: Clamp right edge — if view extends past MaxRight, shift left
+                // VBA: If myView.GetOutline(2) > 0.268 Then ...
+                outline = view.GetOutline() as double[];
+                if (outline != null && outline[2] > MaxRight)
                 {
-                    position[0] = margin - outline[0];
-                    position[1] = 0.0603 - outline[1];
-                    view.Position = position;
+                    position = view.Position as double[];
+                    if (position != null)
+                    {
+                        position[0] -= (outline[2] - MaxRight);
+                        view.Position = position;
+                    }
+                }
+
+                // Step 3: Clamp top edge — if view extends past MaxTop, shift down
+                // VBA: If myView.GetOutline(3) > 0.21 Then ...
+                outline = view.GetOutline() as double[];
+                if (outline != null && outline[3] > MaxTop)
+                {
+                    position = view.Position as double[];
+                    if (position != null)
+                    {
+                        position[1] -= (outline[3] - MaxTop);
+                        view.Position = position;
+                    }
                 }
             }
             catch (Exception ex)
@@ -413,6 +442,49 @@ namespace NM.SwAddin.Drawing
             catch (Exception ex)
             {
                 ErrorHandler.DebugLog($"CheckAndSetGrainDirection: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Deletes all views from the current sheet except the one with the given name.
+        /// GenerateViewPaletteViews may auto-populate the sheet with standard views on some templates.
+        /// </summary>
+        private void DeleteAllViewsExcept(IDrawingDoc drawDoc, IModelDoc2 drawModel, string keepViewName)
+        {
+            try
+            {
+                var sheet = drawDoc.GetCurrentSheet() as ISheet;
+                if (sheet == null) return;
+
+                var viewsRaw = sheet.GetViews() as object[];
+                if (viewsRaw == null || viewsRaw.Length <= 1) return;
+
+                // Collect names to delete (can't modify collection while iterating)
+                var toDelete = new System.Collections.Generic.List<string>();
+                foreach (var viewObj in viewsRaw)
+                {
+                    var view = viewObj as IView;
+                    if (view == null) continue;
+
+                    string viewName = view.GetName2();
+                    if (string.IsNullOrEmpty(viewName)) continue;
+                    if (viewName == keepViewName) continue;
+
+                    toDelete.Add(viewName);
+                }
+
+                foreach (string viewName in toDelete)
+                {
+                    drawModel.Extension.SelectByID2(viewName, "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
+                    drawModel.DeleteSelection(false);
+                }
+
+                drawModel.ClearSelection2(true);
+                ErrorHandler.DebugLog($"DeleteAllViewsExcept: deleted {toDelete.Count} views, kept '{keepViewName}'");
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"DeleteAllViewsExcept: {ex.Message}");
             }
         }
 
