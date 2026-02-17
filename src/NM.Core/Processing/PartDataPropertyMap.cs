@@ -170,6 +170,18 @@ namespace NM.Core.Processing
                     p["F300_Length"] = (d.Tube.CutLength_m * MetersToInches).ToString("0.####", Inv);
             }
 
+            // WPS / Welding properties — only write when WPS resolution was attempted
+            if (d.Welding.WasResolved)
+            {
+                p["WPS_Number"] = d.Welding.WpsNumber ?? string.Empty;
+                p["WPS_Process"] = d.Welding.WeldProcess ?? string.Empty;
+                p["WPS_FillerMetal"] = d.Welding.FillerMetal ?? string.Empty;
+                p["WPS_JointType"] = d.Welding.JointType ?? string.Empty;
+                p["WPS_NeedsReview"] = d.Welding.NeedsReview ? "True" : "False";
+                if (d.Welding.NeedsReview)
+                    p["WPS_ReviewReasons"] = d.Welding.ReviewReasons ?? string.Empty;
+            }
+
             // Extras (ERP props, user-entered values, etc.) — written last so they can override
             foreach (var kv in d.Extra)
                 p[kv.Key] = kv.Value ?? string.Empty;
@@ -252,6 +264,19 @@ namespace NM.Core.Processing
                 d.Tube.NpsText = Get(props, "TubeNPS");
                 d.Tube.ScheduleCode = Get(props, "TubeSchedule");
                 d.Tube.NumberOfHoles = I("NumberOfHoles");
+            }
+
+            // WPS / Welding properties
+            var wpsNum = Get(props, "WPS_Number");
+            if (!string.IsNullOrEmpty(wpsNum))
+            {
+                d.Welding.WasResolved = true;
+                d.Welding.WpsNumber = wpsNum;
+                d.Welding.WeldProcess = Get(props, "WPS_Process");
+                d.Welding.FillerMetal = Get(props, "WPS_FillerMetal");
+                d.Welding.JointType = Get(props, "WPS_JointType");
+                d.Welding.NeedsReview = EqualsTrue(Get(props, "WPS_NeedsReview"));
+                d.Welding.ReviewReasons = Get(props, "WPS_ReviewReasons");
             }
 
             return d;

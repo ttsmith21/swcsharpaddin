@@ -45,6 +45,9 @@ namespace NM.Core.DataModel
         // Work centers and costing
         public CostingData Cost { get; } = new CostingData();
 
+        // Welding / WPS identification
+        public WeldingData Welding { get; } = new WeldingData();
+
         // Multi-body split tracking
         /// <summary>If this part was created by splitting a multi-body part, the original part path.</summary>
         public string SplitFromParent { get; set; }
@@ -127,6 +130,33 @@ namespace NM.Core.DataModel
         public double TotalMaterialCost { get; set; }
         public double TotalProcessingCost { get; set; }
         public double TotalCost { get; set; }
+    }
+
+    public sealed class WeldingData
+    {
+        /// <summary>Resolved WPS number (best match), e.g., "WPS-001".</summary>
+        public string WpsNumber { get; set; }
+
+        /// <summary>Welding process from matched WPS, e.g., "GMAW", "GTAW".</summary>
+        public string WeldProcess { get; set; }
+
+        /// <summary>Filler metal from matched WPS, e.g., "ER70S-6", "ER308L".</summary>
+        public string FillerMetal { get; set; }
+
+        /// <summary>True if the part/joint needs engineer review before welding.</summary>
+        public bool NeedsReview { get; set; }
+
+        /// <summary>Semicolon-separated review reasons, e.g., "DissimilarMetals;ThickGrooveWeld".</summary>
+        public string ReviewReasons { get; set; }
+
+        /// <summary>Human-readable summary of the WPS resolution.</summary>
+        public string Summary { get; set; }
+
+        /// <summary>Joint type used for lookup: "Groove", "Fillet", or empty.</summary>
+        public string JointType { get; set; }
+
+        /// <summary>True when WPS resolution was attempted (even if no match found).</summary>
+        public bool WasResolved { get; set; }
     }
 
     public enum ProcessingStatus { Pending, Success, Failed, Skipped }

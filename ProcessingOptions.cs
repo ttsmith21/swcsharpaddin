@@ -70,6 +70,8 @@ namespace NM.Core
         public int OptimizationPotential { get; set; }
         /// <summary>Whether the part involves pipe welding.</summary>
         public bool PipeWelding { get; set; }
+        /// <summary>Weld joint type from drawing symbols: "Groove", "Fillet", or empty for auto.</summary>
+        public string WeldJointType { get; set; }
 
         // Logging/Debug options
         /// <summary>Enable logging to file.</summary>
@@ -143,6 +145,7 @@ namespace NM.Core
             Complexity = 2; // Mid-range default
             OptimizationPotential = 0; // None by default
             PipeWelding = false;
+            WeldJointType = string.Empty;
 
             // Logging/Debug
             EnableLogging = Configuration.Defaults.LogEnabledDefault;

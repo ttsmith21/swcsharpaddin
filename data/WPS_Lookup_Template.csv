@@ -1,0 +1,34 @@
+WpsNumber,Process,BaseMetal1,BaseMetal2,ThicknessMinIn,ThicknessMaxIn,JointType,Code,FillerMetal,ShieldingGas,Notes
+# Columns:
+#   WpsNumber     - Your WPS procedure number (e.g., NM-GMAW-CS-001)
+#   Process       - GMAW, GTAW, FCAW, SMAW, SAW
+#   BaseMetal1    - CS (Carbon Steel), SS (Stainless Steel), AL (Aluminum)
+#   BaseMetal2    - CS, SS, AL (same as BaseMetal1 for similar joints)
+#   ThicknessMinIn - Minimum qualified thickness in inches (inclusive)
+#   ThicknessMaxIn - Maximum qualified thickness in inches (inclusive)
+#   JointType     - Groove, Fillet, Both
+#   Code          - D1.1, D1.6, ASME IX
+#   FillerMetal   - Filler spec (e.g., ER70S-6, ER308L, ER4043)
+#   ShieldingGas  - Gas mix (e.g., 75/25 Ar/CO2, 100% Ar)
+#   Notes         - Any restrictions or special instructions
+#
+# EXAMPLE ENTRIES (replace with your actual qualified WPS data):
+#
+# --- Carbon Steel (D1.1) ---
+NM-GMAW-CS-001,GMAW,CS,CS,0.036,0.500,Both,D1.1,ER70S-6,75/25 Ar/CO2,Standard CS fillet and groove
+NM-GMAW-CS-002,GMAW,CS,CS,0.500,1.500,Groove,D1.1,ER70S-6,75/25 Ar/CO2,Heavy plate groove - preheat may be required
+NM-FCAW-CS-001,FCAW,CS,CS,0.250,2.000,Groove,D1.1,E71T-1,75/25 Ar/CO2,Heavy structural groove welds
+#
+# --- Stainless Steel (D1.6) ---
+NM-GMAW-SS-001,GMAW,SS,SS,0.036,0.500,Both,D1.6,ER308L,98/2 Ar/CO2,Standard SS fillet and groove
+NM-GTAW-SS-001,GTAW,SS,SS,0.036,0.250,Both,D1.6,ER308L,100% Ar,Thin SS - GTAW for appearance
+NM-GMAW-SS-002,GMAW,SS,SS,0.500,1.500,Groove,D1.6,ER308L,98/2 Ar/CO2,Heavy SS groove
+NM-GMAW-SS316-001,GMAW,SS,SS,0.036,0.500,Both,D1.6,ER316L,98/2 Ar/CO2,316L specific - verify filler
+#
+# --- Aluminum ---
+NM-GMAW-AL-001,GMAW,AL,AL,0.063,0.500,Both,D1.1,ER4043,100% Ar,6061/5052 aluminum
+NM-GTAW-AL-001,GTAW,AL,AL,0.036,0.250,Both,D1.1,ER4043,100% Ar,Thin aluminum - GTAW
+#
+# --- Dissimilar Metal Joints (always flagged for review) ---
+NM-GMAW-CSSS-001,GMAW,CS,SS,0.036,0.500,Fillet,D1.1,ER309L,75/25 Ar/CO2,CS-to-SS transition - always review
+NM-GTAW-CSSS-001,GTAW,CS,SS,0.036,0.250,Fillet,D1.6,ER309L,100% Ar,CS-to-SS thin gauge
