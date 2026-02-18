@@ -226,6 +226,7 @@ namespace NM.SwAddin.Pipeline
                     CreateDxf = true,
                     IncludeFlatPattern = isSheetMetal,
                     IncludeFormedView = isSheetMetal,
+                    IncludeDimensions = true,
                 };
 
                 var drawResult = generator.CreateDrawing(model, drawOptions);
@@ -233,9 +234,11 @@ namespace NM.SwAddin.Pipeline
                 result.DrawingCreated = drawResult.Success;
                 result.DrawingPath = drawResult.DrawingPath;
                 result.DxfPath = drawResult.DxfPath;
+                result.DimensionCount = drawResult.DimensionsAdded;
 
                 AssertTrue($"Drawing created for {fileName}", drawResult.Success);
                 Log($"  Result: {drawResult.Message}");
+                Log($"  Dimensions added by generator: {drawResult.DimensionsAdded}");
 
                 if (!drawResult.Success)
                 {
@@ -488,16 +491,21 @@ namespace NM.SwAddin.Pipeline
 
             result.ViewsOnSheet = onSheet;
             result.ViewsOffSheet = offSheet;
-            result.DimensionCount = totalDims;
+            // Preserve any dimension count already set by generator (use max of generator count and view annotation count)
+            if (totalDims > result.DimensionCount)
+                result.DimensionCount = totalDims;
 
             Log($"  Views on sheet: {onSheet}, off sheet: {offSheet}");
-            Log($"  Dimensions found: {totalDims}");
+            Log($"  Dimensions found in views: {totalDims}");
 
             // Assert that all views are on the sheet
             AssertTrue("All views within sheet bounds", offSheet == 0);
 
             // Assert secondary view was created
             AssertTrue("Secondary view present", foundSecondaryView);
+
+            // Assert dimensions were added (Phase 3)
+            AssertTrue("At least 1 dimension added", result.DimensionCount > 0);
 
             // Run the DrawingValidator
             try

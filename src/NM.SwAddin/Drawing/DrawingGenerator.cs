@@ -62,6 +62,11 @@ namespace NM.SwAddin.Drawing
             public bool IncludeSideView { get; set; } = true;
 
             /// <summary>
+            /// Whether to auto-dimension drawing views.
+            /// </summary>
+            public bool IncludeDimensions { get; set; } = true;
+
+            /// <summary>
             /// Custom output folder. If null, uses same folder as part.
             /// </summary>
             public string OutputFolder { get; set; }
@@ -78,6 +83,7 @@ namespace NM.SwAddin.Drawing
             public string Message { get; set; }
             public bool WasExisting { get; set; }
             public int ViewCount { get; set; }
+            public int DimensionsAdded { get; set; }
         }
 
         public DrawingGenerator(ISldWorks swApp)
@@ -331,6 +337,38 @@ namespace NM.SwAddin.Drawing
 
                 drawModel.EditRebuild3();
                 result.ViewCount = viewCount;
+
+                // Phase 3: Auto-dimension views
+                if (options.IncludeDimensions)
+                {
+                    var dimensioner = new DrawingDimensioner(_swApp);
+                    try
+                    {
+                        if (isSheetMetal)
+                        {
+                            var dimResult = dimensioner.DimensionFlatPattern(drawDoc, droppedView);
+                            result.DimensionsAdded += dimResult.DimensionsAdded;
+                        }
+                        else
+                        {
+                            var dimResult = dimensioner.DimensionTube(drawDoc, droppedView);
+                            result.DimensionsAdded += dimResult.DimensionsAdded;
+                        }
+
+                        if (secondaryView != null)
+                        {
+                            var secDimResult = dimensioner.DimensionFormedView(drawDoc, secondaryView);
+                            result.DimensionsAdded += secDimResult.DimensionsAdded;
+                        }
+
+                        dimensioner.AlignAllDimensions(drawDoc);
+                        ErrorHandler.DebugLog($"[DWG] Dimensions added: {result.DimensionsAdded}");
+                    }
+                    catch (Exception dimEx)
+                    {
+                        ErrorHandler.DebugLog($"[DWG] Dimensioning error: {dimEx.Message}");
+                    }
+                }
 
                 // Save DXF if requested
                 if (options.CreateDxf)

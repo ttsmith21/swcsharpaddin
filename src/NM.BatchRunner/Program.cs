@@ -41,9 +41,22 @@ namespace NM.BatchRunner
             {
                 using (var launcher = new SolidWorksLauncher())
                 {
-                    Console.WriteLine("Starting SolidWorks...");
-                    var swApp = launcher.Start();
-                    Console.WriteLine("Connected to SolidWorks.");
+                    ISldWorks swApp;
+                    // Try connecting to an already-running instance first
+                    try
+                    {
+                        Console.WriteLine("Checking for running SolidWorks...");
+                        swApp = launcher.ConnectToExisting();
+                        // Verify the connection works
+                        var ver = swApp.RevisionNumber();
+                        Console.WriteLine($"Connected to existing SolidWorks ({ver}).");
+                    }
+                    catch
+                    {
+                        Console.WriteLine("Starting SolidWorks...");
+                        swApp = launcher.Start();
+                        Console.WriteLine("Connected to SolidWorks.");
+                    }
 
                     if (args[0] == "--qa")
                     {
