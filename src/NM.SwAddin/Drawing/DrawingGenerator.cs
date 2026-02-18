@@ -208,18 +208,27 @@ namespace NM.SwAddin.Drawing
 
                 // Drop the primary view at origin (0,0) — VBA drops at (0,0,0)
                 IView droppedView = null;
+                string droppedFromPalette = null;
                 if (isSheetMetal && options.IncludeFlatPattern)
                 {
                     droppedView = drawDoc.DropDrawingViewFromPalette2("Flat Pattern", 0, 0, 0) as IView;
+                    if (droppedView != null) droppedFromPalette = "Flat Pattern";
                     if (droppedView == null)
+                    {
                         droppedView = drawDoc.DropDrawingViewFromPalette2("*Flat pattern", 0, 0, 0) as IView;
+                        if (droppedView != null) droppedFromPalette = "*Flat pattern";
+                    }
                 }
 
                 if (droppedView == null)
                 {
                     droppedView = drawDoc.DropDrawingViewFromPalette2("*Right", 0, 0, 0) as IView;
+                    if (droppedView != null) droppedFromPalette = "*Right";
                     if (droppedView == null)
+                    {
                         droppedView = drawDoc.DropDrawingViewFromPalette2("*Front", 0, 0, 0) as IView;
+                        if (droppedView != null) droppedFromPalette = "*Front";
+                    }
                 }
 
                 if (droppedView == null)
@@ -229,6 +238,14 @@ namespace NM.SwAddin.Drawing
                 }
 
                 string droppedViewName = droppedView.GetName2();
+
+                // Log what we dropped and where it ended up
+                var dropPos = droppedView.Position as double[];
+                var dropOutline = droppedView.GetOutline() as double[];
+                ErrorHandler.DebugLog($"[DWG] Dropped '{droppedFromPalette}' as '{droppedViewName}', " +
+                    $"center=({(dropPos != null ? dropPos[0] * 39.37 : 0):F3}\", {(dropPos != null ? dropPos[1] * 39.37 : 0):F3}\"), " +
+                    $"outline=({(dropOutline != null ? dropOutline[0] * 39.37 : 0):F3}\", {(dropOutline != null ? dropOutline[1] * 39.37 : 0):F3}\") to " +
+                    $"({(dropOutline != null ? dropOutline[2] * 39.37 : 0):F3}\", {(dropOutline != null ? dropOutline[3] * 39.37 : 0):F3}\")");
 
                 // Delete all auto-inserted views EXCEPT the one we just dropped.
                 // GenerateViewPaletteViews auto-populates the sheet with standard views.
@@ -368,26 +385,41 @@ namespace NM.SwAddin.Drawing
         {
             try
             {
+                const double MetersToInches = 39.3700787401575;
+
                 // VBA constants (meters)
                 const double LeftMargin = 0.0445;   // ~1.75"
                 const double BottomMargin = 0.0603;  // ~2.37"
                 const double MaxRight = 0.268;       // ~10.55" — right edge limit
                 const double MaxTop = 0.21;          // ~8.27" — top edge limit
 
+                var drawModel = drawDoc as IModelDoc2;
+
                 // Step 1: Position view so left edge is at LeftMargin, bottom at BottomMargin
-                // VBA: Position(0) = 0.0445 - myView.GetOutline(0)
+                // Use delta-based positioning: shift the view center by how far the edge
+                // needs to move to reach the margin. This works regardless of where
+                // SolidWorks initially placed the view after dropping.
                 var outline = view.GetOutline() as double[];
                 if (outline == null || outline.Length < 4) return;
 
                 var position = view.Position as double[];
                 if (position == null || position.Length < 2) return;
 
-                position[0] = LeftMargin - outline[0];
-                position[1] = BottomMargin - outline[1];
+                ErrorHandler.DebugLog($"[DWG] PositionView BEFORE: center=({position[0] * MetersToInches:F3}\", {position[1] * MetersToInches:F3}\") " +
+                    $"outline=({outline[0] * MetersToInches:F3}\", {outline[1] * MetersToInches:F3}\") to ({outline[2] * MetersToInches:F3}\", {outline[3] * MetersToInches:F3}\")");
+
+                // Delta-based: move center by the difference between desired edge and current edge
+                double deltaX = LeftMargin - outline[0];
+                double deltaY = BottomMargin - outline[1];
+                position[0] += deltaX;
+                position[1] += deltaY;
                 view.Position = position;
 
+                // VBA calls EditRebuild after initial positioning to update the outline
+                if (drawModel != null)
+                    drawModel.EditRebuild3();
+
                 // Step 2: Clamp right edge — if view extends past MaxRight, shift left
-                // VBA: If myView.GetOutline(2) > 0.268 Then ...
                 outline = view.GetOutline() as double[];
                 if (outline != null && outline[2] > MaxRight)
                 {
@@ -400,7 +432,6 @@ namespace NM.SwAddin.Drawing
                 }
 
                 // Step 3: Clamp top edge — if view extends past MaxTop, shift down
-                // VBA: If myView.GetOutline(3) > 0.21 Then ...
                 outline = view.GetOutline() as double[];
                 if (outline != null && outline[3] > MaxTop)
                 {
@@ -410,6 +441,15 @@ namespace NM.SwAddin.Drawing
                         position[1] -= (outline[3] - MaxTop);
                         view.Position = position;
                     }
+                }
+
+                // Log final position
+                outline = view.GetOutline() as double[];
+                position = view.Position as double[];
+                if (outline != null && position != null)
+                {
+                    ErrorHandler.DebugLog($"[DWG] PositionView AFTER: center=({position[0] * MetersToInches:F3}\", {position[1] * MetersToInches:F3}\") " +
+                        $"outline=({outline[0] * MetersToInches:F3}\", {outline[1] * MetersToInches:F3}\") to ({outline[2] * MetersToInches:F3}\", {outline[3] * MetersToInches:F3}\")");
                 }
             }
             catch (Exception ex)
