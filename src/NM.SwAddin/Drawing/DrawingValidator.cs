@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NM.Core;
 using NM.Core.Drawing;
 using SolidWorks.Interop.sldworks;
@@ -76,16 +77,99 @@ namespace NM.SwAddin.Drawing
         /// <returns>List of dangling dimension descriptions.</returns>
         public List<string> FindDanglingDimensions(IDrawingDoc drawDoc)
         {
-            // TODO: Phase 5 implementation
-            // 1. Get the system dangling dimension color from user preferences
-            // 2. Iterate all sheets → all views → all annotations
-            // 3. For each IDisplayDimension:
-            //    a. Get IAnnotation
-            //    b. Check annotation.Color against dangling color
-            //    c. Also check annotation.IsDangling as backup
-            //    d. If dangling, add dimension name/value to result list
-            // 4. Also check sheet-level annotations (not in any view)
-            return new List<string>();
+            var result = new List<string>();
+            if (drawDoc == null) return result;
+
+            // Get the system dangling dimension color for fallback detection
+            int danglingColor = -1;
+            try
+            {
+                danglingColor = _swApp.GetUserPreferenceIntegerValue(
+                    (int)swUserPreferenceIntegerValue_e.swSystemColorsDanglingDimension);
+            }
+            catch
+            {
+                // If we can't read the preference, rely solely on IsDangling
+            }
+
+            // GetViews() returns object[] of object[] — each inner array is one sheet
+            // Inner array element 0 = sheet-level view, elements 1+ = child views
+            var sheets = drawDoc.GetViews() as object[];
+            if (sheets == null) return result;
+
+            foreach (object sheetObj in sheets)
+            {
+                var sheetViews = sheetObj as object[];
+                if (sheetViews == null) continue;
+
+                foreach (object viewObj in sheetViews)
+                {
+                    var view = viewObj as IView;
+                    if (view == null) continue;
+
+                    var annotations = view.GetAnnotations() as object[];
+                    if (annotations == null) continue;
+
+                    foreach (object annObj in annotations)
+                    {
+                        var annotation = annObj as IAnnotation;
+                        if (annotation == null) continue;
+
+                        if (annotation.GetType() != (int)swAnnotationType_e.swDisplayDimension)
+                            continue;
+
+                        bool isDangling = false;
+
+                        // Primary: try IsDangling (SW 2022+ API)
+                        try
+                        {
+                            isDangling = annotation.IsDangling();
+                        }
+                        catch
+                        {
+                            // IsDangling not available — fall through to color check
+                        }
+
+                        // Fallback: compare annotation color against system dangling color
+                        if (!isDangling && danglingColor >= 0)
+                        {
+                            try
+                            {
+                                int annColor = annotation.Color;
+                                if (annColor == danglingColor)
+                                    isDangling = true;
+                            }
+                            catch
+                            {
+                                // Color property not accessible
+                            }
+                        }
+
+                        if (isDangling)
+                        {
+                            string dimName = "unknown";
+                            try
+                            {
+                                var dispDim = annotation.GetSpecificAnnotation() as IDisplayDimension;
+                                if (dispDim != null)
+                                {
+                                    var dim = dispDim.GetDimension2(0);
+                                    if (dim != null)
+                                        dimName = dim.GetNameForSelection() ?? "unknown";
+                                }
+                            }
+                            catch
+                            {
+                                // Best effort name extraction
+                            }
+
+                            result.Add($"Dangling dimension '{dimName}' in view '{view.Name}'");
+                        }
+                    }
+                }
+            }
+
+            return result;
         }
 
         /// <summary>
@@ -97,14 +181,86 @@ namespace NM.SwAddin.Drawing
         /// <returns>List of undimensioned bend line descriptions.</returns>
         public List<string> FindUndimensionedBendLines(IDrawingDoc drawDoc, IView flatPatternView)
         {
-            // TODO: Phase 5 implementation
-            // 1. Get all bend lines from flatPatternView.GetBendLines()
-            // 2. Build a set of bend line sketch segment names
-            // 3. Iterate all dimensions in the view
-            // 4. For each dimension, check if it references a bend line segment
-            //    (match by constructed name: "{segName}@{sketchName}@{componentName}@{viewName}")
-            // 5. Return bend lines not referenced by any dimension
-            return new List<string>();
+            var result = new List<string>();
+            if (drawDoc == null || flatPatternView == null) return result;
+
+            // Use ViewGeometryAnalyzer to find all bend lines (same as dimensioning code)
+            var analyzer = new ViewGeometryAnalyzer(_swApp);
+            List<BendElement> horzBends, vertBends;
+            analyzer.FindBendLines(drawDoc, flatPatternView, out horzBends, out vertBends);
+
+            var allBends = horzBends.Concat(vertBends).ToList();
+            if (allBends.Count == 0) return result;
+
+            // Build a dictionary of bend line segment names → BendElement
+            var bendsBySegName = new Dictionary<string, BendElement>();
+            foreach (var bend in allBends)
+            {
+                var seg = bend.SketchSegment as ISketchSegment;
+                if (seg == null) continue;
+
+                string segName = null;
+                try { segName = seg.GetName(); } catch { }
+                if (string.IsNullOrEmpty(segName)) continue;
+
+                if (!bendsBySegName.ContainsKey(segName))
+                    bendsBySegName[segName] = bend;
+            }
+
+            if (bendsBySegName.Count == 0) return result;
+
+            // Collect all dimension annotation text/names referencing bend lines in this view
+            var dimensionedSegNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            var annotations = flatPatternView.GetAnnotations() as object[];
+            if (annotations != null)
+            {
+                foreach (object annObj in annotations)
+                {
+                    var annotation = annObj as IAnnotation;
+                    if (annotation == null) continue;
+
+                    if (annotation.GetType() != (int)swAnnotationType_e.swDisplayDimension)
+                        continue;
+
+                    try
+                    {
+                        var dispDim = annotation.GetSpecificAnnotation() as IDisplayDimension;
+                        if (dispDim == null) continue;
+
+                        var dim = dispDim.GetDimension2(0);
+                        if (dim == null) continue;
+
+                        string dimFullName = dim.GetNameForSelection() ?? "";
+
+                        // Check if this dimension references any bend line segment name
+                        foreach (string segName in bendsBySegName.Keys)
+                        {
+                            if (dimFullName.Contains(segName))
+                            {
+                                dimensionedSegNames.Add(segName);
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Skip annotation if it can't be queried
+                    }
+                }
+            }
+
+            // Report undimensioned bend lines
+            foreach (var kvp in bendsBySegName)
+            {
+                if (!dimensionedSegNames.Contains(kvp.Key))
+                {
+                    string direction = kvp.Value.Angle == 0 ? "horizontal" : "vertical";
+                    double pos = kvp.Value.Position;
+                    result.Add($"Undimensioned {direction} bend line '{kvp.Key}' at position {pos:F3}");
+                }
+            }
+
+            return result;
         }
     }
 }
