@@ -122,7 +122,8 @@
     },
     "materialPropertyFilePath": "C:\\Program Files\\SolidWorks Corp\\SolidWorks\\lang\\english\\sldmaterials\\SolidWorks Materials.sldmat",
     "extractDataAddInPath": "C:\\Program Files\\SolidWorks Corp\\SolidWorks\\Toolbox\\data collector\\ExtractData.dll",
-    "errorLogPath": "C:\\SolidWorksMacroLogs\\ErrorLog.txt"
+    "errorLogPath": "C:\\SolidWorksMacroLogs\\ErrorLog.txt",
+    "drawingTemplatePath": "O:\\Engineering Department\\Solidworks\\Document Templates\\Northern-Rev4\\A-SIZE.drwdot"
   },
   "defaults": {
     "defaultKFactor": 0.44,

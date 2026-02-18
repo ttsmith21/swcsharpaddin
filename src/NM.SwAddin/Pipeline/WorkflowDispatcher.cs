@@ -229,6 +229,15 @@ namespace NM.SwAddin.Pipeline
                             // Save after successful processing
                             if (doc != null)
                                 SwDocumentHelper.SaveDocument(doc);
+
+                            // Phase 5: Create drawing if requested
+                            if (options?.CreateDrawing == true && doc != null)
+                            {
+                                try { MainRunner.TryCreateDrawing(_swApp, doc, options); }
+                                catch (Exception drawEx)
+                                { ErrorHandler.DebugLog($"[WORKFLOW] Drawing failed: {drawEx.Message}"); }
+                            }
+
                             modelInfo.CompleteProcessing(true);
                             context.ProcessedModels.Add(modelInfo);
                         }

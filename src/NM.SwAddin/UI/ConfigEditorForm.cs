@@ -37,6 +37,7 @@ namespace NM.SwAddin.UI
         // Tab 4 - Paths & Logging
         private TextBox _txtMaterialDataPath, _txtErrorLogPath;
         private TextBox _txtBendTableSs, _txtBendTableCs;
+        private TextBox _txtDrawingTemplatePath;
         private CheckBox _chkLogEnabled, _chkShowWarnings, _chkDebugMode, _chkPerfMon, _chkProductionMode;
 
         public ConfigEditorForm()
@@ -213,6 +214,7 @@ namespace NM.SwAddin.UI
             _txtBendTableSs = AddPathField(page, "Bend Table (SS)", ref y);
             _txtBendTableCs = AddPathField(page, "Bend Table (CS)", ref y);
             _txtErrorLogPath = AddPathField(page, "Error Log", ref y);
+            _txtDrawingTemplatePath = AddPathField(page, "Drawing Template", ref y);
 
             y += 16;
             var header2 = new Label { Text = "Logging", Left = 12, Top = y, Width = 200, Font = new Font(Font, FontStyle.Bold) };
@@ -334,6 +336,7 @@ namespace NM.SwAddin.UI
             _txtBendTableSs.Text = paths.BendTables.StainlessSteel != null && paths.BendTables.StainlessSteel.Length > 0 ? paths.BendTables.StainlessSteel[0] : "";
             _txtBendTableCs.Text = paths.BendTables.CarbonSteel != null && paths.BendTables.CarbonSteel.Length > 0 ? paths.BendTables.CarbonSteel[0] : "";
             _txtErrorLogPath.Text = paths.ErrorLogPath ?? "";
+            _txtDrawingTemplatePath.Text = paths.DrawingTemplatePath ?? "";
 
             // Logging
             _chkLogEnabled.Checked = cfg.Logging.LogEnabled;
@@ -439,6 +442,7 @@ namespace NM.SwAddin.UI
             if (!string.IsNullOrWhiteSpace(_txtBendTableCs.Text))
                 cfg.Paths.BendTables.CarbonSteel = new[] { _txtBendTableCs.Text };
             cfg.Paths.ErrorLogPath = _txtErrorLogPath.Text;
+            cfg.Paths.DrawingTemplatePath = _txtDrawingTemplatePath.Text;
 
             // Logging
             cfg.Logging.LogEnabled = _chkLogEnabled.Checked;

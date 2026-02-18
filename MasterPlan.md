@@ -9,7 +9,7 @@ This document outlines the complete roadmap for porting the VBA SolidWorks autom
 ## Ideal Workflow
 
 The add-in supports a unified two-pass workflow that adapts to whatever is currently open in SolidWorks:
-
+claude
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                    USER CLICKS "RUN PIPELINE"                   │

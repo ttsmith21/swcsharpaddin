@@ -41,9 +41,22 @@ namespace NM.BatchRunner
             {
                 using (var launcher = new SolidWorksLauncher())
                 {
-                    Console.WriteLine("Starting SolidWorks...");
-                    var swApp = launcher.Start();
-                    Console.WriteLine("Connected to SolidWorks.");
+                    ISldWorks swApp;
+                    // Try connecting to an already-running instance first
+                    try
+                    {
+                        Console.WriteLine("Checking for running SolidWorks...");
+                        swApp = launcher.ConnectToExisting();
+                        // Verify the connection works
+                        var ver = swApp.RevisionNumber();
+                        Console.WriteLine($"Connected to existing SolidWorks ({ver}).");
+                    }
+                    catch
+                    {
+                        Console.WriteLine("Starting SolidWorks...");
+                        swApp = launcher.Start();
+                        Console.WriteLine("Connected to SolidWorks.");
+                    }
 
                     if (args[0] == "--qa")
                     {
@@ -64,6 +77,10 @@ namespace NM.BatchRunner
                     else if (args[0] == "--side-indicator-qa")
                     {
                         return RunSideIndicatorQA(swApp);
+                    }
+                    else if (args[0] == "--drawing-qa")
+                    {
+                        return RunDrawingQA(swApp);
                     }
                     else if (args[0] == "--pipeline")
                     {
@@ -133,8 +150,12 @@ namespace NM.BatchRunner
             Console.WriteLine("  NM.BatchRunner.exe --side-indicator-qa");
             Console.WriteLine("      Run Side Indicator color toggle QA tests (3-state validation)");
             Console.WriteLine();
-            Console.WriteLine("  NM.BatchRunner.exe --pipeline --file <path>");
+            Console.WriteLine("  NM.BatchRunner.exe --drawing-qa");
+            Console.WriteLine("      Run Drawing creation QA tests (B-series sheet metal, C-series tubes)");
+            Console.WriteLine();
+            Console.WriteLine("  NM.BatchRunner.exe --pipeline --file <path> [--with-drawings]");
             Console.WriteLine("      Run processing pipeline on a single file");
+            Console.WriteLine("      --with-drawings: Also create drawing files for each part");
             Console.WriteLine();
             Console.WriteLine("  NM.BatchRunner.exe --help");
             Console.WriteLine("      Show this help message");
@@ -398,15 +419,37 @@ namespace NM.BatchRunner
             return qa.Run(swApp, inputDir);
         }
 
+        static int RunDrawingQA(ISldWorks swApp)
+        {
+            Console.WriteLine("Running Drawing QA...");
+
+            var repoRoot = Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"..\..\..\..\"));
+            var inputDir = Path.Combine(repoRoot, @"tests\GoldStandard_Inputs");
+
+            if (!Directory.Exists(inputDir))
+            {
+                Console.Error.WriteLine($"Error: Gold standard inputs not found: {inputDir}");
+                return 1;
+            }
+
+            var qa = new NM.SwAddin.Pipeline.DrawingQA();
+            return qa.Run(swApp, inputDir);
+        }
+
         static int RunPipeline(ISldWorks swApp, string[] args)
         {
             string filePath = null;
-            for (int i = 1; i < args.Length - 1; i++)
+            bool withDrawings = false;
+            for (int i = 1; i < args.Length; i++)
             {
-                if (args[i] == "--file")
+                if (args[i] == "--file" && i + 1 < args.Length)
                 {
                     filePath = args[i + 1];
-                    break;
+                    i++;
+                }
+                else if (args[i] == "--with-drawings")
+                {
+                    withDrawings = true;
                 }
             }
 
@@ -423,6 +466,8 @@ namespace NM.BatchRunner
             }
 
             Console.WriteLine($"Running pipeline on: {filePath}");
+            if (withDrawings)
+                Console.WriteLine("  Drawing creation: enabled");
 
             // Open the file
             int errors = 0, warnings = 0;
@@ -439,8 +484,9 @@ namespace NM.BatchRunner
 
             try
             {
+                var options = new NM.Core.ProcessingOptions { CreateDrawing = withDrawings };
                 var dispatcher = new NM.SwAddin.Pipeline.WorkflowDispatcher(swApp);
-                dispatcher.Run();
+                dispatcher.Run(options);
 
                 Console.WriteLine("Pipeline completed successfully.");
                 File.WriteAllText(@"C:\Temp\nm_pipeline_complete.txt", $"Pipeline completed at {DateTime.Now}");
