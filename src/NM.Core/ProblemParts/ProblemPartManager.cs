@@ -31,6 +31,7 @@ namespace NM.Core.ProblemParts
             ClassificationFailed,
             ManufacturingWarning,
             NestingEfficiencyOverride,
+            OversizedForHandling,
             Fatal
         }
 
