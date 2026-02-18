@@ -368,9 +368,10 @@ namespace NM.SwAddin.Pipeline
             int viewCount = viewsRaw?.Length ?? 0;
             result.ViewCount = viewCount;
             Log($"  Views on sheet: {viewCount}");
-            // Phase 2: expect 2 views (primary + secondary)
+            // Sheet metal: flat pattern + 0-2 projected views (depends on bend directions)
+            // Tube: end view + side view
             if (isSheetMetal)
-                AssertTrue("Sheet metal: at least 2 views (flat + iso)", viewCount >= 2);
+                AssertTrue("Sheet metal: at least 1 view (flat pattern)", viewCount >= 1);
             else
                 AssertTrue("Tube: at least 2 views (end + side)", viewCount >= 2);
 
@@ -409,6 +410,12 @@ namespace NM.SwAddin.Pipeline
                         foundSecondaryView = true;
                         string config = view.ReferencedConfiguration ?? "";
                         Log($"    Secondary view '{viewName}' config='{config}'");
+
+                        // For sheet metal projected views, verify they use Default config
+                        if (isSheetMetal && config.Equals("Default", StringComparison.OrdinalIgnoreCase))
+                        {
+                            Log($"    Projected view '{viewName}' correctly uses Default config");
+                        }
                     }
 
                     // Get view bounding box (meters, in sheet coordinates)
@@ -501,8 +508,10 @@ namespace NM.SwAddin.Pipeline
             // Assert that all views are on the sheet
             AssertTrue("All views within sheet bounds", offSheet == 0);
 
-            // Assert secondary view was created
-            AssertTrue("Secondary view present", foundSecondaryView);
+            // Assert secondary view was created (required for tubes; optional for sheet metal
+            // since projected views only appear when bends exist in that direction)
+            if (!isSheetMetal)
+                AssertTrue("Secondary view present (tube side view)", foundSecondaryView);
 
             // Assert dimensions were added (Phase 3)
             AssertTrue("At least 1 dimension added", result.DimensionCount > 0);

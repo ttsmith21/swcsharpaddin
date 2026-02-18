@@ -38,6 +38,12 @@ namespace NM.SwAddin.Drawing
             public int DimensionsAdded { get; set; }
             public int ViewsCreated { get; set; }
             public string Message { get; set; }
+
+            /// <summary>Whether vertical bend lines were found (need TopView projected).</summary>
+            public bool HasVerticalBends { get; set; }
+
+            /// <summary>Whether horizontal bend lines were found (need RightView projected).</summary>
+            public bool HasHorizontalBends { get; set; }
         }
 
         /// <summary>
@@ -135,6 +141,7 @@ namespace NM.SwAddin.Drawing
                 catch (Exception ex) { ErrorHandler.DebugLog($"{proc}: Vert overall dim: {ex.Message}"); }
 
                 // Step 5: Vertical bends → horizontal bend-to-bend dims with " BL" suffix
+                result.HasVerticalBends = vertBends.Count > 0;
                 if (vertBends.Count > 0)
                 {
                     result.DimensionsAdded += DimensionBendLines(
@@ -143,6 +150,7 @@ namespace NM.SwAddin.Drawing
                 }
 
                 // Step 6: Horizontal bends → vertical bend-to-bend dims with " BL" suffix
+                result.HasHorizontalBends = horzBends.Count > 0;
                 if (horzBends.Count > 0)
                 {
                     result.DimensionsAdded += DimensionBendLines(

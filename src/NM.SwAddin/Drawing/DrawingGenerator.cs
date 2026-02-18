@@ -20,9 +20,13 @@ namespace NM.SwAddin.Drawing
         // Layout constants (meters) from VBA SP.bas
         private const double LeftMargin = 0.0445;    // ~1.75"
         private const double BottomMargin = 0.0603;  // ~2.37"
+        private const double TubeYPos = 0.1215;      // ~4.78" — tube views vertically centered
+        private const double ProjectedOffset = 0.3;  // ~11.8" — initial projected view offset
         private const double MaxRight = 0.268;       // ~10.55" — right edge limit
         private const double MaxTop = 0.21;          // ~8.27" — top edge limit
         private const double ViewGap = 0.00635;      // ~0.25" gap between views
+        private const double ScaleFactor = 1.05;     // 5% scale-up per iteration
+        private const int ScaleMaxIter = 25;         // Max scaling iterations
         private const double MetersToIn = 39.3700787401575;
 
         /// <summary>
@@ -268,33 +272,14 @@ namespace NM.SwAddin.Drawing
                     $"outline=({(dropOutline != null ? dropOutline[0] * MetersToIn : 0):F3}\", {(dropOutline != null ? dropOutline[1] * MetersToIn : 0):F3}\") to " +
                     $"({(dropOutline != null ? dropOutline[2] * MetersToIn : 0):F3}\", {(dropOutline != null ? dropOutline[3] * MetersToIn : 0):F3}\")");
 
-                // --- Phase 2: Drop secondary view from palette BEFORE deleting extras ---
-                // Must drop from palette while it's still populated; DeleteAllViewsExcept
-                // may consume or invalidate the palette state.
+                // --- Phase 2: Create secondary views ---
+                // Sheet metal: projected views are created AFTER dimensioning the flat pattern
+                //              (VBA creates them inside DimensionFlat, not here).
+                // Tube: project side view from primary end view.
                 IView secondaryView = null;
                 int viewCount = 1;
 
-                if (isSheetMetal && options.IncludeFormedView)
-                {
-                    // Drop isometric view showing formed/3D state
-                    secondaryView = drawDoc.DropDrawingViewFromPalette2("*Isometric", 0.2, 0.15, 0) as IView;
-                    if (secondaryView == null)
-                        secondaryView = drawDoc.DropDrawingViewFromPalette2("*Front", 0.2, 0.15, 0) as IView;
-
-                    if (secondaryView != null)
-                    {
-                        // Set to Default config (formed state, not flat pattern)
-                        secondaryView.ReferencedConfiguration = "Default";
-                        secondaryView.SetDisplayMode3(false, 2, false, true); // swHIDDEN = 2
-                        viewCount++;
-                        ErrorHandler.DebugLog($"[DWG] Dropped isometric as '{secondaryView.GetName2()}'");
-                    }
-                    else
-                    {
-                        ErrorHandler.DebugLog("[DWG] Failed to drop *Isometric or *Front from palette");
-                    }
-                }
-                else if (!isSheetMetal && options.IncludeSideView)
+                if (!isSheetMetal && options.IncludeSideView)
                 {
                     // Tube: project side view from primary end view
                     secondaryView = AddTubeSideView(drawDoc, drawModel, droppedView);
@@ -315,7 +300,10 @@ namespace NM.SwAddin.Drawing
                 drawModel.ForceRebuild3(false);
 
                 // Position primary view on sheet (match VBA: left margin + clamp to sheet bounds)
-                PositionView(drawDoc, droppedView);
+                if (isTubeLaser)
+                    PositionView(drawDoc, droppedView, TubeYPos);
+                else
+                    PositionView(drawDoc, droppedView);
                 drawModel.EditRebuild3();
 
                 // Check grain direction (for sheet metal)
@@ -327,18 +315,15 @@ namespace NM.SwAddin.Drawing
                 // Rotate primary view if needed (portrait orientation)
                 RotateViewIfNeeded(drawDoc, droppedView);
 
-                // Position secondary view relative to primary
-                if (secondaryView != null)
+                // Position tube side view (already created above)
+                if (secondaryView != null && !isSheetMetal)
                 {
-                    if (isSheetMetal)
-                        PositionSecondaryViewUpperRight(drawDoc, secondaryView, droppedView);
                     // Tube side view is already positioned by AddTubeSideView
                 }
 
                 drawModel.EditRebuild3();
-                result.ViewCount = viewCount;
 
-                // Phase 3: Auto-dimension views
+                // Phase 3: Auto-dimension views and create projected views for sheet metal
                 if (options.IncludeDimensions)
                 {
                     var dimensioner = new DrawingDimensioner(_swApp);
@@ -346,19 +331,33 @@ namespace NM.SwAddin.Drawing
                     {
                         if (isSheetMetal)
                         {
+                            // Dimension flat pattern (bends + overall)
                             var dimResult = dimensioner.DimensionFlatPattern(drawDoc, droppedView);
                             result.DimensionsAdded += dimResult.DimensionsAdded;
+
+                            // Create projected views based on bend analysis (VBA does this inside DimensionFlat)
+                            if (options.IncludeFormedView)
+                            {
+                                var projectedViews = CreateProjectedViews(
+                                    drawDoc, drawModel, droppedView, dimensioner,
+                                    dimResult.HasVerticalBends, dimResult.HasHorizontalBends);
+
+                                result.DimensionsAdded += projectedViews.DimensionsAdded;
+                                viewCount += projectedViews.ViewsCreated;
+                            }
                         }
                         else
                         {
+                            // Dimension tube primary view
                             var dimResult = dimensioner.DimensionTube(drawDoc, droppedView);
                             result.DimensionsAdded += dimResult.DimensionsAdded;
-                        }
 
-                        if (secondaryView != null)
-                        {
-                            var secDimResult = dimensioner.DimensionFormedView(drawDoc, secondaryView);
-                            result.DimensionsAdded += secDimResult.DimensionsAdded;
+                            // Dimension tube side view with DimensionTube (not DimensionFormedView)
+                            if (secondaryView != null)
+                            {
+                                var secDimResult = dimensioner.DimensionTube(drawDoc, secondaryView);
+                                result.DimensionsAdded += secDimResult.DimensionsAdded;
+                            }
                         }
 
                         dimensioner.AlignAllDimensions(drawDoc);
@@ -369,6 +368,11 @@ namespace NM.SwAddin.Drawing
                         ErrorHandler.DebugLog($"[DWG] Dimensioning error: {dimEx.Message}");
                     }
                 }
+
+                result.ViewCount = viewCount;
+
+                // Auto-scale sheet to fit all views
+                AutoScaleToFit(drawDoc, drawModel);
 
                 // Save DXF if requested
                 if (options.CreateDxf)
@@ -484,13 +488,13 @@ namespace NM.SwAddin.Drawing
             }
         }
 
-        private void PositionView(IDrawingDoc drawDoc, IView view)
+        private void PositionView(IDrawingDoc drawDoc, IView view, double yPosition = BottomMargin)
         {
             try
             {
                 var drawModel = drawDoc as IModelDoc2;
 
-                // Step 1: Position view so left edge is at LeftMargin, bottom at BottomMargin
+                // Step 1: Position view so left edge is at LeftMargin, bottom at yPosition
                 // Use delta-based positioning: shift the view center by how far the edge
                 // needs to move to reach the margin. This works regardless of where
                 // SolidWorks initially placed the view after dropping.
@@ -505,7 +509,7 @@ namespace NM.SwAddin.Drawing
 
                 // Delta-based: move center by the difference between desired edge and current edge
                 double deltaX = LeftMargin - outline[0];
-                double deltaY = BottomMargin - outline[1];
+                double deltaY = yPosition - outline[1];
                 position[0] += deltaX;
                 position[1] += deltaY;
                 view.Position = position;
@@ -771,6 +775,306 @@ namespace NM.SwAddin.Drawing
             catch (Exception ex)
             {
                 ErrorHandler.DebugLog($"PositionTubeSideView: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Creates projected (Top/Right) views from the flat pattern view, sets them to
+        /// Default config with hidden-greyed display, and dimensions them with overall W/H.
+        /// Ported from VBA DimensionFlat() projected view creation (SP.bas lines 1872-1878).
+        /// </summary>
+        private DrawingDimensioner.DimensionResult CreateProjectedViews(
+            IDrawingDoc drawDoc, IModelDoc2 drawModel, IView flatPatternView,
+            DrawingDimensioner dimensioner, bool hasVerticalBends, bool hasHorizontalBends)
+        {
+            const string proc = nameof(CreateProjectedViews);
+            var result = new DrawingDimensioner.DimensionResult();
+
+            try
+            {
+                var flatPos = flatPatternView.Position as double[];
+                if (flatPos == null || flatPos.Length < 2) return result;
+
+                string flatViewName = flatPatternView.GetName2();
+
+                // TopView: created if vertical bends exist (shows top-down formed shape)
+                if (hasVerticalBends)
+                {
+                    try
+                    {
+                        drawDoc.ActivateView(flatViewName);
+                        drawModel.Extension.SelectByID2(flatViewName, "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
+
+                        // VBA: CreateUnfoldedViewAt3(flatPos.X, 0.3, 0, false)
+                        var topView = drawDoc.CreateUnfoldedViewAt3(flatPos[0], ProjectedOffset, 0, false) as IView;
+                        if (topView != null)
+                        {
+                            drawModel.ClearSelection2(true);
+                            topView.ReferencedConfiguration = "Default";
+                            topView.SetDisplayMode3(false, 4 /* swHIDDEN_GREYED */, false, true);
+                            drawModel.ForceRebuild3(false);
+
+                            // Clamp within sheet bounds
+                            ClampViewToSheet(drawDoc, topView);
+
+                            // Dimension with overall W/H only
+                            var dimResult = dimensioner.DimensionFormedView(drawDoc, topView);
+                            result.DimensionsAdded += dimResult.DimensionsAdded;
+                            result.ViewsCreated++;
+
+                            ErrorHandler.DebugLog($"{proc}: Created TopView '{topView.GetName2()}', dims={dimResult.DimensionsAdded}");
+                        }
+                        else
+                        {
+                            ErrorHandler.DebugLog($"{proc}: CreateUnfoldedViewAt3 for TopView returned null");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorHandler.DebugLog($"{proc}: TopView error: {ex.Message}");
+                    }
+                }
+
+                // RightView: created if horizontal bends exist (shows right-side formed shape)
+                if (hasHorizontalBends)
+                {
+                    try
+                    {
+                        drawDoc.ActivateView(flatViewName);
+                        drawModel.Extension.SelectByID2(flatViewName, "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
+
+                        // VBA: CreateUnfoldedViewAt3(0.3, flatPos.Y, 0, false)
+                        var rightView = drawDoc.CreateUnfoldedViewAt3(ProjectedOffset, flatPos[1], 0, false) as IView;
+                        if (rightView != null)
+                        {
+                            drawModel.ClearSelection2(true);
+                            rightView.ReferencedConfiguration = "Default";
+                            rightView.SetDisplayMode3(false, 4 /* swHIDDEN_GREYED */, false, true);
+                            drawModel.ForceRebuild3(false);
+
+                            // Clamp within sheet bounds
+                            ClampViewToSheet(drawDoc, rightView);
+
+                            // Dimension with overall W/H only
+                            var dimResult = dimensioner.DimensionFormedView(drawDoc, rightView);
+                            result.DimensionsAdded += dimResult.DimensionsAdded;
+                            result.ViewsCreated++;
+
+                            ErrorHandler.DebugLog($"{proc}: Created RightView '{rightView.GetName2()}', dims={dimResult.DimensionsAdded}");
+                        }
+                        else
+                        {
+                            ErrorHandler.DebugLog($"{proc}: CreateUnfoldedViewAt3 for RightView returned null");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        ErrorHandler.DebugLog($"{proc}: RightView error: {ex.Message}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"{proc}: {ex.Message}");
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Clamps a view within the sheet bounds (MaxRight, MaxTop, LeftMargin, BottomMargin).
+        /// </summary>
+        private void ClampViewToSheet(IDrawingDoc drawDoc, IView view)
+        {
+            try
+            {
+                var drawModel = drawDoc as IModelDoc2;
+                var outline = view.GetOutline() as double[];
+                var pos = view.Position as double[];
+                if (outline == null || pos == null) return;
+
+                bool moved = false;
+                if (outline[2] > MaxRight)  { pos[0] -= (outline[2] - MaxRight); moved = true; }
+                if (outline[3] > MaxTop)    { pos[1] -= (outline[3] - MaxTop); moved = true; }
+                if (outline[0] < LeftMargin) { pos[0] += (LeftMargin - outline[0]); moved = true; }
+                if (outline[1] < BottomMargin) { pos[1] += (BottomMargin - outline[1]); moved = true; }
+
+                if (moved)
+                {
+                    view.Position = pos;
+                    if (drawModel != null) drawModel.EditRebuild3();
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"ClampViewToSheet: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Scales views to fit the sheet. First scales DOWN if views overflow, then
+        /// scales UP if views are too small (VBA behavior). Uses "use scale" on each
+        /// view rather than changing the sheet scale, since view scale is more reliable
+        /// for mixed view sizes.
+        /// </summary>
+        private void AutoScaleToFit(IDrawingDoc drawDoc, IModelDoc2 drawModel)
+        {
+            try
+            {
+                var sheet = drawDoc.GetCurrentSheet() as ISheet;
+                if (sheet == null) return;
+
+                var viewsRaw = sheet.GetViews() as object[];
+                if (viewsRaw == null || viewsRaw.Length == 0) return;
+
+                // Get sheet dimensions in meters
+                double sheetW = 0, sheetH = 0;
+                sheet.GetSize(ref sheetW, ref sheetH);
+                if (sheetW <= 0 || sheetH <= 0) return;
+
+                // Find the overall bounding box of all views
+                double allLeft = double.MaxValue, allBottom = double.MaxValue;
+                double allRight = double.MinValue, allTop = double.MinValue;
+                foreach (var viewObj in viewsRaw)
+                {
+                    var view = viewObj as IView;
+                    if (view == null) continue;
+                    var outline = view.GetOutline() as double[];
+                    if (outline == null || outline.Length < 4) continue;
+                    if (outline[0] < allLeft) allLeft = outline[0];
+                    if (outline[1] < allBottom) allBottom = outline[1];
+                    if (outline[2] > allRight) allRight = outline[2];
+                    if (outline[3] > allTop) allTop = outline[3];
+                }
+
+                double totalW = allRight - allLeft;
+                double totalH = allTop - allBottom;
+                double usableW = MaxRight - LeftMargin;
+                double usableH = MaxTop - BottomMargin;
+
+                // If views already fit, nothing to do
+                if (totalW <= usableW && totalH <= usableH)
+                    return;
+
+                // Views overflow: compute required scale reduction
+                double scaleX = usableW / totalW;
+                double scaleY = usableH / totalH;
+                double scaleFactor = Math.Min(scaleX, scaleY) * 0.95; // 5% margin
+
+                if (scaleFactor >= 1.0) return; // No reduction needed
+
+                ErrorHandler.DebugLog($"[DWG] AutoScaleDown: views {totalW * MetersToIn:F2}\"x{totalH * MetersToIn:F2}\" " +
+                    $"vs usable {usableW * MetersToIn:F2}\"x{usableH * MetersToIn:F2}\", scale={scaleFactor:F3}");
+
+                // Apply scale reduction to each view
+                foreach (var viewObj in viewsRaw)
+                {
+                    var view = viewObj as IView;
+                    if (view == null) continue;
+
+                    var scaleRatio = view.ScaleRatio as double[];
+                    if (scaleRatio == null || scaleRatio.Length < 2) continue;
+
+                    view.ScaleRatio = new double[] { scaleRatio[0] * scaleFactor, scaleRatio[1] };
+                }
+
+                drawModel.ForceRebuild3(false);
+
+                // Reposition all views within sheet bounds
+                foreach (var viewObj in viewsRaw)
+                {
+                    var view = viewObj as IView;
+                    if (view == null) continue;
+                    ClampViewToSheet(drawDoc, view);
+                }
+
+                // Reposition primary view (first view) to margins
+                var firstView = viewsRaw[0] as IView;
+                if (firstView != null)
+                {
+                    var outline = firstView.GetOutline() as double[];
+                    var pos = firstView.Position as double[];
+                    if (outline != null && pos != null)
+                    {
+                        pos[0] += LeftMargin - outline[0];
+                        pos[1] += BottomMargin - outline[1];
+                        firstView.Position = pos;
+                        drawModel.EditRebuild3();
+                    }
+                }
+
+                // Reposition secondary views relative to primary
+                if (viewsRaw.Length > 1 && firstView != null)
+                {
+                    var primaryOutline = firstView.GetOutline() as double[];
+                    for (int i = 1; i < viewsRaw.Length; i++)
+                    {
+                        var secView = viewsRaw[i] as IView;
+                        if (secView == null || primaryOutline == null) continue;
+
+                        var secOutline = secView.GetOutline() as double[];
+                        var secPos = secView.Position as double[];
+                        if (secOutline == null || secPos == null) continue;
+
+                        // If secondary view overlaps or is off-sheet, reposition
+                        if (secOutline[0] < primaryOutline[2] + ViewGap)
+                        {
+                            secPos[0] += (primaryOutline[2] + ViewGap) - secOutline[0];
+                            secView.Position = secPos;
+                        }
+                        ClampViewToSheet(drawDoc, secView);
+                    }
+                    drawModel.EditRebuild3();
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"AutoScaleToFit: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Scales sheet numerator up by 5% per iteration to fill available space (VBA behavior).
+        /// Only used when views are already within bounds but have extra space.
+        /// </summary>
+        private void ScaleSheetUp(ISheet sheet, IDrawingDoc drawDoc, IModelDoc2 drawModel)
+        {
+            try
+            {
+                for (int iter = 0; iter < ScaleMaxIter; iter++)
+                {
+                    var viewsRaw = sheet.GetViews() as object[];
+                    if (viewsRaw == null) break;
+
+                    bool allFit = true;
+                    foreach (var viewObj in viewsRaw)
+                    {
+                        var view = viewObj as IView;
+                        if (view == null) continue;
+                        var outline = view.GetOutline() as double[];
+                        if (outline == null) continue;
+                        if (outline[2] > MaxRight || outline[3] > MaxTop)
+                        {
+                            allFit = false;
+                            break;
+                        }
+                    }
+                    if (!allFit) break;
+
+                    var props = sheet.GetProperties2() as double[];
+                    if (props == null || props.Length < 8) break;
+
+                    props[2] *= ScaleFactor;
+                    sheet.SetProperties2(
+                        (int)props[0], (int)props[1], props[2], props[3],
+                        props[4] != 0, props[5], props[6], props[7] != 0);
+
+                    drawModel.EditRebuild3();
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"ScaleSheetUp: {ex.Message}");
             }
         }
 
