@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using NM.Core;
 using NM.Core.Config;
@@ -15,6 +16,14 @@ namespace NM.SwAddin.Drawing
     public sealed class DrawingGenerator
     {
         private readonly ISldWorks _swApp;
+
+        // Layout constants (meters) from VBA SP.bas
+        private const double LeftMargin = 0.0445;    // ~1.75"
+        private const double BottomMargin = 0.0603;  // ~2.37"
+        private const double MaxRight = 0.268;       // ~10.55" — right edge limit
+        private const double MaxTop = 0.21;          // ~8.27" — top edge limit
+        private const double ViewGap = 0.00635;      // ~0.25" gap between views
+        private const double MetersToIn = 39.3700787401575;
 
         /// <summary>
         /// Drawing generation options.
@@ -43,9 +52,14 @@ namespace NM.SwAddin.Drawing
             public bool IncludeFlatPattern { get; set; } = true;
 
             /// <summary>
-            /// Whether to add formed (3D) view.
+            /// Whether to add formed (3D) isometric view for sheet metal parts.
             /// </summary>
             public bool IncludeFormedView { get; set; } = true;
+
+            /// <summary>
+            /// Whether to add a side/length view for tube parts.
+            /// </summary>
+            public bool IncludeSideView { get; set; } = true;
 
             /// <summary>
             /// Custom output folder. If null, uses same folder as part.
@@ -63,6 +77,7 @@ namespace NM.SwAddin.Drawing
             public string DxfPath { get; set; }
             public string Message { get; set; }
             public bool WasExisting { get; set; }
+            public int ViewCount { get; set; }
         }
 
         public DrawingGenerator(ISldWorks swApp)
@@ -243,18 +258,57 @@ namespace NM.SwAddin.Drawing
                 var dropPos = droppedView.Position as double[];
                 var dropOutline = droppedView.GetOutline() as double[];
                 ErrorHandler.DebugLog($"[DWG] Dropped '{droppedFromPalette}' as '{droppedViewName}', " +
-                    $"center=({(dropPos != null ? dropPos[0] * 39.37 : 0):F3}\", {(dropPos != null ? dropPos[1] * 39.37 : 0):F3}\"), " +
-                    $"outline=({(dropOutline != null ? dropOutline[0] * 39.37 : 0):F3}\", {(dropOutline != null ? dropOutline[1] * 39.37 : 0):F3}\") to " +
-                    $"({(dropOutline != null ? dropOutline[2] * 39.37 : 0):F3}\", {(dropOutline != null ? dropOutline[3] * 39.37 : 0):F3}\")");
+                    $"center=({(dropPos != null ? dropPos[0] * MetersToIn : 0):F3}\", {(dropPos != null ? dropPos[1] * MetersToIn : 0):F3}\"), " +
+                    $"outline=({(dropOutline != null ? dropOutline[0] * MetersToIn : 0):F3}\", {(dropOutline != null ? dropOutline[1] * MetersToIn : 0):F3}\") to " +
+                    $"({(dropOutline != null ? dropOutline[2] * MetersToIn : 0):F3}\", {(dropOutline != null ? dropOutline[3] * MetersToIn : 0):F3}\")");
 
-                // Delete all auto-inserted views EXCEPT the one we just dropped.
+                // --- Phase 2: Drop secondary view from palette BEFORE deleting extras ---
+                // Must drop from palette while it's still populated; DeleteAllViewsExcept
+                // may consume or invalidate the palette state.
+                IView secondaryView = null;
+                int viewCount = 1;
+
+                if (isSheetMetal && options.IncludeFormedView)
+                {
+                    // Drop isometric view showing formed/3D state
+                    secondaryView = drawDoc.DropDrawingViewFromPalette2("*Isometric", 0.2, 0.15, 0) as IView;
+                    if (secondaryView == null)
+                        secondaryView = drawDoc.DropDrawingViewFromPalette2("*Front", 0.2, 0.15, 0) as IView;
+
+                    if (secondaryView != null)
+                    {
+                        // Set to Default config (formed state, not flat pattern)
+                        secondaryView.ReferencedConfiguration = "Default";
+                        secondaryView.SetDisplayMode3(false, 2, false, true); // swHIDDEN = 2
+                        viewCount++;
+                        ErrorHandler.DebugLog($"[DWG] Dropped isometric as '{secondaryView.GetName2()}'");
+                    }
+                    else
+                    {
+                        ErrorHandler.DebugLog("[DWG] Failed to drop *Isometric or *Front from palette");
+                    }
+                }
+                else if (!isSheetMetal && options.IncludeSideView)
+                {
+                    // Tube: project side view from primary end view
+                    secondaryView = AddTubeSideView(drawDoc, drawModel, droppedView);
+                    if (secondaryView != null)
+                        viewCount++;
+                }
+
+                // Track all view names to keep
+                var keepViews = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { droppedViewName };
+                if (secondaryView != null)
+                    keepViews.Add(secondaryView.GetName2());
+
+                // Delete all auto-inserted views EXCEPT the ones we want to keep.
                 // GenerateViewPaletteViews auto-populates the sheet with standard views.
-                DeleteAllViewsExcept(drawDoc, drawModel, droppedViewName);
+                DeleteAllViewsExcept(drawDoc, drawModel, keepViews);
 
                 // Rebuild to get accurate outline before positioning (VBA does this)
                 drawModel.ForceRebuild3(false);
 
-                // Position view on sheet (match VBA: left margin + clamp to sheet bounds)
+                // Position primary view on sheet (match VBA: left margin + clamp to sheet bounds)
                 PositionView(drawDoc, droppedView);
                 drawModel.EditRebuild3();
 
@@ -264,8 +318,19 @@ namespace NM.SwAddin.Drawing
                     CheckAndSetGrainDirection(model, droppedView);
                 }
 
-                // Rotate view if needed (portrait orientation)
+                // Rotate primary view if needed (portrait orientation)
                 RotateViewIfNeeded(drawDoc, droppedView);
+
+                // Position secondary view relative to primary
+                if (secondaryView != null)
+                {
+                    if (isSheetMetal)
+                        PositionSecondaryViewUpperRight(drawDoc, secondaryView, droppedView);
+                    // Tube side view is already positioned by AddTubeSideView
+                }
+
+                drawModel.EditRebuild3();
+                result.ViewCount = viewCount;
 
                 // Save DXF if requested
                 if (options.CreateDxf)
@@ -385,14 +450,6 @@ namespace NM.SwAddin.Drawing
         {
             try
             {
-                const double MetersToInches = 39.3700787401575;
-
-                // VBA constants (meters)
-                const double LeftMargin = 0.0445;   // ~1.75"
-                const double BottomMargin = 0.0603;  // ~2.37"
-                const double MaxRight = 0.268;       // ~10.55" — right edge limit
-                const double MaxTop = 0.21;          // ~8.27" — top edge limit
-
                 var drawModel = drawDoc as IModelDoc2;
 
                 // Step 1: Position view so left edge is at LeftMargin, bottom at BottomMargin
@@ -405,8 +462,8 @@ namespace NM.SwAddin.Drawing
                 var position = view.Position as double[];
                 if (position == null || position.Length < 2) return;
 
-                ErrorHandler.DebugLog($"[DWG] PositionView BEFORE: center=({position[0] * MetersToInches:F3}\", {position[1] * MetersToInches:F3}\") " +
-                    $"outline=({outline[0] * MetersToInches:F3}\", {outline[1] * MetersToInches:F3}\") to ({outline[2] * MetersToInches:F3}\", {outline[3] * MetersToInches:F3}\")");
+                ErrorHandler.DebugLog($"[DWG] PositionView BEFORE: center=({position[0] * MetersToIn:F3}\", {position[1] * MetersToIn:F3}\") " +
+                    $"outline=({outline[0] * MetersToIn:F3}\", {outline[1] * MetersToIn:F3}\") to ({outline[2] * MetersToIn:F3}\", {outline[3] * MetersToIn:F3}\")");
 
                 // Delta-based: move center by the difference between desired edge and current edge
                 double deltaX = LeftMargin - outline[0];
@@ -448,13 +505,234 @@ namespace NM.SwAddin.Drawing
                 position = view.Position as double[];
                 if (outline != null && position != null)
                 {
-                    ErrorHandler.DebugLog($"[DWG] PositionView AFTER: center=({position[0] * MetersToInches:F3}\", {position[1] * MetersToInches:F3}\") " +
-                        $"outline=({outline[0] * MetersToInches:F3}\", {outline[1] * MetersToInches:F3}\") to ({outline[2] * MetersToInches:F3}\", {outline[3] * MetersToInches:F3}\")");
+                    ErrorHandler.DebugLog($"[DWG] PositionView AFTER: center=({position[0] * MetersToIn:F3}\", {position[1] * MetersToIn:F3}\") " +
+                        $"outline=({outline[0] * MetersToIn:F3}\", {outline[1] * MetersToIn:F3}\") to ({outline[2] * MetersToIn:F3}\", {outline[3] * MetersToIn:F3}\")");
                 }
             }
             catch (Exception ex)
             {
                 ErrorHandler.DebugLog($"PositionView: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Positions a secondary view in the upper-right area of the sheet,
+        /// avoiding overlap with the primary view and staying within sheet bounds.
+        /// </summary>
+        private void PositionSecondaryViewUpperRight(IDrawingDoc drawDoc, IView secondaryView, IView primaryView)
+        {
+            try
+            {
+                var drawModel = drawDoc as IModelDoc2;
+
+                var primaryOutline = primaryView.GetOutline() as double[];
+                var secOutline = secondaryView.GetOutline() as double[];
+                if (secOutline == null || secOutline.Length < 4) return;
+
+                var secPos = secondaryView.Position as double[];
+                if (secPos == null || secPos.Length < 2) return;
+
+                double secWidth = secOutline[2] - secOutline[0];
+                double secHeight = secOutline[3] - secOutline[1];
+
+                // Target: right edge at MaxRight, top edge at MaxTop
+                double targetCenterX = MaxRight - (secWidth / 2.0);
+                double targetCenterY = MaxTop - (secHeight / 2.0);
+
+                // Delta-based positioning
+                secPos[0] += (targetCenterX - secPos[0]);
+                secPos[1] += (targetCenterY - secPos[1]);
+                secondaryView.Position = secPos;
+
+                if (drawModel != null) drawModel.EditRebuild3();
+
+                // Check for overlap with primary view and shrink if needed
+                if (primaryOutline != null && primaryOutline.Length >= 4)
+                {
+                    for (int attempt = 0; attempt < 5; attempt++)
+                    {
+                        secOutline = secondaryView.GetOutline() as double[];
+                        if (secOutline == null) break;
+
+                        // Check if secondary left edge overlaps primary right edge
+                        bool overlapsX = secOutline[0] < primaryOutline[2] + ViewGap;
+                        // Check if secondary bottom edge overlaps primary top edge
+                        bool overlapsY = secOutline[1] < primaryOutline[3] + ViewGap;
+
+                        if (!overlapsX || !overlapsY) break; // No overlap in both dimensions needed
+
+                        // Shrink the view scale by 15%
+                        double[] scaleRatio = secondaryView.ScaleRatio as double[];
+                        if (scaleRatio != null && scaleRatio.Length >= 2 && scaleRatio[1] > 0)
+                        {
+                            double currentScale = scaleRatio[0] / scaleRatio[1];
+                            double newNum = scaleRatio[0] * 0.85;
+                            secondaryView.ScaleRatio = new double[] { newNum, scaleRatio[1] };
+                        }
+
+                        if (drawModel != null) drawModel.EditRebuild3();
+
+                        // Reposition after scale change
+                        secOutline = secondaryView.GetOutline() as double[];
+                        if (secOutline == null) break;
+                        secWidth = secOutline[2] - secOutline[0];
+                        secHeight = secOutline[3] - secOutline[1];
+                        targetCenterX = MaxRight - (secWidth / 2.0);
+                        targetCenterY = MaxTop - (secHeight / 2.0);
+                        secPos = secondaryView.Position as double[];
+                        if (secPos == null) break;
+                        secPos[0] = targetCenterX;
+                        secPos[1] = targetCenterY;
+                        secondaryView.Position = secPos;
+                        if (drawModel != null) drawModel.EditRebuild3();
+                    }
+                }
+
+                // Final clamp to sheet bounds
+                secOutline = secondaryView.GetOutline() as double[];
+                secPos = secondaryView.Position as double[];
+                if (secOutline != null && secPos != null)
+                {
+                    if (secOutline[2] > MaxRight)
+                        secPos[0] -= (secOutline[2] - MaxRight);
+                    if (secOutline[3] > MaxTop)
+                        secPos[1] -= (secOutline[3] - MaxTop);
+                    if (secOutline[0] < LeftMargin)
+                        secPos[0] += (LeftMargin - secOutline[0]);
+                    if (secOutline[1] < BottomMargin)
+                        secPos[1] += (BottomMargin - secOutline[1]);
+                    secondaryView.Position = secPos;
+                }
+
+                secOutline = secondaryView.GetOutline() as double[];
+                secPos = secondaryView.Position as double[];
+                if (secOutline != null && secPos != null)
+                {
+                    ErrorHandler.DebugLog($"[DWG] IsoView FINAL: center=({secPos[0] * MetersToIn:F3}\",{secPos[1] * MetersToIn:F3}\") " +
+                        $"outline=({secOutline[0] * MetersToIn:F3}\",{secOutline[1] * MetersToIn:F3}\") to " +
+                        $"({secOutline[2] * MetersToIn:F3}\",{secOutline[3] * MetersToIn:F3}\")");
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"PositionSecondaryViewUpperRight: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Adds a side profile view for tube parts showing the tube length.
+        /// Uses CreateUnfoldedViewAt3 to project from the primary end view.
+        /// Ported from VBA SP.bas lines 1811-1828.
+        /// </summary>
+        private IView AddTubeSideView(IDrawingDoc drawDoc, IModelDoc2 drawModel, IView primaryView)
+        {
+            const string proc = nameof(AddTubeSideView);
+            try
+            {
+                string primaryName = primaryView.GetName2();
+
+                // Activate and select the primary view (required for CreateUnfoldedViewAt3)
+                drawDoc.ActivateView(primaryName);
+                drawModel.Extension.SelectByID2(primaryName, "DRAWINGVIEW",
+                    0, 0, 0, false, 0, null, 0);
+
+                // Get primary view position for Y alignment
+                var primaryPos = primaryView.Position as double[];
+                if (primaryPos == null || primaryPos.Length < 2) return null;
+
+                // Create projected view to the right (VBA: 0.3 meters from left, same Y)
+                var sideView = drawDoc.CreateUnfoldedViewAt3(0.2, primaryPos[1], 0, false) as IView;
+                if (sideView == null)
+                {
+                    ErrorHandler.DebugLog($"{proc}: CreateUnfoldedViewAt3 returned null");
+                    return null;
+                }
+
+                drawModel.ClearSelection2(true);
+
+                // Set to Default config and hidden lines visible
+                sideView.ReferencedConfiguration = "Default";
+                sideView.SetDisplayMode3(false, 2, false, true);
+
+                drawModel.ForceRebuild3(false);
+
+                // Position side view to the right of primary
+                PositionTubeSideView(drawDoc, primaryView, sideView);
+
+                ErrorHandler.DebugLog($"{proc}: Added '{sideView.GetName2()}'");
+                return sideView;
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"{proc}: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Positions the tube side view to the right of the primary end view.
+        /// Primary stays left-aligned, side view goes to the right with a gap.
+        /// </summary>
+        private void PositionTubeSideView(IDrawingDoc drawDoc, IView primaryView, IView sideView)
+        {
+            try
+            {
+                var drawModel = drawDoc as IModelDoc2;
+
+                // Get primary outline after positioning
+                var primaryOutline = primaryView.GetOutline() as double[];
+                var sideOutline = sideView.GetOutline() as double[];
+                var sidePos = sideView.Position as double[];
+
+                if (primaryOutline == null || sideOutline == null || sidePos == null) return;
+
+                // Position side view: left edge at primary right edge + gap, Y centered with primary
+                var primaryPos = primaryView.Position as double[];
+                double targetLeft = primaryOutline[2] + ViewGap;
+                double sideLeftEdge = sideOutline[0];
+                sidePos[0] += (targetLeft - sideLeftEdge);
+                if (primaryPos != null)
+                    sidePos[1] = primaryPos[1];
+                sideView.Position = sidePos;
+
+                if (drawModel != null) drawModel.EditRebuild3();
+
+                // Clamp right edge
+                sideOutline = sideView.GetOutline() as double[];
+                if (sideOutline != null && sideOutline[2] > MaxRight)
+                {
+                    sidePos = sideView.Position as double[];
+                    if (sidePos != null)
+                    {
+                        sidePos[0] -= (sideOutline[2] - MaxRight);
+                        sideView.Position = sidePos;
+                    }
+                }
+
+                // Clamp top/bottom
+                sideOutline = sideView.GetOutline() as double[];
+                if (sideOutline != null)
+                {
+                    sidePos = sideView.Position as double[];
+                    if (sidePos != null)
+                    {
+                        if (sideOutline[3] > MaxTop)
+                            sidePos[1] -= (sideOutline[3] - MaxTop);
+                        if (sideOutline[1] < BottomMargin)
+                            sidePos[1] += (BottomMargin - sideOutline[1]);
+                        sideView.Position = sidePos;
+                    }
+                }
+
+                // Log positions
+                primaryOutline = primaryView.GetOutline() as double[];
+                sideOutline = sideView.GetOutline() as double[];
+                ErrorHandler.DebugLog($"[DWG] TubeLayout: primary=({(primaryOutline?[0] ?? 0) * MetersToIn:F2}\"-{(primaryOutline?[2] ?? 0) * MetersToIn:F2}\"), " +
+                    $"side=({(sideOutline?[0] ?? 0) * MetersToIn:F2}\"-{(sideOutline?[2] ?? 0) * MetersToIn:F2}\")");
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"PositionTubeSideView: {ex.Message}");
             }
         }
 
@@ -469,8 +747,8 @@ namespace NM.SwAddin.Drawing
                 double maxY = outline[3] - outline[1];
 
                 // Convert to inches (from meters)
-                double maxXInch = maxX * MetersToInches;
-                double maxYInch = maxY * MetersToInches;
+                double maxXInch = maxX * MetersToIn;
+                double maxYInch = maxY * MetersToIn;
 
                 // If either dimension is under 6", mark as grain-sensitive
                 if (maxXInch <= 6 || maxYInch <= 6)
@@ -486,10 +764,10 @@ namespace NM.SwAddin.Drawing
         }
 
         /// <summary>
-        /// Deletes all views from the current sheet except the one with the given name.
+        /// Deletes all views from the current sheet except the named ones.
         /// GenerateViewPaletteViews may auto-populate the sheet with standard views on some templates.
         /// </summary>
-        private void DeleteAllViewsExcept(IDrawingDoc drawDoc, IModelDoc2 drawModel, string keepViewName)
+        private void DeleteAllViewsExcept(IDrawingDoc drawDoc, IModelDoc2 drawModel, HashSet<string> keepViewNames)
         {
             try
             {
@@ -499,8 +777,7 @@ namespace NM.SwAddin.Drawing
                 var viewsRaw = sheet.GetViews() as object[];
                 if (viewsRaw == null || viewsRaw.Length <= 1) return;
 
-                // Collect names to delete (can't modify collection while iterating)
-                var toDelete = new System.Collections.Generic.List<string>();
+                var toDelete = new List<string>();
                 foreach (var viewObj in viewsRaw)
                 {
                     var view = viewObj as IView;
@@ -508,7 +785,7 @@ namespace NM.SwAddin.Drawing
 
                     string viewName = view.GetName2();
                     if (string.IsNullOrEmpty(viewName)) continue;
-                    if (viewName == keepViewName) continue;
+                    if (keepViewNames.Contains(viewName)) continue;
 
                     toDelete.Add(viewName);
                 }
@@ -520,7 +797,7 @@ namespace NM.SwAddin.Drawing
                 }
 
                 drawModel.ClearSelection2(true);
-                ErrorHandler.DebugLog($"DeleteAllViewsExcept: deleted {toDelete.Count} views, kept '{keepViewName}'");
+                ErrorHandler.DebugLog($"DeleteAllViewsExcept: deleted {toDelete.Count} views, kept {keepViewNames.Count}");
             }
             catch (Exception ex)
             {

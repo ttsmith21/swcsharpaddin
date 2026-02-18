@@ -365,15 +365,23 @@ namespace NM.SwAddin.Pipeline
             int viewCount = viewsRaw?.Length ?? 0;
             result.ViewCount = viewCount;
             Log($"  Views on sheet: {viewCount}");
-            AssertTrue("At least 1 view on sheet", viewCount >= 1);
+            // Phase 2: expect 2 views (primary + secondary)
+            if (isSheetMetal)
+                AssertTrue("Sheet metal: at least 2 views (flat + iso)", viewCount >= 2);
+            else
+                AssertTrue("Tube: at least 2 views (end + side)", viewCount >= 2);
 
             // Check each view's position relative to the sheet
             int onSheet = 0, offSheet = 0;
             int totalDims = 0;
             IView flatView = null;
+            bool foundSecondaryView = false;
 
             if (viewsRaw != null)
             {
+                // Track primary view name (first view is typically Drawing View1)
+                string primaryViewName = null;
+
                 foreach (var viewObj in viewsRaw)
                 {
                     var view = viewObj as IView;
@@ -381,11 +389,23 @@ namespace NM.SwAddin.Pipeline
 
                     string viewName = view.GetName2() ?? "(unnamed)";
 
+                    // Track primary view
+                    if (primaryViewName == null)
+                        primaryViewName = viewName;
+
                     // Track flat pattern view for later validation
                     if (isSheetMetal && flatView == null &&
                         viewName.IndexOf("Flat", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         flatView = view;
+                    }
+
+                    // Detect secondary views
+                    if (viewName != primaryViewName)
+                    {
+                        foundSecondaryView = true;
+                        string config = view.ReferencedConfiguration ?? "";
+                        Log($"    Secondary view '{viewName}' config='{config}'");
                     }
 
                     // Get view bounding box (meters, in sheet coordinates)
@@ -475,6 +495,9 @@ namespace NM.SwAddin.Pipeline
 
             // Assert that all views are on the sheet
             AssertTrue("All views within sheet bounds", offSheet == 0);
+
+            // Assert secondary view was created
+            AssertTrue("Secondary view present", foundSecondaryView);
 
             // Run the DrawingValidator
             try
