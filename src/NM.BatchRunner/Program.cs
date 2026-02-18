@@ -153,8 +153,9 @@ namespace NM.BatchRunner
             Console.WriteLine("  NM.BatchRunner.exe --drawing-qa");
             Console.WriteLine("      Run Drawing creation QA tests (B-series sheet metal, C-series tubes)");
             Console.WriteLine();
-            Console.WriteLine("  NM.BatchRunner.exe --pipeline --file <path>");
+            Console.WriteLine("  NM.BatchRunner.exe --pipeline --file <path> [--with-drawings]");
             Console.WriteLine("      Run processing pipeline on a single file");
+            Console.WriteLine("      --with-drawings: Also create drawing files for each part");
             Console.WriteLine();
             Console.WriteLine("  NM.BatchRunner.exe --help");
             Console.WriteLine("      Show this help message");
@@ -438,12 +439,17 @@ namespace NM.BatchRunner
         static int RunPipeline(ISldWorks swApp, string[] args)
         {
             string filePath = null;
-            for (int i = 1; i < args.Length - 1; i++)
+            bool withDrawings = false;
+            for (int i = 1; i < args.Length; i++)
             {
-                if (args[i] == "--file")
+                if (args[i] == "--file" && i + 1 < args.Length)
                 {
                     filePath = args[i + 1];
-                    break;
+                    i++;
+                }
+                else if (args[i] == "--with-drawings")
+                {
+                    withDrawings = true;
                 }
             }
 
@@ -460,6 +466,8 @@ namespace NM.BatchRunner
             }
 
             Console.WriteLine($"Running pipeline on: {filePath}");
+            if (withDrawings)
+                Console.WriteLine("  Drawing creation: enabled");
 
             // Open the file
             int errors = 0, warnings = 0;
@@ -476,8 +484,9 @@ namespace NM.BatchRunner
 
             try
             {
+                var options = new NM.Core.ProcessingOptions { CreateDrawing = withDrawings };
                 var dispatcher = new NM.SwAddin.Pipeline.WorkflowDispatcher(swApp);
-                dispatcher.Run();
+                dispatcher.Run(options);
 
                 Console.WriteLine("Pipeline completed successfully.");
                 File.WriteAllText(@"C:\Temp\nm_pipeline_complete.txt", $"Pipeline completed at {DateTime.Now}");

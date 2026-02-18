@@ -88,6 +88,7 @@ namespace NM.SwAddin.Drawing
             public bool WasExisting { get; set; }
             public int ViewCount { get; set; }
             public int DimensionsAdded { get; set; }
+            public int EtchMarksFound { get; set; }
         }
 
         public DrawingGenerator(ISldWorks swApp)
@@ -192,6 +193,10 @@ namespace NM.SwAddin.Drawing
                 int saveErrors = 0;
                 int saveWarnings = 0;
                 model.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref saveErrors, ref saveWarnings);
+
+                // Phase 5: Hide reference planes before creating drawing views
+                int planesHidden = HideReferencePlanes(model);
+                ErrorHandler.DebugLog($"[DWG] Hidden {planesHidden} reference plane(s)");
 
                 // Check if this is a sheet metal or laser part
                 bool isSheetMetal = op20.StartsWith("N115") || op20.StartsWith("N120") || op20.StartsWith("N125") ||
@@ -368,6 +373,10 @@ namespace NM.SwAddin.Drawing
                         ErrorHandler.DebugLog($"[DWG] Dimensioning error: {dimEx.Message}");
                     }
                 }
+
+                // Phase 5: Make etch marks visible in drawing
+                int etchCount = MakeEtchMarksVisible(drawDoc, droppedView, model);
+                result.EtchMarksFound = etchCount;
 
                 result.ViewCount = viewCount;
 
@@ -1207,6 +1216,114 @@ namespace NM.SwAddin.Drawing
                 }
             }
             catch { }
+        }
+
+        /// <summary>
+        /// Hides standard reference planes (Front, Top, Right) so they don't clutter drawing views.
+        /// Ported from VBA SP.bas lines 1883-1899.
+        /// </summary>
+        private int HideReferencePlanes(IModelDoc2 model)
+        {
+            int count = 0;
+            try
+            {
+                var feat = model.FirstFeature() as IFeature;
+                while (feat != null)
+                {
+                    string typeName = feat.GetTypeName2() ?? "";
+                    if (typeName.Equals("RefPlane", StringComparison.OrdinalIgnoreCase))
+                    {
+                        feat.Select2(true, 0);
+                        model.BlankRefGeom();
+                        count++;
+                    }
+                    feat = feat.GetNextFeature() as IFeature;
+                }
+                model.ClearSelection2(true);
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"HideReferencePlanes: {ex.Message}");
+            }
+            return count;
+        }
+
+        /// <summary>
+        /// Makes ProfileFeature sketches (laser etch marks) visible in the drawing view.
+        /// These are hidden by default but need to appear on shop prints.
+        /// Ported from VBA SP.bas lines 1911-1951.
+        /// </summary>
+        private int MakeEtchMarksVisible(IDrawingDoc drawDoc, IView view, IModelDoc2 partModel)
+        {
+            int count = 0;
+            try
+            {
+                if (drawDoc == null || view == null || partModel == null) return 0;
+
+                var drawModel = drawDoc as IModelDoc2;
+                string viewUniqueName = view.GetName2();
+                string modelTitle = partModel.GetTitle();
+                if (string.IsNullOrEmpty(modelTitle)) return 0;
+
+                // Strip file extension from model title if present
+                if (modelTitle.EndsWith(".SLDPRT", StringComparison.OrdinalIgnoreCase) ||
+                    modelTitle.EndsWith(".sldprt", StringComparison.OrdinalIgnoreCase))
+                    modelTitle = modelTitle.Substring(0, modelTitle.Length - 7);
+
+                // Switch part to the view's referenced configuration
+                string viewConfig = view.ReferencedConfiguration;
+                if (!string.IsNullOrEmpty(viewConfig))
+                    partModel.ShowConfiguration2(viewConfig);
+
+                // Iterate features to find hidden ProfileFeature sketches
+                var feat = partModel.FirstFeature() as IFeature;
+                while (feat != null)
+                {
+                    string typeName = feat.GetTypeName2() ?? "";
+                    if (typeName.Equals("ProfileFeature", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string sketchName = feat.Name ?? "";
+
+                        // Skip "Bounding Box" type sketches (VBA: skip names starting with "Bound")
+                        if (!sketchName.StartsWith("Bound", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Check if sketch is hidden (Visible == 2 means hidden)
+                            int visible = feat.Visible;
+                            if (visible == 2)
+                            {
+                                // Build selection name: "sketchName@modelTitle@viewUniqueName"
+                                string selName = $"{sketchName}@{modelTitle}@{viewUniqueName}";
+
+                                // Activate the drawing view first
+                                drawDoc.ActivateView(viewUniqueName);
+
+                                // Select the sketch in the drawing view context
+                                bool selected = drawModel.Extension.SelectByID2(
+                                    selName, "SKETCH", 0, 0, 0, false, 0, null, 0);
+
+                                if (selected)
+                                {
+                                    // UnblankSketch makes the sketch visible in the drawing
+                                    drawModel.UnblankSketch();
+                                    count++;
+                                    ErrorHandler.DebugLog($"[DWG] Etch mark visible: '{sketchName}'");
+                                }
+                            }
+                        }
+                    }
+                    feat = feat.GetNextFeature() as IFeature;
+                }
+
+                drawModel.ClearSelection2(true);
+
+                // Switch back to Default config
+                partModel.ShowConfiguration2("Default");
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"MakeEtchMarksVisible: {ex.Message}");
+            }
+            return count;
         }
 
         #region Flat Pattern DXF Export for Nesting
