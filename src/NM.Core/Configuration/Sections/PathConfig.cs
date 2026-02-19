@@ -20,6 +20,13 @@ namespace NM.Core.Config.Sections
             @"C:\Program Files\SolidWorks Corp\SolidWorks\Toolbox\data collector\ExtractData.dll";
 
         public string ErrorLogPath { get; set; } = @"C:\SolidWorksMacroLogs\ErrorLog.txt";
+
+        /// <summary>
+        /// Path to drawing template (.drwdot) for auto-generated drawings.
+        /// Default uses the Northern A-SIZE template on the O: drive.
+        /// </summary>
+        public string DrawingTemplatePath { get; set; } =
+            @"O:\Engineering Department\Solidworks\Document Templates\Northern-Rev4\A-SIZE.drwdot";
     }
 
     public sealed class BendTablePaths

@@ -122,6 +122,12 @@ namespace NM.SwAddin.Pipeline
         public string Customer { get; set; } = "";
 
         /// <summary>
+        /// Non-null when the top-level document exceeds handling capacity (weight or size).
+        /// Displayed as an acknowledgeable warning in the Problem Parts wizard.
+        /// </summary>
+        public string OversizedWarning { get; set; }
+
+        /// <summary>
         /// Timing for validation pass.
         /// </summary>
         public TimeSpan ValidationElapsed { get; set; }
@@ -182,6 +188,11 @@ namespace NM.SwAddin.Pipeline
             if (!string.IsNullOrEmpty(RootPath))
                 sb.AppendLine($"Path: {RootPath}");
             sb.AppendLine();
+            if (!string.IsNullOrEmpty(OversizedWarning))
+            {
+                sb.AppendLine($"WARNING: {OversizedWarning}");
+                sb.AppendLine();
+            }
             sb.AppendLine($"Total Discovered: {AllModels.Count}");
             if (TotalBomQuantity > 0)
                 sb.AppendLine($"Total BOM Quantity: {TotalBomQuantity}");

@@ -25,7 +25,7 @@ namespace NM.BatchRunner
         /// <param name="timeoutSeconds">Maximum time to wait for SW to start</param>
         /// <param name="visible">Whether SW window should be visible</param>
         /// <returns>ISldWorks interface for automation</returns>
-        public ISldWorks Start(int timeoutSeconds = 60, bool visible = true)
+        public ISldWorks Start(int timeoutSeconds = 120, bool visible = true)
         {
             if (!System.IO.File.Exists(SwPath))
             {

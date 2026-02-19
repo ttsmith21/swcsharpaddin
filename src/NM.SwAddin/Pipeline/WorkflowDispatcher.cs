@@ -86,9 +86,40 @@ namespace NM.SwAddin.Pipeline
                     return context;
                 }
 
+                // Step 1b: Top-level oversized/overweight check (crane capacity)
+                if (context.SourceDocument != null &&
+                    (context.Source == WorkflowContext.SourceType.Part ||
+                     context.Source == WorkflowContext.SourceType.Assembly))
+                {
+                    var oversizeResult = OversizedPartCheck.Check(_swApp, context.SourceDocument);
+                    if (oversizeResult.IsOversized)
+                    {
+                        ErrorHandler.DebugLog($"[WORKFLOW] Top-level oversized warning: {oversizeResult.Reason}");
+                        context.OversizedWarning = oversizeResult.Reason;
+                    }
+                }
+
                 // Clear previous problem tracking
                 ClearProblemManager();
                 ValidationStats.Clear();
+
+                // Register top-level oversized warning as a problem part (if triggered)
+                if (!string.IsNullOrEmpty(context.OversizedWarning))
+                {
+                    ProblemPartManager.Instance.AddProblemPart(
+                        context.RootPath ?? string.Empty,
+                        string.Empty,
+                        string.Empty,
+                        context.OversizedWarning,
+                        ProblemPartManager.ProblemCategory.OversizedForHandling);
+
+                    var oversizeModel = new SwModelInfo(context.RootPath ?? string.Empty, string.Empty)
+                    {
+                        ModelDoc = context.SourceDocument
+                    };
+                    oversizeModel.MarkValidated(false, context.OversizedWarning);
+                    context.ProblemModels.Add(oversizeModel);
+                }
 
                 // Step 2: PASS 1 - Validate all models
                 using (var progressForm = new ProgressForm())
@@ -229,6 +260,15 @@ namespace NM.SwAddin.Pipeline
                             // Save after successful processing
                             if (doc != null)
                                 SwDocumentHelper.SaveDocument(doc);
+
+                            // Phase 5: Create drawing if requested
+                            if (options?.CreateDrawing == true && doc != null)
+                            {
+                                try { MainRunner.TryCreateDrawing(_swApp, doc, options); }
+                                catch (Exception drawEx)
+                                { ErrorHandler.DebugLog($"[WORKFLOW] Drawing failed: {drawEx.Message}"); }
+                            }
+
                             modelInfo.CompleteProcessing(true);
                             context.ProcessedModels.Add(modelInfo);
                         }
@@ -863,6 +903,8 @@ namespace NM.SwAddin.Pipeline
             if (r.Contains("no solid") || r.Contains("no body")) return ProblemPartManager.ProblemCategory.GeometryValidation;
             if (r.Contains("sheet metal") || r.Contains("conversion")) return ProblemPartManager.ProblemCategory.SheetMetalConversion;
             if (r.Contains("thickness")) return ProblemPartManager.ProblemCategory.ThicknessExtraction;
+            if (r.Contains("handling capacity") || r.Contains("weight capacity") || r.Contains("size capacity") || r.Contains("crane"))
+                return ProblemPartManager.ProblemCategory.OversizedForHandling;
 
             return ProblemPartManager.ProblemCategory.ProcessingError;
         }

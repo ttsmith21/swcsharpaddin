@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using NM.Core;
 using NM.Core.DataModel;
 using NM.Core.Manufacturing;
@@ -8,6 +9,7 @@ using NM.Core.Materials;
 using NM.Core.ProblemParts;
 using NM.Core.Processing;
 using NM.Core.Tubes;
+using NM.SwAddin.Drawing;
 using NM.SwAddin.Geometry;
 using NM.SwAddin.Manufacturing;
 using NM.SwAddin.Processing;
@@ -660,6 +662,44 @@ namespace NM.SwAddin.Pipeline
             {
                 PerformanceTracker.Instance.StopTimer("RunSinglePartData");
                 ErrorHandler.PopCallStack();
+            }
+        }
+
+        /// <summary>
+        /// Creates a drawing for the given model if requested by options.
+        /// Called after RunSinglePartData() succeeds. Closes the drawing doc after creation.
+        /// </summary>
+        public static DrawingGenerator.DrawingResult TryCreateDrawing(ISldWorks swApp, IModelDoc2 doc, ProcessingOptions options)
+        {
+            if (options == null || !options.CreateDrawing) return null;
+
+            try
+            {
+                var generator = new DrawingGenerator(swApp);
+                var drawOptions = new DrawingGenerator.DrawingOptions
+                {
+                    SaveDrawing = true,
+                    CreateDxf = options.CreateDXF,
+                    IncludeFlatPattern = true,
+                    IncludeFormedView = true,
+                    IncludeSideView = true,
+                    IncludeDimensions = true,
+                };
+                var result = generator.CreateDrawing(doc, drawOptions);
+
+                // Close drawing doc after creation (don't leave open during batch)
+                if (result.Success && !string.IsNullOrEmpty(result.DrawingPath))
+                {
+                    try { swApp.CloseDoc(Path.GetFileName(result.DrawingPath)); }
+                    catch { }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                ErrorHandler.DebugLog($"[DWG] TryCreateDrawing failed: {ex.Message}");
+                return new DrawingGenerator.DrawingResult { Success = false, Message = ex.Message };
             }
         }
 

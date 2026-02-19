@@ -229,6 +229,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="src\NM.SwAddin\Utils\VisibilityScope.cs" />
+    <Compile Include="src\NM.SwAddin\Validation\OversizedPartCheck.cs" />
     <Compile Include="src\NM.SwAddin\Validation\PartPreflight.cs" />
     <Compile Include="src\NM.SwAddin\Validation\PartValidationAdapter.cs" />
     <Compile Include="src\NM.SwAddin\Validation\ValidationStats.cs" />
@@ -363,6 +364,11 @@
     <Compile Include="src\NM.Core\Pdf\Models\ExtractionGroundTruth.cs" />
     <Compile Include="src\NM.Core\Pdf\Models\ToleranceCallout.cs" />
     <Compile Include="src\NM.SwAddin\UI\NativeMessagePump.cs" />
+    <Compile Include="src\NM.Core\Drawing\DrawingTypes.cs" />
+    <Compile Include="src\NM.SwAddin\Drawing\DrawingDimensioner.cs" />
+    <Compile Include="src\NM.SwAddin\Drawing\DrawingValidator.cs" />
+    <Compile Include="src\NM.SwAddin\Drawing\ViewGeometryAnalyzer.cs" />
+    <Compile Include="src\NM.SwAddin\Pipeline\DrawingQA.cs" />
   </ItemGroup>
   <ItemGroup>
     <!-- Legacy BMP icons (kept as fallback) -->
@@ -385,7 +391,7 @@
     <EmbeddedResource Include="Icons\ToolbarStrip_128.png" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Configuration JSON files ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â copied to bin\Debug\config\ at build time -->
+    <!-- Configuration JSON files ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â copied to bin\Debug\config\ at build time -->
     <Content Include="config\nm-config.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Link>config\nm-config.json</Link>
