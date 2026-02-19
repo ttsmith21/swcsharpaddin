@@ -74,6 +74,19 @@ namespace NM.SwAddin.Drawing
             /// Custom output folder. If null, uses same folder as part.
             /// </summary>
             public string OutputFolder { get; set; }
+
+            /// <summary>
+            /// Whether to run DimXpert auto-dimensioning on the 3D part.
+            /// Recognizes holes, slots, pockets from B-Rep geometry (works on STEP imports).
+            /// Default true for sheet metal parts.
+            /// </summary>
+            public bool IncludeDimXpert { get; set; } = true;
+
+            /// <summary>
+            /// Whether to insert a hole table on flat pattern views.
+            /// Default true.
+            /// </summary>
+            public bool IncludeHoleTable { get; set; } = true;
         }
 
         /// <summary>
@@ -89,6 +102,12 @@ namespace NM.SwAddin.Drawing
             public int ViewCount { get; set; }
             public int DimensionsAdded { get; set; }
             public int EtchMarksFound { get; set; }
+
+            /// <summary>DimXpert auto-dimensioning results.</summary>
+            public NM.Core.Drawing.DimXpertSummary DimXpert { get; set; }
+
+            /// <summary>Hole table insertion results.</summary>
+            public NM.Core.Drawing.HoleTableSummary HoleTable { get; set; }
         }
 
         public DrawingGenerator(ISldWorks swApp)
@@ -209,6 +228,37 @@ namespace NM.SwAddin.Drawing
                     PrepareFlatPatternConfig(model);
                 }
 
+                // Run DimXpert auto-dimensioning on the 3D part BEFORE creating the drawing.
+                // DimXpert recognizes manufacturing features (holes, slots, pockets) from B-Rep
+                // geometry — works on STEP imports without a feature tree.
+                NM.Core.Drawing.DimXpertSummary dimXpertSummary = null;
+                if (isSheetMetal && options.IncludeDimXpert)
+                {
+                    try
+                    {
+                        var dxDimensioner = new DimXpertDimensioner(_swApp);
+                        var dxResult = dxDimensioner.RunAutoScheme(model);
+                        dimXpertSummary = new NM.Core.Drawing.DimXpertSummary
+                        {
+                            WasRun = true,
+                            Success = dxResult.Success,
+                            FeaturesRecognized = dxResult.FeaturesRecognized,
+                            FeatureTypes = dxResult.RecognizedFeatureTypes,
+                            FailureReason = dxResult.Success ? null : dxResult.Message
+                        };
+                    }
+                    catch (Exception dxEx)
+                    {
+                        ErrorHandler.DebugLog($"[DWG] DimXpert failed (non-fatal): {dxEx.Message}");
+                        dimXpertSummary = new NM.Core.Drawing.DimXpertSummary
+                        {
+                            WasRun = true,
+                            Success = false,
+                            FailureReason = dxEx.Message
+                        };
+                    }
+                }
+
                 // Create new drawing
                 string templatePath = options.TemplatePath;
                 if (string.IsNullOrEmpty(templatePath))
@@ -241,8 +291,31 @@ namespace NM.SwAddin.Drawing
                 string droppedFromPalette = null;
                 if (isSheetMetal && options.IncludeFlatPattern)
                 {
-                    droppedView = drawDoc.DropDrawingViewFromPalette2("Flat Pattern", 0, 0, 0) as IView;
-                    if (droppedView != null) droppedFromPalette = "Flat Pattern";
+                    // Try CreateFlatPatternViewFromModelView3 first (more reliable than palette drop)
+                    if (!string.IsNullOrEmpty(modelPath))
+                    {
+                        try
+                        {
+                            droppedView = drawDoc.CreateFlatPatternViewFromModelView3(
+                                modelPath, "", LeftMargin + 0.05, BottomMargin + 0.05, 0.0, false, false) as IView;
+                            if (droppedView != null)
+                            {
+                                droppedFromPalette = "FlatPatternAPI";
+                                ErrorHandler.DebugLog("[DWG] Created flat pattern via CreateFlatPatternViewFromModelView3");
+                            }
+                        }
+                        catch (Exception fpEx)
+                        {
+                            ErrorHandler.DebugLog($"[DWG] CreateFlatPatternViewFromModelView3 failed: {fpEx.Message}");
+                        }
+                    }
+
+                    // Fallback to palette drop if API method failed
+                    if (droppedView == null)
+                    {
+                        droppedView = drawDoc.DropDrawingViewFromPalette2("Flat Pattern", 0, 0, 0) as IView;
+                        if (droppedView != null) droppedFromPalette = "Flat Pattern";
+                    }
                     if (droppedView == null)
                     {
                         droppedView = drawDoc.DropDrawingViewFromPalette2("*Flat pattern", 0, 0, 0) as IView;
@@ -336,7 +409,23 @@ namespace NM.SwAddin.Drawing
                     {
                         if (isSheetMetal)
                         {
-                            // Dimension flat pattern (bends + overall)
+                            // Import DimXpert annotations into flat pattern view (if DimXpert ran)
+                            if (dimXpertSummary != null && dimXpertSummary.Success && dimXpertSummary.FeaturesRecognized > 0)
+                            {
+                                try
+                                {
+                                    var dxDimensioner = new DimXpertDimensioner(_swApp);
+                                    int imported = dxDimensioner.ImportAnnotationsToView(drawDoc, droppedView);
+                                    result.DimensionsAdded += imported;
+                                    dimXpertSummary.AnnotationsImported = imported;
+                                }
+                                catch (Exception importEx)
+                                {
+                                    ErrorHandler.DebugLog($"[DWG] DimXpert import failed (non-fatal): {importEx.Message}");
+                                }
+                            }
+
+                            // Dimension flat pattern (bends + overall) — additive to DimXpert dims
                             var dimResult = dimensioner.DimensionFlatPattern(drawDoc, droppedView);
                             result.DimensionsAdded += dimResult.DimensionsAdded;
 
@@ -349,6 +438,30 @@ namespace NM.SwAddin.Drawing
 
                                 result.DimensionsAdded += projectedViews.DimensionsAdded;
                                 viewCount += projectedViews.ViewsCreated;
+                            }
+
+                            // Insert hole table on flat pattern view (if holes exist)
+                            if (options.IncludeHoleTable)
+                            {
+                                try
+                                {
+                                    var holeTableInserter = new HoleTableInserter(_swApp);
+                                    var htResult = holeTableInserter.InsertHoleTable(drawDoc, droppedView, model);
+                                    result.HoleTable = new NM.Core.Drawing.HoleTableSummary
+                                    {
+                                        WasInserted = htResult.Success && htResult.HolesFound > 0,
+                                        HolesFound = htResult.HolesFound,
+                                        FailureReason = htResult.Success ? null : htResult.Message
+                                    };
+                                }
+                                catch (Exception htEx)
+                                {
+                                    ErrorHandler.DebugLog($"[DWG] Hole table failed (non-fatal): {htEx.Message}");
+                                    result.HoleTable = new NM.Core.Drawing.HoleTableSummary
+                                    {
+                                        FailureReason = htEx.Message
+                                    };
+                                }
                             }
                         }
                         else
@@ -373,6 +486,10 @@ namespace NM.SwAddin.Drawing
                         ErrorHandler.DebugLog($"[DWG] Dimensioning error: {dimEx.Message}");
                     }
                 }
+
+                // Store DimXpert summary in result
+                if (dimXpertSummary != null)
+                    result.DimXpert = dimXpertSummary;
 
                 // Phase 5: Make etch marks visible in drawing
                 int etchCount = MakeEtchMarksVisible(drawDoc, droppedView, model);

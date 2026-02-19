@@ -684,6 +684,8 @@ namespace NM.SwAddin.Pipeline
                     IncludeFormedView = true,
                     IncludeSideView = true,
                     IncludeDimensions = true,
+                    IncludeDimXpert = true,
+                    IncludeHoleTable = true,
                 };
                 var result = generator.CreateDrawing(doc, drawOptions);
 

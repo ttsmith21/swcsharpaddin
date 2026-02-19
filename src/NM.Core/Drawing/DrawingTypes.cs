@@ -111,5 +111,34 @@ namespace NM.Core.Drawing
 
         /// <summary>Validation result, if validation was run after creation.</summary>
         public DrawingValidationResult Validation { get; set; }
+
+        /// <summary>DimXpert auto-dimensioning results, if DimXpert was run.</summary>
+        public DimXpertSummary DimXpert { get; set; }
+
+        /// <summary>Hole table insertion results, if hole table was inserted.</summary>
+        public HoleTableSummary HoleTable { get; set; }
+    }
+
+    /// <summary>
+    /// Summary of DimXpert auto-dimensioning results for a part.
+    /// </summary>
+    public sealed class DimXpertSummary
+    {
+        public bool WasRun { get; set; }
+        public bool Success { get; set; }
+        public int FeaturesRecognized { get; set; }
+        public int AnnotationsImported { get; set; }
+        public List<string> FeatureTypes { get; set; } = new List<string>();
+        public string FailureReason { get; set; }
+    }
+
+    /// <summary>
+    /// Summary of hole table insertion results.
+    /// </summary>
+    public sealed class HoleTableSummary
+    {
+        public bool WasInserted { get; set; }
+        public int HolesFound { get; set; }
+        public string FailureReason { get; set; }
     }
 }
